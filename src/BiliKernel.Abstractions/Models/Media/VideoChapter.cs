@@ -8,8 +8,9 @@ namespace Richasy.BiliKernel.Models.Media;
 /// </summary>
 /// <remarks>
 /// 哔哩哔哩允许 UP 主为视频标记章节，播放器中据此展示分段进度条.
+/// 数据来自播放器接口 <c>view_points</c> 字段，与容器内嵌章节无关.
 /// </remarks>
-public sealed class MediaChapter(string title, int startTime, int endTime)
+public sealed class VideoChapter(string title, int startTime, int endTime)
 {
     /// <summary>
     /// 章节标题.

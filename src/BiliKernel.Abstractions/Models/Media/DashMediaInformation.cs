@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 namespace Richasy.BiliKernel.Models.Media;
@@ -11,7 +11,7 @@ public sealed class DashMediaInformation(
     IList<DashSegmentInformation>? audioSegments,
     IList<PlayerFormatInformation>? formats,
     int duration = 0,
-    IList<MediaChapter>? chapters = null)
+    IList<VideoChapter>? chapters = null)
 {
     /// <summary>
     /// 视频时长.
@@ -39,5 +39,5 @@ public sealed class DashMediaInformation(
     /// <remarks>
     /// 对应哔哩哔哩播放器中的“章节”功能，由 UP 主在视频中标记，可能为空.
     /// </remarks>
-    public IList<MediaChapter>? Chapters { get; } = chapters;
+    public IList<VideoChapter>? Chapters { get; } = chapters;
 }

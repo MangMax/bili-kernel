@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Playurl.V1;
@@ -570,7 +570,7 @@ internal static class VideoAdapter
 
         var chapters = information.ViewPoints?
             .Where(p => !string.IsNullOrEmpty(p.Content) && p.To > p.From)
-            .Select(p => new MediaChapter(p.Content, p.From, p.To))
+            .Select(p => new VideoChapter(p.Content, p.From, p.To))
             .ToList();
 
         if (chapters?.Count == 0)
