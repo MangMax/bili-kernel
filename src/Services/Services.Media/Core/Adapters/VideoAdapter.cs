@@ -568,6 +568,16 @@ internal static class VideoAdapter
             audios = default;
         }
 
-        return new DashMediaInformation(videos, audios, formats, information.Duration);
+        var chapters = information.ViewPoints?
+            .Where(p => p.Type == 1 && !string.IsNullOrEmpty(p.Content))
+            .Select(p => new MediaChapter(p.Content, p.From, p.To))
+            .ToList();
+
+        if (chapters?.Count == 0)
+        {
+            chapters = default;
+        }
+
+        return new DashMediaInformation(videos, audios, formats, information.Duration, chapters);
     }
 }

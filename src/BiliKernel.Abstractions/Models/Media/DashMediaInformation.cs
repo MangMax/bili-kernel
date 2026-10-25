@@ -10,7 +10,8 @@ public sealed class DashMediaInformation(
     IList<DashSegmentInformation>? videoSegments,
     IList<DashSegmentInformation>? audioSegments,
     IList<PlayerFormatInformation>? formats,
-    int duration = 0)
+    int duration = 0,
+    IList<MediaChapter>? chapters = null)
 {
     /// <summary>
     /// 视频时长.
@@ -31,4 +32,12 @@ public sealed class DashMediaInformation(
     /// 格式列表.
     /// </summary>
     public IList<PlayerFormatInformation>? Formats { get; } = formats;
+
+    /// <summary>
+    /// 视频章节列表.
+    /// </summary>
+    /// <remarks>
+    /// 对应哔哩哔哩播放器中的“章节”功能，由 UP 主在视频中标记，可能为空.
+    /// </remarks>
+    public IList<MediaChapter>? Chapters { get; } = chapters;
 }

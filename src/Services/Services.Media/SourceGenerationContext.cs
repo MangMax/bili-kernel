@@ -84,6 +84,7 @@ namespace Richasy.BiliKernel;
 [JsonSerializable(typeof(SegmentBase))]
 [JsonSerializable(typeof(VideoFormat))]
 [JsonSerializable(typeof(FlvItem))]
+[JsonSerializable(typeof(ViewPoint))]
 [JsonSerializable(typeof(PlayerWbiResponse))]
 [JsonSerializable(typeof(PublisherInfo))]
 [JsonSerializable(typeof(RecommendVideoResponse))]

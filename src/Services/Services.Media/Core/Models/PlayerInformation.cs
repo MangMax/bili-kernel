@@ -63,6 +63,45 @@ internal sealed class PlayerInformation
     /// </summary>
     [JsonPropertyName("support_formats")]
     public List<VideoFormat> SupportFormats { get; set; }
+
+    /// <summary>
+    /// 视频章节/看点列表.
+    /// </summary>
+    [JsonPropertyName("view_points")]
+    public List<ViewPoint> ViewPoints { get; set; }
+}
+
+/// <summary>
+/// 视频章节/看点.
+/// </summary>
+internal sealed class ViewPoint
+{
+    /// <summary>
+    /// 类型.
+    /// </summary>
+    /// <remarks>
+    /// 1 表示章节，2 表示看点.
+    /// </remarks>
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+
+    /// <summary>
+    /// 起始时间（秒）.
+    /// </summary>
+    [JsonPropertyName("from")]
+    public int From { get; set; }
+
+    /// <summary>
+    /// 结束时间（秒）.
+    /// </summary>
+    [JsonPropertyName("to")]
+    public int To { get; set; }
+
+    /// <summary>
+    /// 标题.
+    /// </summary>
+    [JsonPropertyName("content")]
+    public string Content { get; set; }
 }
 
 /// <summary>
