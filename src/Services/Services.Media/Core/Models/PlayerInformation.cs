@@ -80,7 +80,8 @@ internal sealed class ViewPoint
     /// 类型.
     /// </summary>
     /// <remarks>
-    /// 1 表示章节，2 表示看点.
+    /// 实测 UP 主标记的章节为 2，但官方未公开该字段的取值语义，
+    /// 因此下游未按此字段过滤，仅依据标题与时间区间有效性判断.
     /// </remarks>
     [JsonPropertyName("type")]
     public int Type { get; set; }

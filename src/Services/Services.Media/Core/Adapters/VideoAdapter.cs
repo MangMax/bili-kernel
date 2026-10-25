@@ -569,7 +569,7 @@ internal static class VideoAdapter
         }
 
         var chapters = information.ViewPoints?
-            .Where(p => p.Type == 1 && !string.IsNullOrEmpty(p.Content))
+            .Where(p => !string.IsNullOrEmpty(p.Content) && p.To > p.From)
             .Select(p => new MediaChapter(p.Content, p.From, p.To))
             .ToList();
 
