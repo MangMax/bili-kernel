@@ -63,12 +63,6 @@ internal sealed class PlayerInformation
     /// </summary>
     [JsonPropertyName("support_formats")]
     public List<VideoFormat> SupportFormats { get; set; }
-
-    /// <summary>
-    /// 视频章节/看点列表.
-    /// </summary>
-    [JsonPropertyName("view_points")]
-    public List<ViewPoint> ViewPoints { get; set; }
 }
 
 /// <summary>

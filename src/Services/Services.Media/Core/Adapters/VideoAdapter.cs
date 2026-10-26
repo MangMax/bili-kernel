@@ -1,4 +1,4 @@
-// Copyright (c) Richasy. All rights reserved.
+﻿// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Playurl.V1;
@@ -347,6 +347,29 @@ internal static class VideoAdapter
         return new PlayerProgress(progress, status, id);
     }
 
+    /// <summary>
+    /// 从播放器 WBI 响应中提取视频章节.
+    /// </summary>
+    /// <param name="response">播放器 WBI 响应.</param>
+    /// <returns>章节列表，未标记章节时为空.</returns>
+    /// <remarks>
+    /// 章节数据只出现在 /x/player/wbi/v2 响应里，
+    /// 播放地址接口 /x/player/playurl 不返回 view_points.
+    /// </remarks>
+    public static List<VideoChapter> ToVideoChapters(this PlayerWbiResponse response)
+    {
+        var points = response?.ViewPoints;
+        if (points is null || points.Count == 0)
+        {
+            return [];
+        }
+
+        return points
+            .Where(p => !string.IsNullOrWhiteSpace(p.Content) && p.To > p.From && p.From >= 0)
+            .Select(p => new VideoChapter(p.Content.Trim(), p.From, p.To))
+            .ToList();
+    }
+
     public static PlayerProgress ToPlayerProgress(this PlayerWbiResponse response)
     {
         var status = response.last_play_time switch
@@ -568,16 +591,6 @@ internal static class VideoAdapter
             audios = default;
         }
 
-        var chapters = information.ViewPoints?
-            .Where(p => !string.IsNullOrEmpty(p.Content) && p.To > p.From)
-            .Select(p => new VideoChapter(p.Content, p.From, p.To))
-            .ToList();
-
-        if (chapters?.Count == 0)
-        {
-            chapters = default;
-        }
-
-        return new DashMediaInformation(videos, audios, formats, information.Duration, chapters);
+        return new DashMediaInformation(videos, audios, formats, information.Duration);
     }
 }

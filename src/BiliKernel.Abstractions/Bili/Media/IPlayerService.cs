@@ -22,6 +22,18 @@ public interface IPlayerService
     Task<DashMediaInformation> GetVideoPlayDetailAsync(MediaIdentifier video, long cid, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 获取视频章节列表.
+    /// </summary>
+    /// <param name="video">视频标识符.</param>
+    /// <param name="cid">视频分 P 的 cid.</param>
+    /// <param name="cancellationToken">取消令牌.</param>
+    /// <returns>章节列表，UP 主未标记章节时返回空集合.</returns>
+    /// <remarks>
+    /// 对应哔哩哔哩播放器的“章节”功能，数据来自 /x/player/wbi/v2 的 view_points 字段.
+    /// </remarks>
+    Task<IReadOnlyList<VideoChapter>> GetVideoChaptersAsync(MediaIdentifier video, long cid, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 获取直播页面详情.
     /// </summary>
     Task<LivePlayerView> GetLivePageDetailAsync(MediaIdentifier live, CancellationToken cancellationToken = default);

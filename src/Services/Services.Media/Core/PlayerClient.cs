@@ -724,6 +724,38 @@ internal sealed class PlayerClient
         return default;
     }
 
+    /// <summary>
+    /// 获取视频章节列表.
+    /// </summary>
+    /// <param name="video">视频标识符.</param>
+    /// <param name="cid">视频分 P 的 cid.</param>
+    /// <param name="cancellationToken">取消令牌.</param>
+    /// <returns>章节列表，未标记章节时为空集合.</returns>
+    /// <remarks>
+    /// 章节数据只出现在播放器接口 /x/player/wbi/v2 的 view_points 字段里，
+    /// 播放地址接口 /x/player/playurl 不返回该字段，因此必须单独请求.
+    /// </remarks>
+    public async Task<IReadOnlyList<VideoChapter>> GetWebVideoChaptersAsync(MediaIdentifier video, long cid, CancellationToken cancellationToken)
+    {
+        var idType = GetVideoIdType(video.Id, out var videoId);
+        if (idType == "bv")
+        {
+            videoId = AvBvConverter.Bv2Av(videoId).ToString();
+        }
+
+        var queryParameters = new Dictionary<string, string>
+        {
+            { "aid", videoId },
+            { "cid", cid.ToString() },
+        };
+
+        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Video.PlayerWbi));
+        _authenticator.AuthorizeRestRequest(request, queryParameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, ForceNoToken = true, RequireCookie = true, NeedRID = true });
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponsePlayerWbiResponse).ConfigureAwait(false);
+        return responseObj?.Data?.ToVideoChapters() ?? [];
+    }
+
     private async Task<VideoOperationInformation?> GetWebVideoOperationInformationAsync(string aid, CancellationToken cancellationToken)
     {
         try
