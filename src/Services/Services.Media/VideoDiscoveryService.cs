@@ -67,6 +67,6 @@ public sealed class VideoDiscoveryService : IVideoDiscoveryService
         => _client.GetHotVideoListAsync(offset, cancellationToken);
 
     /// <inheritdoc/>
-    public Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetRecommendVideoListAsync(long offset = 0, CancellationToken cancellationToken = default)
-        => _client.GetRecommendVideoListAsync(offset, cancellationToken);
+    public Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetRecommendVideoListAsync(long offset = 0, int pageSize = 0, CancellationToken cancellationToken = default)
+        => _client.GetRecommendVideoListAsync(offset, pageSize, cancellationToken);
 }
