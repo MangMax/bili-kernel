@@ -87,7 +87,7 @@ internal sealed class PopularVideoModule : IFeatureModule
         AnsiConsole.Clear();
         AnsiConsole.MarkupLine("正在获取推荐视频列表...");
 
-        var (videos, offset) = await _popularVideoService.GetRecommendVideoListAsync(0, _cancellationToken).ConfigureAwait(false);
+        var (videos, offset) = await _popularVideoService.GetRecommendVideoListAsync(0, cancellationToken: _cancellationToken).ConfigureAwait(false);
         AnsiConsole.Clear();
         AnsiConsole.MarkupLine("推荐视频列表：");
 
