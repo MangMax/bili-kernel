@@ -65,6 +65,7 @@ internal sealed class DanmakuClient
 
         do
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 var queryParameters = new Dictionary<string, string>
@@ -85,6 +86,7 @@ internal sealed class DanmakuClient
             }
             catch (Exception)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 retryCount++;
                 if (retryCount > 2)
                 {
@@ -123,6 +125,7 @@ internal sealed class DanmakuClient
 
         do
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 var request = BiliHttpClient.CreateRequest(new Uri(BiliApis.Video.GrpcSegmentDanmaku), req);
@@ -132,6 +135,7 @@ internal sealed class DanmakuClient
             }
             catch (Exception)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 retryCount++;
                 if (retryCount > 2)
                 {

@@ -18,14 +18,23 @@ public sealed partial class BiliHttpClient : IDisposable
     /// Initializes a new instance of the <see cref="BiliHttpClient"/> class.
     /// </summary>
     public BiliHttpClient()
-    {
-        _client = new HttpClient(new HttpClientHandler
+        : this(new HttpClientHandler
         {
             AllowAutoRedirect = true,
             UseCookies = true,
             SslProtocols = SslProtocols.None,
             ServerCertificateCustomValidationCallback = (_, _, _, _) => true
-        }, disposeHandler: true);
+        })
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance with a supplied HTTP transport.
+    /// </summary>
+    /// <param name="handler">Transport handler, owned and disposed by this client.</param>
+    public BiliHttpClient(HttpMessageHandler handler)
+    {
+        _client = new HttpClient(handler, disposeHandler: true);
         _client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69");
         _client.Timeout = TimeSpan.FromSeconds(30);
     }
@@ -74,6 +83,10 @@ public sealed partial class BiliHttpClient : IDisposable
             var response = await _client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
             await ThrowIfResponseInvalidAsync(response).ConfigureAwait(false);
             return response;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (KernelException)
         {
