@@ -172,7 +172,7 @@ internal sealed class VideoDiscoveryClient
             : (IReadOnlyList<VideoInformation>)responseObj.Data.Items.Select(p => p.ToVideoInformation()).ToList().AsReadOnly();
     }
 
-    public async Task<(IReadOnlyList<VideoInformation> Videos, long Offset)> GetRecommendVideoListAsync(long offset, CancellationToken cancellationToken)
+    public async Task<(IReadOnlyList<VideoInformation> Videos, long Offset)> GetRecommendVideoListAsync(long offset, int pageSize, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>
         {
@@ -182,6 +182,11 @@ internal sealed class VideoDiscoveryClient
             { "device", "desktop" },
             { "pull", (offset == 0).ToString().ToLowerInvariant() },
         };
+
+        if (pageSize > 0)
+        {
+            parameters.Add("ps", pageSize.ToString());
+        }
 
         var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(BiliApis.Home.Recommend));
         _authenticator.AuthorizeRestRequest(request, parameters);
