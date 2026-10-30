@@ -13,8 +13,8 @@
     <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Bcl.HashCode" Version="6.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.1" />
-    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
-    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.6.250108002" />
+    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2957" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.6.4" />
     <PackageVersion Include="Polly" Version="8.5.1" />
     <PackageVersion Include="QRCoder" Version="1.8.1" />
     <PackageVersion Include="RichasyKernel.Abstractions" Version="0.0.1" />
