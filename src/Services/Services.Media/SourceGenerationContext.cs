@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Content;
@@ -124,6 +124,8 @@ namespace Richasy.BiliKernel;
 [JsonSerializable(typeof(BiliDataResponse<PgcIndexConditionResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<PgcIndexResultResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<PlayerInformation>))]
+[JsonSerializable(typeof(PgcPlayUrlResponse))]
+[JsonSerializable(typeof(BiliDataResponse<PgcPlayUrlResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<LiveRoomDetailResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<LiveAppPlayResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<PgcDetailResponse>))]

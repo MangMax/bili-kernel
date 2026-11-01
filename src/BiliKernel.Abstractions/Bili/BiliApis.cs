@@ -585,6 +585,19 @@ public static class BiliApis
             var prefix = string.IsNullOrEmpty(proxy)
                 ? _apiBase
                 : proxy;
+            return prefix.TrimEnd('/') + "/pgc/player/web/v2/playurl";
+        }
+
+        /// <summary>
+        /// 剧集播放信息（旧版路径，作为 v2 的回退）.
+        /// </summary>
+        /// <param name="proxy">代理服务器地址.</param>
+        /// <returns>API地址.</returns>
+        public static string PlayInformationLegacy(string proxy = "")
+        {
+            var prefix = string.IsNullOrEmpty(proxy)
+                ? _apiBase
+                : proxy;
             return prefix.TrimEnd('/') + "/pgc/player/web/playurl";
         }
     }
