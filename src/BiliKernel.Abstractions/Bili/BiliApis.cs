@@ -325,7 +325,7 @@ public static class BiliApis
         /// <summary>
         /// 更新PGC收藏状态.
         /// </summary>
-        public const string UpdatePgcStatus = _apiBase + "/pgc/app/follow/status/update";
+        public const string UpdatePgcStatus = _apiBase + "/pgc/web/follow/status/update";
 
         /// <summary>
         /// 批量获取用户信息.
@@ -374,6 +374,16 @@ public static class BiliApis
         /// 子分区排序增量加载.
         /// </summary>
         public const string SubPartitionOrderOffset = _appBase + "/x/v2/region/show/child/list";
+
+        /// <summary>
+        /// 分区视频（现行 Web 端点）.
+        /// </summary>
+        public const string WebRegionVideos = _apiBase + "/x/web-interface/dynamic/region";
+
+        /// <summary>
+        /// 分区视频（Web 端点兜底）.
+        /// </summary>
+        public const string WebRegionNewList = _apiBase + "/x/web-interface/newlist";
     }
 
     public static class Home
@@ -419,7 +429,7 @@ public static class BiliApis
         /// <summary>
         /// 直播间详情.
         /// </summary>
-        public const string RoomDetail = _liveBase + "/xlive/app-room/v1/index/getInfoByRoom";
+        public const string RoomDetail = _liveBase + "/xlive/web-room/v1/index/getInfoByRoom";
 
         /// <summary>
         /// 直播播放信息.
@@ -535,12 +545,12 @@ public static class BiliApis
         /// <summary>
         /// 追番/追剧.
         /// </summary>
-        public const string Follow = _apiBase + "/pgc/app/follow/add";
+        public const string Follow = _apiBase + "/pgc/web/follow/add";
 
         /// <summary>
         /// 取消追番/追剧.
         /// </summary>
-        public const string Unfollow = _apiBase + "/pgc/app/follow/del";
+        public const string Unfollow = _apiBase + "/pgc/web/follow/del";
 
         /// <summary>
         /// PGC索引条件.
@@ -555,7 +565,12 @@ public static class BiliApis
         /// <summary>
         /// 时间表.
         /// </summary>
-        public const string TimeLine = _apiBase + "/pgc/app/timeline";
+        public const string TimeLine = _apiBase + "/pgc/web/timeline";
+
+        /// <summary>
+        /// 时间表（旧版路径，作为 Web 版回退）.
+        /// </summary>
+        public const string TimeLineLegacy = _apiBase + "/pgc/app/timeline";
 
         /// <summary>
         /// 播放列表.
@@ -572,7 +587,7 @@ public static class BiliApis
             var prefix = string.IsNullOrEmpty(proxy)
                 ? _apiBase
                 : proxy;
-            return prefix.TrimEnd('/') + "/pgc/view/v2/app/season";
+            return prefix.TrimEnd('/') + "/pgc/view/web/season";
         }
 
         /// <summary>
@@ -720,7 +735,7 @@ public static class BiliApis
         /// <summary>
         /// 搜索推荐.
         /// </summary>
-        public const string Square = _appBase + "/x/v2/search/square";
+        public const string Square = _apiBase + "/x/web-interface/search/square";
 
         /// <summary>
         /// 综合搜索.

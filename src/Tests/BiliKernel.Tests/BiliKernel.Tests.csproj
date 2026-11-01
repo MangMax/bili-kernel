@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\BiliKernel.Core\BiliKernel.Core.csproj" />
     <ProjectReference Include="..\..\Services\Services.Media\Services.Media.csproj" />
+    <ProjectReference Include="..\..\Services\Services.Search\Services.Search.csproj" />
     <ProjectReference Include="..\..\Services\Services.User\Services.User.csproj" />
   </ItemGroup>
 

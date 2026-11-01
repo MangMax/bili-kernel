@@ -213,9 +213,9 @@ internal sealed class PlayerClient
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Pgc.SeasonDetail()));
         _authenticator.AuthorizeRestRequest(request, parameters);
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponsePgcDetailResponse).ConfigureAwait(false)
-            ?? throw new KernelException("解析PGC详情失败");
-        return responseObj.Data.ToPgcPlayerView();
+        var envelope = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.PgcDetailEnvelope).ConfigureAwait(false);
+        var detail = envelope?.Content ?? throw new KernelException("解析PGC详情失败");
+        return detail.ToPgcPlayerView();
     }
 
     public async Task<DashMediaInformation> GetPgcPlayDetailAsync(string? cid, string? episodeId, string seasonType, CancellationToken cancellationToken)

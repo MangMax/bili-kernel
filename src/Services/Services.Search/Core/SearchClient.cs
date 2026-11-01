@@ -34,12 +34,14 @@ internal sealed class SearchClient
             { "limit", count.ToString() },
         };
 
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Search.HotSearch));
+        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Search.Square));
         _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false, ForceNoToken = true, NeedCSRF = true });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseHotSearchResponse).ConfigureAwait(false);
-        return responseObj.Data.List.Select(p => p.ToHotSearchItem()).ToList().AsReadOnly()
-            ?? throw new KernelException("无法获取到有效的热搜榜单");
+        var list = responseObj?.Data?.Trending?.List ?? responseObj?.Data?.List;
+        return list == null || list.Count == 0
+            ? throw new KernelException("无法获取到有效的热搜榜单")
+            : (IReadOnlyList<HotSearchItem>)list.Select(p => p.ToHotSearchItem()).ToList().AsReadOnly();
     }
 
     public async Task<IReadOnlyList<SearchRecommendItem>> GetSearchRecommendsAsync(CancellationToken cancellationToken)
