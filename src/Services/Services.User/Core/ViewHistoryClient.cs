@@ -1,7 +1,8 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Interfaces.V1;
+using Richasy.BiliKernel.Adapters;
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Bili;
 using Richasy.BiliKernel.Bili.Authorization;
@@ -9,6 +10,9 @@ using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Article;
 using Richasy.BiliKernel.Models.Media;
+using Richasy.BiliKernel.Models.User;
+using Richasy.BiliKernel.Services.User.Core.Models;
+using RichasyKernel;
 
 namespace Richasy.BiliKernel.Services.User.Core;
 
@@ -30,6 +34,18 @@ internal sealed class ViewHistoryClient
 
     public async Task<ViewHistoryGroup> GetHistorySetAsync(ViewHistoryTabType tabType, long offset, CancellationToken cancellationToken)
     {
+        if (tabType is ViewHistoryTabType.Video or ViewHistoryTabType.All)
+        {
+            try
+            {
+                return await GetWebHistorySetAsync(tabType, offset, cancellationToken).ConfigureAwait(false);
+            }
+            catch (KernelException)
+            {
+                // Web 端点异常时保留 gRPC 回退.
+            }
+        }
+
         var business = GetBusiness(tabType);
         var req = new CursorReq
         {
@@ -68,6 +84,23 @@ internal sealed class ViewHistoryClient
             Kid = Convert.ToInt64(itemId),
         });
 
+        try
+        {
+            var parameters = new Dictionary<string, string>
+            {
+                { "kid", itemId },
+            };
+
+            var webRequest = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Post, new Uri(BiliApis.Account.WebHistoryDelete));
+            _authenticator.AuthorizeRestRequest(webRequest, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true, RequireCookie = true });
+            await _httpClient.SendAsync(webRequest, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        catch (KernelException)
+        {
+            // Web 端点失败时回退 gRPC.
+        }
+
         var request = BiliHttpClient.CreateRequest(new Uri(BiliApis.Account.DeleteHistoryItem), req);
         _authenticator.AuthorizeGrpcRequest(request);
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -80,6 +113,18 @@ internal sealed class ViewHistoryClient
         {
             Business = business,
         };
+
+        try
+        {
+            var webRequest = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Post, new Uri(BiliApis.Account.WebHistoryClear));
+            _authenticator.AuthorizeRestRequest(webRequest, new Dictionary<string, string>(), new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true, RequireCookie = true });
+            await _httpClient.SendAsync(webRequest, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        catch (KernelException)
+        {
+            // Web 端点失败时回退 gRPC.
+        }
 
         var request = BiliHttpClient.CreateRequest(new Uri(BiliApis.Account.ClearHistory), req);
         _authenticator.AuthorizeGrpcRequest(request);
@@ -105,6 +150,43 @@ internal sealed class ViewHistoryClient
         var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Post, new Uri(BiliApis.Account.SetHistoryRecordOption));
         _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true, RequireCookie = true, ForceNoToken = true });
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<ViewHistoryGroup> GetWebHistorySetAsync(ViewHistoryTabType tabType, long offset, CancellationToken cancellationToken)
+    {
+        var parameters = new Dictionary<string, string>
+        {
+            { "max", offset.ToString() },
+            { "view_at", "0" },
+            { "ps", "30" },
+            { "business", string.Empty },
+        };
+
+        var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(BiliApis.Account.WebHistoryCursor));
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, RequireCookie = true, ForceNoToken = true });
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseWebHistoryResponse).ConfigureAwait(false);
+        var list = responseObj?.Data?.List ?? [];
+        if (list.Count == 0)
+        {
+            throw new KernelException("观看历史为空");
+        }
+
+        var videos = list
+            .Where(p => p.History != null && (string.IsNullOrEmpty(p.History.Business) || p.History.Business == "archive"))
+            .Select(p => ToVideoInformation(p))
+            .ToList()
+            .AsReadOnly();
+        var nextOffset = responseObj?.Data?.Cursor?.Max ?? 0;
+        return new ViewHistoryGroup(tabType, videos, Array.Empty<LiveInformation>(), Array.Empty<ArticleInformation>(), nextOffset);
+    }
+
+    private static VideoInformation ToVideoInformation(WebHistoryItem item)
+    {
+        var cover = string.IsNullOrEmpty(item.Cover) ? null : item.Cover.ToImage();
+        var identifier = new MediaIdentifier(item.History?.Oid.ToString() ?? string.Empty, item.Title, cover);
+        var publisher = new PublisherProfile(new UserProfile("0"));
+        return new VideoInformation(identifier, publisher, item.Duration, item.BvId);
     }
 
     private static string GetBusiness(ViewHistoryTabType tabType)
