@@ -110,6 +110,21 @@ public static class BiliApis
         /// </summary>
         public const string Space = _appBase + "/x/v2/space";
 
+        /// <summary>
+        /// 用户空间信息（WBI）.
+        /// </summary>
+        public const string SpaceInfo = _apiBase + "/x/space/wbi/acc/info";
+
+        /// <summary>
+        /// 用户空间投稿列表（WBI）.
+        /// </summary>
+        public const string SpaceVideos = _apiBase + "/x/space/wbi/arc/search";
+
+        /// <summary>
+        /// 用户空间专栏列表（WBI）.
+        /// </summary>
+        public const string SpaceArticles = _apiBase + "/x/space/wbi/article";
+
         public const string SpaceVideoSearch = _grpcBase + "/bilibili.app.interface.v1.Space/SearchArchive";
 
         /// <summary>
