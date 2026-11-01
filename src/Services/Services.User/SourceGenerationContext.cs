@@ -101,6 +101,8 @@ namespace Richasy.BiliKernel.Services.User;
 [JsonSerializable(typeof(BiliDataResponse<bool>))]
 [JsonSerializable(typeof(BiliDataResponse<ViewLaterSetResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<UserCardDetailResponse>))]
+[JsonSerializable(typeof(WebHistoryResponse))]
+[JsonSerializable(typeof(BiliDataResponse<WebHistoryResponse>))]
 internal sealed partial class SourceGenerationContext : JsonSerializerContext
 {
 }

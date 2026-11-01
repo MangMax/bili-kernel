@@ -173,6 +173,21 @@ public static class BiliApis
         public const string SetHistoryRecordOption = _apiBase + "/x/v2/history/shadow/set";
 
         /// <summary>
+        /// 观看历史列表（Web）.
+        /// </summary>
+        public const string WebHistoryCursor = _apiBase + "/x/web-interface/history/cursor";
+
+        /// <summary>
+        /// 删除单条观看历史（Web）.
+        /// </summary>
+        public const string WebHistoryDelete = _apiBase + "/x/v2/history/delete";
+
+        /// <summary>
+        /// 清空观看历史（Web）.
+        /// </summary>
+        public const string WebHistoryClear = _apiBase + "/x/v2/history/clear";
+
+        /// <summary>
         /// 获取历史记录选项.
         /// </summary>
         public const string HistoryRecordOption = _apiBase + "/x/v2/history/shadow";
@@ -200,7 +215,7 @@ public static class BiliApis
         /// <summary>
         /// 获取稍后再看列表.
         /// </summary>
-        public const string ViewLaterList = _apiBase + "/x/v2/history/toview";
+        public const string ViewLaterList = _apiBase + "/x/v2/history/toview/web";
 
         /// <summary>
         /// 添加视频到稍后再看.
