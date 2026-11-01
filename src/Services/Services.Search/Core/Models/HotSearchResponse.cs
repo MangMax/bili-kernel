@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using System.Text.Json.Serialization;
@@ -9,6 +9,21 @@ internal sealed class HotSearchResponse
 {
     [JsonPropertyName("trackid")]
     public string TrackId { get; set; }
+
+    [JsonPropertyName("list")]
+    public IList<WebHotSearchItem>? List { get; set; }
+
+    /// <summary>
+    /// 搜索广场数据.
+    /// </summary>
+    [JsonPropertyName("trending")]
+    public HotSearchTrending? Trending { get; set; }
+}
+
+internal sealed class HotSearchTrending
+{
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
 
     [JsonPropertyName("list")]
     public IList<WebHotSearchItem>? List { get; set; }

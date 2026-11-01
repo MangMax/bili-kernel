@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Content;
@@ -10,6 +10,7 @@ namespace Richasy.BiliKernel;
 [JsonSourceGenerationOptions(WriteIndented = true)]
 [JsonSerializable(typeof(HotSearchResponse))]
 [JsonSerializable(typeof(WebHotSearchItem))]
+[JsonSerializable(typeof(HotSearchTrending))]
 [JsonSerializable(typeof(SearchRecommendResponse))]
 [JsonSerializable(typeof(WebSearchRecommendItem))]
 [JsonSerializable(typeof(BiliDataResponse<HotSearchResponse>))]

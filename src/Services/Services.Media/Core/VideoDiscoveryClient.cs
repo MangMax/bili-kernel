@@ -121,13 +121,10 @@ internal sealed class VideoDiscoveryClient
             parameters.Add("ps", "30");
         }
 
-        var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false });
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         SubPartition data;
         if (!isDefaultOrder)
         {
-            var videoList = (await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseListPartitionVideo).ConfigureAwait(false)).Data;
+            var videoList = await RequestPartitionArchivesAsync(BiliApis.Partition.WebRegionVideos, BiliApis.Partition.WebRegionNewList, parameters, cancellationToken).ConfigureAwait(false);
             data = new SubPartition
             {
                 NewVideos = videoList,
@@ -135,6 +132,9 @@ internal sealed class VideoDiscoveryClient
         }
         else
         {
+            var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(url));
+            _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false });
+            var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             data = (await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseSubPartition).ConfigureAwait(false)).Data;
         }
 
@@ -149,6 +149,29 @@ internal sealed class VideoDiscoveryClient
         return !videos.Any()
             ? throw new KernelException("无法获取到有效的视频列表，请稍后再试")
             : ((IReadOnlyList<VideoInformation> Videos, long Offset, int NextPageNumber))(videos.ToList().AsReadOnly(), offsetId, nextPageNumber);
+    }
+
+    private async Task<List<PartitionVideo>> RequestPartitionArchivesAsync(string url, string fallbackUrl, Dictionary<string, string> parameters, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await RequestPartitionArchivesCoreAsync(url, parameters, cancellationToken).ConfigureAwait(false);
+        }
+        catch (KernelException)
+        {
+            // 分区改版后 dynamic/region 可能不可用，回退到 newlist.
+            return await RequestPartitionArchivesCoreAsync(fallbackUrl, parameters, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<List<PartitionVideo>> RequestPartitionArchivesCoreAsync(string url, Dictionary<string, string> parameters, CancellationToken cancellationToken)
+    {
+        var requestParameters = new Dictionary<string, string>(parameters, StringComparer.Ordinal);
+        var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(url));
+        _authenticator.AuthorizeRestRequest(request, requestParameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, RequireToken = false });
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponsePartitionArchiveResponse).ConfigureAwait(false);
+        return responseObj?.Data?.Archives ?? [];
     }
 
     public async Task<IReadOnlyList<VideoInformation>> GetCuratedPlaylistAsync(CancellationToken cancellationToken)

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
@@ -7,6 +7,7 @@ using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Appearance;
 using Richasy.BiliKernel.Models.Media;
+using Richasy.BiliKernel.Services.Media.Core.Models;
 using RichasyKernel;
 
 namespace Richasy.BiliKernel.Services.Media.Core;
@@ -29,26 +30,52 @@ internal sealed class PgcClient
 
     public async Task<(string Title, string Description, IReadOnlyList<TimelineInformation>)> GetAnimeTimelineAsync(bool isBangumi, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string>
+        PgcTimeLineEnvelope? responseObj;
+        try
         {
-            { "type", isBangumi ? "2" : "3" },
-            { "filter_type", "0" },
-        };
+            responseObj = await RequestTimelineAsync(BiliApis.Pgc.TimeLine, isBangumi, true, cancellationToken).ConfigureAwait(false);
+        }
+        catch (KernelException)
+        {
+            responseObj = null;
+        }
 
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Pgc.TimeLine));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false });
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliResultResponsePgcTimeLineResponse).ConfigureAwait(false);
-        var title = responseObj.Result.Title;
-        var description = responseObj.Result.Subtitle;
-        var timelineItems = responseObj.Result.Data.Select(p => p.ToTimelineInformation()).ToList().AsReadOnly();
+        if (responseObj?.Content?.Data is null || responseObj.Content.Data.Count == 0)
+        {
+            // Web 版时间线结构与旧版不同，拿不到数据时回退旧版路径.
+            responseObj = await RequestTimelineAsync(BiliApis.Pgc.TimeLineLegacy, isBangumi, false, cancellationToken).ConfigureAwait(false);
+        }
+
+        var content = responseObj?.Content ?? throw new KernelException("解析番剧时间线失败");
+        var timelineItems = content.Data.Select(p => p.ToTimelineInformation()).ToList().AsReadOnly();
         if (timelineItems.Count == 0)
         {
             var name = isBangumi ? "番剧" : "国创";
             throw new KernelException($"{name}时间线数据为空");
         }
 
-        return (title!, description!, timelineItems);
+        return (content.Title!, content.Subtitle!, timelineItems);
+    }
+
+    private async Task<PgcTimeLineEnvelope?> RequestTimelineAsync(string url, bool isBangumi, bool isWeb, CancellationToken cancellationToken)
+    {
+        var parameters = isWeb
+            ? new Dictionary<string, string>
+            {
+                { "types", isBangumi ? "2" : "3" },
+                { "before", "0" },
+                { "after", "0" },
+            }
+            : new Dictionary<string, string>
+            {
+                { "type", isBangumi ? "2" : "3" },
+                { "filter_type", "0" },
+            };
+
+        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false });
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.PgcTimeLineEnvelope).ConfigureAwait(false);
     }
 
     public Task<IReadOnlyList<Filter>> GetEntertainmentFiltersAsync(EntertainmentType type, CancellationToken cancellationToken)
