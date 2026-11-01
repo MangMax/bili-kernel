@@ -7,7 +7,6 @@ using Richasy.BiliKernel.Http;
 using RichasyKernel;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace Richasy.BiliKernel.Authenticator;
 
@@ -234,14 +233,9 @@ public sealed partial class BiliAuthenticator
             return string.Empty;
         }
 
-        var cookie = _cookieResolver.GetCookieString();
-        var csrfToken = string.Empty;
-        var match = Regex.Match(cookie, @"bili_jct=(.*?);");
-        if (match.Success)
-        {
-            csrfToken = match.Groups[1].Value;
-        }
-
-        return csrfToken;
+        var cookies = _cookieResolver.GetCookies();
+        return cookies != null && cookies.TryGetValue("bili_jct", out var token)
+            ? token
+            : string.Empty;
     }
 }

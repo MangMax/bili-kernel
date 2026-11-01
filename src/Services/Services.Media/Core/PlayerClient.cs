@@ -255,11 +255,11 @@ internal sealed class PlayerClient
         var parameters = new Dictionary<string, string>
         {
             { "aid", aid },
-            { "like", isLike ? "0" : "1" },
+            { "like", isLike ? "1" : "0" },
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.Like));
-        _authenticator.AuthorizeRestRequest(request, parameters);
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true });
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
@@ -277,7 +277,7 @@ internal sealed class PlayerClient
         }
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.Coin));
-        _authenticator.AuthorizeRestRequest(request, parameters);
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true });
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
@@ -286,7 +286,8 @@ internal sealed class PlayerClient
         var resourceId = isVideo ? "2" : "24";
         var parameters = new Dictionary<string, string>
         {
-            { "resources", $"{aid}:{resourceId}" },
+            { "rid", aid },
+            { "type", resourceId },
         };
 
         if (favoriteIds?.Count > 0)
@@ -300,20 +301,15 @@ internal sealed class PlayerClient
         }
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.ModifyFavorite));
-        _authenticator.AuthorizeRestRequest(request, parameters);
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true });
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task TripleAsync(string aid, CancellationToken cancellationToken)
     {
-        var parameters = new Dictionary<string, string>
-        {
-            { "aid", aid },
-        };
-
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.Triple));
-        _authenticator.AuthorizeRestRequest(request, parameters);
-        await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        // 三连由点赞与投币两次 Web 调用组成，收藏由调用方按需处理.
+        await ToggleVideoLikeAsync(aid, true, cancellationToken).ConfigureAwait(false);
+        await CoinVideoAsync(aid, 2, true, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task ReportProgressAsync(string aid, string cid, int progress, CancellationToken cancellationToken)
