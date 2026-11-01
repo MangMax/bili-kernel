@@ -220,26 +220,18 @@ internal sealed class PlayerClient
 
     public async Task<DashMediaInformation> GetPgcPlayDetailAsync(string? cid, string? episodeId, string seasonType, CancellationToken cancellationToken)
     {
-        var parameters = new Dictionary<string, string>
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            { "fnver", "0" },
-            { "cid", cid.ToString() },
-            { "fourk", "1" },
-            { "fnval", "4048" },
-            { "qn", "64" },
-            { "oType", "json" },
-            { "module", "bangumi" },
-            { "season_type", seasonType },
-            { "ep_id", episodeId },
-        };
-
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Pgc.PlayInformation()));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web });
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliResultResponsePlayerInformation).ConfigureAwait(false)
-            ?? throw new KernelException("解析PGC播放详情失败");
-
-        return responseObj.Result.ToDashMediaInformation();
+            var information = await RequestPgcPlayInformationAsync(BiliApis.Pgc.PlayInformation(), true, cid, episodeId, seasonType, cancellationToken).ConfigureAwait(false);
+            return information.ToDashMediaInformation();
+        }
+        catch (KernelException)
+        {
+            // v2 路径异常时回退到旧版路径，两条都走 WBI.
+            var information = await RequestPgcPlayInformationAsync(BiliApis.Pgc.PlayInformationLegacy(), false, cid, episodeId, seasonType, cancellationToken).ConfigureAwait(false);
+            return information.ToDashMediaInformation();
+        }
     }
 
     public async Task<OnlineViewer> GetOnlineViewerAsync(string aid, string cid, CancellationToken cancellationToken)
@@ -707,6 +699,41 @@ internal sealed class PlayerClient
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var danmakuRes = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveDanmakuResponse).ConfigureAwait(false);
         return danmakuRes.Data;
+    }
+
+    private static Dictionary<string, string> CreatePgcPlayParameters(string? cid, string? episodeId, string seasonType)
+        => new()
+        {
+            { "fnver", "0" },
+            { "cid", cid ?? string.Empty },
+            { "fourk", "1" },
+            { "fnval", "4048" },
+            { "qn", "64" },
+            { "oType", "json" },
+            { "module", "bangumi" },
+            { "season_type", seasonType },
+            { "ep_id", episodeId ?? string.Empty },
+        };
+
+    private async Task<PlayerInformation> RequestPgcPlayInformationAsync(string url, bool isV2, string? cid, string? episodeId, string seasonType, CancellationToken cancellationToken)
+    {
+        var parameters = CreatePgcPlayParameters(cid, episodeId, seasonType);
+        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedRID = true,
+            RequireCookie = true,
+        });
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (isV2)
+        {
+            var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponsePgcPlayUrlResponse).ConfigureAwait(false);
+            return responseObj?.Data?.VideoInfo ?? throw new KernelException("解析PGC播放详情失败");
+        }
+
+        var legacyObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliResultResponsePlayerInformation).ConfigureAwait(false);
+        return legacyObj?.Result ?? throw new KernelException("解析PGC播放详情失败");
     }
 
     private async Task<PlayerProgress?> GetWebVideoProgressAsync(string aid, string cid, CancellationToken cancellationToken)
