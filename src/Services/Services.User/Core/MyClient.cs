@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
@@ -421,7 +421,12 @@ internal sealed class MyClient
 
         await _authenticationService.EnsureTokenAsync(cancellationToken).ConfigureAwait(false);
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Account.UpdatePgcStatus));
-        _authenticator.AuthorizeRestRequest(request, parameters);
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedCSRF = true,
+            RequireCookie = true,
+        });
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 

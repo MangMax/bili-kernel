@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Playeronline.V1;
@@ -23,6 +23,8 @@ namespace Richasy.BiliKernel.Services.Media.Core;
 
 internal sealed class PlayerClient
 {
+    private const int TripleCoinCount = 2;
+
     private readonly BiliHttpClient _httpClient;
     private readonly BiliAuthenticator _authenticator;
     private readonly IBiliTokenResolver _tokenResolver;
@@ -153,14 +155,20 @@ internal sealed class PlayerClient
 
     public async Task<LivePlayerView> GetLivePageDetailAsync(MediaIdentifier live, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var parameters = new Dictionary<string, string>
         {
             { "room_id", live.Id },
             { "device", "phone" },
+            { "web_location", "444.8" },
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.RoomDetail));
-        _authenticator.AuthorizeRestRequest(request, parameters);
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedRID = true,
+        });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveRoomDetailResponse).ConfigureAwait(false)
             ?? throw new KernelException("解析直播间详情失败");
@@ -213,33 +221,25 @@ internal sealed class PlayerClient
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Pgc.SeasonDetail()));
         _authenticator.AuthorizeRestRequest(request, parameters);
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponsePgcDetailResponse).ConfigureAwait(false)
-            ?? throw new KernelException("解析PGC详情失败");
-        return responseObj.Data.ToPgcPlayerView();
+        var envelope = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.PgcDetailEnvelope).ConfigureAwait(false);
+        var detail = envelope?.Content ?? throw new KernelException("解析PGC详情失败");
+        return detail.ToPgcPlayerView();
     }
 
     public async Task<DashMediaInformation> GetPgcPlayDetailAsync(string? cid, string? episodeId, string seasonType, CancellationToken cancellationToken)
     {
-        var parameters = new Dictionary<string, string>
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            { "fnver", "0" },
-            { "cid", cid.ToString() },
-            { "fourk", "1" },
-            { "fnval", "4048" },
-            { "qn", "64" },
-            { "oType", "json" },
-            { "module", "bangumi" },
-            { "season_type", seasonType },
-            { "ep_id", episodeId },
-        };
-
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Pgc.PlayInformation()));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web });
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliResultResponsePlayerInformation).ConfigureAwait(false)
-            ?? throw new KernelException("解析PGC播放详情失败");
-
-        return responseObj.Result.ToDashMediaInformation();
+            var information = await RequestPgcPlayInformationAsync(BiliApis.Pgc.PlayInformation(), true, cid, episodeId, seasonType, cancellationToken).ConfigureAwait(false);
+            return information.ToDashMediaInformation();
+        }
+        catch (KernelException)
+        {
+            // v2 路径异常时回退到旧版路径，两条都走 WBI.
+            var information = await RequestPgcPlayInformationAsync(BiliApis.Pgc.PlayInformationLegacy(), false, cid, episodeId, seasonType, cancellationToken).ConfigureAwait(false);
+            return information.ToDashMediaInformation();
+        }
     }
 
     public async Task<OnlineViewer> GetOnlineViewerAsync(string aid, string cid, CancellationToken cancellationToken)
@@ -263,11 +263,11 @@ internal sealed class PlayerClient
         var parameters = new Dictionary<string, string>
         {
             { "aid", aid },
-            { "like", isLike ? "0" : "1" },
+            { "like", isLike ? "1" : "2" },
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.Like));
-        _authenticator.AuthorizeRestRequest(request, parameters);
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true });
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
@@ -285,7 +285,7 @@ internal sealed class PlayerClient
         }
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.Coin));
-        _authenticator.AuthorizeRestRequest(request, parameters);
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true });
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
@@ -294,7 +294,8 @@ internal sealed class PlayerClient
         var resourceId = isVideo ? "2" : "24";
         var parameters = new Dictionary<string, string>
         {
-            { "resources", $"{aid}:{resourceId}" },
+            { "rid", aid },
+            { "type", resourceId },
         };
 
         if (favoriteIds?.Count > 0)
@@ -308,20 +309,15 @@ internal sealed class PlayerClient
         }
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.ModifyFavorite));
-        _authenticator.AuthorizeRestRequest(request, parameters);
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true });
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task TripleAsync(string aid, CancellationToken cancellationToken)
     {
-        var parameters = new Dictionary<string, string>
-        {
-            { "aid", aid },
-        };
-
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.Triple));
-        _authenticator.AuthorizeRestRequest(request, parameters);
-        await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        // 三连由点赞与投币两次 Web 调用组成，收藏由调用方按需处理.
+        await ToggleVideoLikeAsync(aid, true, cancellationToken).ConfigureAwait(false);
+        await CoinVideoAsync(aid, TripleCoinCount, true, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task ReportProgressAsync(string aid, string cid, int progress, CancellationToken cancellationToken)
@@ -382,7 +378,7 @@ internal sealed class PlayerClient
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Live.EnterRoom));
         _authenticator.AuthorizeRestRequest(request, parameters);
         await _httpClient.SendAsync(request).ConfigureAwait(false);
-        var liveDanmakuInfo = await GetLiveDanmakuInfoAsync(roomId).ConfigureAwait(false);
+        var liveDanmakuInfo = await GetLiveDanmakuInfoAsync(roomId, cancellationToken).ConfigureAwait(false);
         var socket = CreateLiveSocket();
         var host = liveDanmakuInfo.HostList.FirstOrDefault()?.Host;
         if (string.IsNullOrEmpty(host))
@@ -687,18 +683,65 @@ internal sealed class PlayerClient
         return responseObj.Data.B3;
     }
 
-    private async Task<LiveDanmakuResponse> GetLiveDanmakuInfoAsync(string roomId)
+    private async Task<LiveDanmakuResponse> GetLiveDanmakuInfoAsync(string roomId, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var queryParameters = new Dictionary<string, string>
         {
             { "id", roomId },
+            { "type", "0" },
+            { "web_location", "444.8" },
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.WebDanmakuInformation));
-        _authenticator.AuthorizeRestRequest(request, queryParameters, new BiliAuthorizeExecutionSettings { RequireCookie = true });
-        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+        _authenticator.AuthorizeRestRequest(request, queryParameters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedRID = true,
+            RequireCookie = true,
+        });
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var danmakuRes = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveDanmakuResponse).ConfigureAwait(false);
         return danmakuRes.Data;
+    }
+
+    private static Dictionary<string, string> CreatePgcPlayParameters(string? cid, string? episodeId, string seasonType)
+        => new()
+        {
+            { "fnver", "0" },
+            { "cid", cid ?? string.Empty },
+            { "fourk", "1" },
+            { "fnval", "4048" },
+            { "qn", "64" },
+            { "oType", "json" },
+            { "module", "bangumi" },
+            { "season_type", seasonType },
+            { "ep_id", episodeId ?? string.Empty },
+            { "try_look", "1" },
+            { "voice_balance", "1" },
+            { "gaia_source", "pre-load" },
+            { "web_location", "1315873" },
+        };
+
+    private async Task<PlayerInformation> RequestPgcPlayInformationAsync(string url, bool isV2, string? cid, string? episodeId, string seasonType, CancellationToken cancellationToken)
+    {
+        var parameters = CreatePgcPlayParameters(cid, episodeId, seasonType);
+        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedRID = true,
+            RequireCookie = true,
+        });
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (isV2)
+        {
+            var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.PgcPlayUrlResponse).ConfigureAwait(false);
+            return responseObj?.Content ?? throw new KernelException("解析PGC播放详情失败");
+        }
+
+        var legacyObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliResultResponsePlayerInformation).ConfigureAwait(false);
+        return legacyObj?.Result ?? throw new KernelException("解析PGC播放详情失败");
     }
 
     private async Task<PlayerProgress?> GetWebVideoProgressAsync(string aid, string cid, CancellationToken cancellationToken)

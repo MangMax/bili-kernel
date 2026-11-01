@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Bili.Authorization;
@@ -18,10 +18,12 @@ public sealed partial class BiliAuthenticator
     private const string AppSecret = "c2ed53a74eeefe3cf99fbd01d8c9c375";
     private const string WebKey = "aa1e74ee4874176e";
     private const string WebSecret = "54e6a9a31b911cd5fc0daa66ebf94bc4";
-    private const string BuildNumber = "80200100";
+    private const string BuildNumber = BiliClientIdentity.BuildNumber;
 
     private readonly IBiliCookiesResolver? _cookieResolver;
     private readonly IBiliTokenResolver? _tokenResolver;
+    private readonly BuvidManager? _buvidManager;
+    private readonly BiliHttpClient? _httpClient;
 
 #pragma warning disable IDE1006 // 命名样式
     private static readonly byte[] MIXIN_KEY_ENC_TAB =
@@ -92,15 +94,39 @@ public sealed partial class BiliAuthenticator
     private static string GenerateSign(Dictionary<string, string> parameters, BiliApiType device)
     {
         var secret = GetApiSecret(device);
-        var query = GenerateQuery(parameters);
+        // App 端签名使用未转义的键值串；POST 由 FormUrlEncodedContent 负责编码.
+        var query = string.Join("&", parameters.Select(p => $"{p.Key}={p.Value}").OrderBy(p => p, StringComparer.Ordinal));
         return (query + secret).Md5ComputeHash();
     }
 
     private static string GenerateQuery(Dictionary<string, string> parameters)
     {
-        var queryParameters = parameters.Select(p => $"{p.Key}={p.Value}").ToList();
-        queryParameters.Sort();
+        var queryParameters = parameters.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}").ToList();
+        queryParameters.Sort(StringComparer.Ordinal);
         return string.Join("&", queryParameters);
+    }
+
+    /// <summary>
+    /// 剔除 WBI 签名不允许的字符，服务端校验时会做同样的过滤.
+    /// </summary>
+    /// <param name="parameters">请求参数.</param>
+    private static void FilterWbiIllegalCharacters(Dictionary<string, string> parameters)
+    {
+        foreach (var key in parameters.Keys.ToList())
+        {
+            var value = parameters[key];
+            if (string.IsNullOrEmpty(value))
+            {
+                continue;
+            }
+
+            parameters[key] = value
+                .Replace("!", string.Empty)
+                .Replace("'", string.Empty)
+                .Replace("(", string.Empty)
+                .Replace(")", string.Empty)
+                .Replace("*", string.Empty);
+        }
     }
 
     private static long NowWithSeconds() => DateTimeOffset.Now.ToLocalTime().ToUnixTimeSeconds();

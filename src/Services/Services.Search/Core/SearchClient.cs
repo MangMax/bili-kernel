@@ -1,14 +1,16 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Interfaces.V1;
 using Bilibili.Polymer.App.Search.V1;
+using Richasy.BiliKernel.Adapters;
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Bili;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Media;
 using Richasy.BiliKernel.Models.Search;
+using Richasy.BiliKernel.Models.User;
 using RichasyKernel;
 using System.Text.Json;
 
@@ -34,12 +36,17 @@ internal sealed class SearchClient
             { "limit", count.ToString() },
         };
 
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Search.HotSearch));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false, ForceNoToken = true, NeedCSRF = true });
+        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Search.Square));
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, RequireToken = false, ForceNoToken = true });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseHotSearchResponse).ConfigureAwait(false);
-        return responseObj.Data.List.Select(p => p.ToHotSearchItem()).ToList().AsReadOnly()
-            ?? throw new KernelException("无法获取到有效的热搜榜单");
+        var list = responseObj?.Data?.Trending?.List ?? responseObj?.Data?.List;
+        if (list == null || list.Count == 0)
+        {
+            throw new KernelException("无法获取到有效的热搜榜单");
+        }
+
+        return list.Select(p => p.ToHotSearchItem()).ToList().AsReadOnly();
     }
 
     public async Task<IReadOnlyList<SearchRecommendItem>> GetSearchRecommendsAsync(CancellationToken cancellationToken)
@@ -66,7 +73,7 @@ internal sealed class SearchClient
         page ??= 1;
         var parameters = new Dictionary<string, string>
         {
-            { "keyword", Uri.EscapeDataString(keyword) },
+            { "keyword", keyword },
             { "search_type", "video" },
             { "order", orderType },
             { "page", page.ToString() },
@@ -145,8 +152,50 @@ internal sealed class SearchClient
         return (videos, Convert.ToInt32(responseObj.Total), hasNextPage);
     }
 
+    private async Task<(IReadOnlyList<VideoInformation>?, int, bool)> SearchWebHistoryVideosAsync(string keyword, int pageNumber, CancellationToken cancellationToken)
+    {
+        var parameters = new Dictionary<string, string>
+        {
+            { "keyword", keyword },
+            { "pn", pageNumber.ToString() },
+            { "ps", "20" },
+            { "business", "archive" },
+        };
+
+        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Account.WebHistorySearch));
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, RequireCookie = true, ForceNoToken = true });
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseHistorySearchResponse).ConfigureAwait(false);
+        var list = responseObj?.Data?.List ?? [];
+        if (list.Count == 0)
+        {
+            throw new KernelException("观看历史搜索结果为空");
+        }
+
+        var videos = list
+            .Select(p => new VideoInformation(
+                new MediaIdentifier(p.History?.Oid.ToString() ?? string.Empty, p.Title, string.IsNullOrEmpty(p.Cover) ? null : p.Cover.ToVideoCover()),
+                new PublisherProfile(new UserProfile(p.AuthorId.ToString(), p.AuthorName, null)),
+                p.Duration,
+                p.BvId))
+            .ToList()
+            .AsReadOnly();
+        var total = responseObj?.Data?.Page?.Total ?? videos.Count;
+        var hasNextPage = pageNumber * 20 < total;
+        return ((IReadOnlyList<VideoInformation>?)videos, total, hasNextPage);
+    }
+
     public async Task<(IReadOnlyList<VideoInformation>?, int, bool)> SearchHistoryVideosAsync(string keyword, int pageNumber, CancellationToken cancellationToken)
     {
+        try
+        {
+            return await SearchWebHistoryVideosAsync(keyword, pageNumber, cancellationToken).ConfigureAwait(false);
+        }
+        catch (KernelException)
+        {
+            // Web 端点异常时保留 gRPC 回退.
+        }
+
         var req = new SearchReq
         {
             Keyword = keyword,

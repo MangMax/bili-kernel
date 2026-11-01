@@ -20,7 +20,7 @@ public sealed class GrpcConfig
     /// <summary>
     /// 系统版本.
     /// </summary>
-    public const string OSVersion = "16.6";
+    public const string OSVersion = BiliClientIdentity.OSVersion;
 
     /// <summary>
     /// 厂商.
@@ -30,17 +30,17 @@ public sealed class GrpcConfig
     /// <summary>
     /// 手机系统.
     /// </summary>
-    public const string Model = "iPhone 14 Pro";
+    public const string Model = BiliClientIdentity.DeviceModel;
 
     /// <summary>
     /// 应用版本.
     /// </summary>
-    public const string AppVersion = "6.7.0";
+    public const string AppVersion = BiliClientIdentity.AppVersion;
 
     /// <summary>
     /// 构建标识.
     /// </summary>
-    public const int Build = 6070600;
+    public const int Build = BiliClientIdentity.Build;
 
     /// <summary>
     /// 频道.

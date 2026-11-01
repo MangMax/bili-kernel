@@ -121,13 +121,11 @@ internal sealed class VideoDiscoveryClient
             parameters.Add("ps", "30");
         }
 
-        var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false });
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         SubPartition data;
         if (!isDefaultOrder)
         {
-            var videoList = (await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseListPartitionVideo).ConfigureAwait(false)).Data;
+            // dynamic/region 已下线（返回 -404），排序列表改由 newlist 提供.
+            var videoList = await RequestPartitionArchivesCoreAsync(BiliApis.Partition.WebRegionNewList, parameters, cancellationToken).ConfigureAwait(false);
             data = new SubPartition
             {
                 NewVideos = videoList,
@@ -135,6 +133,9 @@ internal sealed class VideoDiscoveryClient
         }
         else
         {
+            var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(url));
+            _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false });
+            var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             data = (await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseSubPartition).ConfigureAwait(false)).Data;
         }
 
@@ -151,6 +152,16 @@ internal sealed class VideoDiscoveryClient
             : ((IReadOnlyList<VideoInformation> Videos, long Offset, int NextPageNumber))(videos.ToList().AsReadOnly(), offsetId, nextPageNumber);
     }
 
+    private async Task<List<PartitionVideo>> RequestPartitionArchivesCoreAsync(string url, Dictionary<string, string> parameters, CancellationToken cancellationToken)
+    {
+        var requestParameters = new Dictionary<string, string>(parameters, StringComparer.Ordinal);
+        var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(url));
+        _authenticator.AuthorizeRestRequest(request, requestParameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, RequireToken = false });
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponsePartitionArchiveResponse).ConfigureAwait(false);
+        return responseObj?.Data?.Archives ?? [];
+    }
+
     public async Task<IReadOnlyList<VideoInformation>> GetCuratedPlaylistAsync(CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>
@@ -163,8 +174,15 @@ internal sealed class VideoDiscoveryClient
             { "web_location", "bilibili-electron" },
         };
 
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(BiliApis.Home.CuratedPlaylist));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { NeedCSRF = true, RequireCookie = true, ForceNoToken = true });
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedRID = true,
+            RequireCookie = true,
+            ForceNoToken = true,
+        });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseCuratedPlaylistResponse).ConfigureAwait(false);
         return responseObj.Data is null || responseObj.Data.Items is null || responseObj.Data.Items.Count == 0

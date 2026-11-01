@@ -12,6 +12,21 @@ internal sealed class HotSearchResponse
 
     [JsonPropertyName("list")]
     public IList<WebHotSearchItem>? List { get; set; }
+
+    /// <summary>
+    /// 搜索广场数据.
+    /// </summary>
+    [JsonPropertyName("trending")]
+    public HotSearchTrending? Trending { get; set; }
+}
+
+internal sealed class HotSearchTrending
+{
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("list")]
+    public IList<WebHotSearchItem>? List { get; set; }
 }
 
 internal sealed class WebHotSearchItem

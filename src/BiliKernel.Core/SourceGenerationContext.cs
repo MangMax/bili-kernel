@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Content;
+using Richasy.BiliKernel.Http;
 using System.Text.Json.Serialization;
 using static Richasy.BiliKernel.Authenticator.BiliAuthenticator;
 
@@ -10,6 +11,8 @@ namespace Richasy.BiliKernel;
 [JsonSourceGenerationOptions(WriteIndented = true)]
 [JsonSerializable(typeof(WebNavResponse))]
 [JsonSerializable(typeof(BiliDataResponse<WebNavResponse>))]
+[JsonSerializable(typeof(BuvidResponse))]
+[JsonSerializable(typeof(BiliDataResponse<BuvidResponse>))]
 internal sealed partial class SourceGenerationContext : JsonSerializerContext
 {
 }

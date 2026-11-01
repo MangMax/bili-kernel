@@ -35,6 +35,7 @@ internal sealed class ViewLaterClient
             { "ps", "40" },
         };
 
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var responseObj = await GetAsync(BiliApis.Account.ViewLaterList, SourceGenerationContext.Default.BiliDataResponseViewLaterSetResponse, parameters, cancellationToken).ConfigureAwait(false);
         var videos = responseObj.Data?.List?.Select(p => p.ToVideoInformation()).ToList().AsReadOnly();
         return (videos, responseObj.Data.Count);
@@ -84,7 +85,12 @@ internal sealed class ViewLaterClient
     {
         await _authenticationService.EnsureTokenAsync(cancellationToken).ConfigureAwait(false);
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, paramters);
+        _authenticator.AuthorizeRestRequest(request, paramters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedRID = true,
+            RequireCookie = true,
+        });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         return await BiliHttpClient.ParseAsync<T>(response, converter).ConfigureAwait(false);
     }

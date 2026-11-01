@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Richasy.BiliKernel.Services.Media.Core.Models;
@@ -149,10 +150,10 @@ internal sealed class PgcDetailResponse
     public int Status { get; set; }
 
     /// <summary>
-    /// 索引筛选列表.
+    /// 样式列表.
     /// </summary>
     [JsonPropertyName("styles")]
-    public List<PgcIndex> IndexList { get; set; }
+    public List<string> Styles { get; set; }
 
     /// <summary>
     /// 副标题.
@@ -219,6 +220,18 @@ internal sealed class PgcDetailResponse
     /// </summary>
     [JsonPropertyName("dialog")]
     public PgcPlayerDialog Warning { get; set; }
+
+    /// <summary>
+    /// 剧集列表.
+    /// </summary>
+    [JsonPropertyName("episodes")]
+    public List<PgcEpisodeDetail> Episodes { get; set; }
+
+    /// <summary>
+    /// 关联季度列表.
+    /// </summary>
+    [JsonPropertyName("seasons")]
+    public List<PgcSeason> Seasons { get; set; }
 }
 
 /// <summary>
@@ -479,6 +492,7 @@ internal sealed class PgcUserStatus
 /// <summary>
 /// PGC内容制作人员信息.
 /// </summary>
+[JsonConverter(typeof(PgcStaffConverter))]
 internal sealed class PgcStaff
 {
     /// <summary>
@@ -492,6 +506,64 @@ internal sealed class PgcStaff
     /// </summary>
     [JsonPropertyName("title")]
     public string Title { get; set; }
+}
+
+/// <summary>
+/// 制作人员信息转换器，兼容字符串与 { info, title } 对象.
+/// </summary>
+internal sealed class PgcStaffConverter : JsonConverter<PgcStaff>
+{
+    /// <inheritdoc/>
+    public override PgcStaff? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            return new PgcStaff
+            {
+                Information = reader.GetString() ?? string.Empty,
+            };
+        }
+
+        var information = string.Empty;
+        var title = string.Empty;
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndObject)
+            {
+                break;
+            }
+
+            if (reader.TokenType != JsonTokenType.PropertyName)
+            {
+                continue;
+            }
+
+            var propertyName = reader.GetString();
+            _ = reader.Read();
+            if (string.Equals(propertyName, "info", StringComparison.OrdinalIgnoreCase) && reader.TokenType == JsonTokenType.String)
+            {
+                information = reader.GetString() ?? string.Empty;
+            }
+            else if (string.Equals(propertyName, "title", StringComparison.OrdinalIgnoreCase) && reader.TokenType == JsonTokenType.String)
+            {
+                title = reader.GetString() ?? string.Empty;
+            }
+            else if (reader.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray)
+            {
+                reader.Skip();
+            }
+        }
+
+        return new PgcStaff
+        {
+            Title = title,
+            Information = information,
+        };
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, PgcStaff value, JsonSerializerOptions options)
+        => throw new NotSupportedException();
 }
 
 /// <summary>

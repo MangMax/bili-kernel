@@ -3,10 +3,10 @@
 
 using Richasy.BiliKernel.Bili;
 using Richasy.BiliKernel.Bili.Authorization;
+using Richasy.BiliKernel.Http;
 using RichasyKernel;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace Richasy.BiliKernel.Authenticator;
 
@@ -20,10 +20,14 @@ public sealed partial class BiliAuthenticator
     /// </summary>
     public BiliAuthenticator(
         IBiliCookiesResolver? localCookiesResolver,
-        IBiliTokenResolver? localTokenResolver)
+        IBiliTokenResolver? localTokenResolver,
+        BuvidManager? buvidManager = null,
+        BiliHttpClient? httpClient = null)
     {
         _cookieResolver = localCookiesResolver;
         _tokenResolver = localTokenResolver;
+        _buvidManager = buvidManager;
+        _httpClient = httpClient;
     }
 
     /// <summary>
@@ -73,11 +77,7 @@ public sealed partial class BiliAuthenticator
 
         var accessToken = token?.AccessToken ?? string.Empty;
         var grpcConfig = new GrpcConfig(accessToken);
-        var userAgent = $"bili-universal/80200100 "
-            + $"os/ios model/{GrpcConfig.Model} mobi_app/iphone_i "
-            + $"osVer/{GrpcConfig.OSVersion} "
-            + $"network/{GrpcConfig.NetworkType} "
-            + $"grpc-objc/1.47.0 grpc-c/25.0.0 (ios; cronet_http)";
+        var userAgent = BiliClientIdentity.GrpcUserAgent;
 
         if (!string.IsNullOrEmpty(accessToken))
         {
@@ -99,7 +99,7 @@ public sealed partial class BiliAuthenticator
         request.Headers.Add("TE", "trailers");
         request.Headers.Add("x-bili-aurora-eid", GrpcConfig.GetAuroraEid(token?.UserId ?? 0));
         request.Headers.Add("x-bili-trace-id", GrpcConfig.GetTraceId());
-        request.Headers.Add("buvid", GetBuvid());
+        request.Headers.Add("buvid", _buvidManager?.Buvid3 ?? GetBuvid());
     }
 
     /// <summary>
@@ -142,6 +142,7 @@ public sealed partial class BiliAuthenticator
 
         if (executionSettings.NeedRID)
         {
+            FilterWbiIllegalCharacters(queryParameters);
             var rid = GenerateRID(queryParameters);
             queryParameters.Add("w_rid", rid);
         }
@@ -176,21 +177,37 @@ public sealed partial class BiliAuthenticator
             return;
         }
 
-        using var client = new HttpClient(new HttpClientHandler
-        {
-            UseCookies = true,
-        });
         var request = new HttpRequestMessage(HttpMethod.Get, BiliApis.Passport.WebNav);
-        if (_cookieResolver != null)
+        request.Headers.Add("User-Agent", BiliClientIdentity.WebUserAgent);
+        var cookieString = _cookieResolver?.GetCookieString();
+        if (!string.IsNullOrEmpty(cookieString))
         {
-            request.Headers.Add("Cookie", _cookieResolver.GetCookieString());
+            request.Headers.Add("Cookie", cookieString);
         }
 
-        var response = await client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        string responseText;
+        if (_httpClient != null)
+        {
+            responseText = await _httpClient.GetStringAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            using var client = new HttpClient(new HttpClientHandler
+            {
+                UseCookies = true,
+            });
+            var response = await client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        }
+
         var result = JsonSerializer.Deserialize(responseText, SourceGenerationContext.Default.BiliDataResponseWebNavResponse);
         var img = result?.Data?.Img?.ImgUrl ?? string.Empty;
         var sub = result?.Data?.Img?.SubUrl ?? string.Empty;
+        if (string.IsNullOrEmpty(img) || string.IsNullOrEmpty(sub))
+        {
+            return;
+        }
+
         _img = Path.GetFileNameWithoutExtension(img);
         _sub = Path.GetFileNameWithoutExtension(sub);
         _wbi = GenerateWbi(_img + _sub);
@@ -216,14 +233,9 @@ public sealed partial class BiliAuthenticator
             return string.Empty;
         }
 
-        var cookie = _cookieResolver.GetCookieString();
-        var csrfToken = string.Empty;
-        var match = Regex.Match(cookie, @"bili_jct=(.*?);");
-        if (match.Success)
-        {
-            csrfToken = match.Groups[1].Value;
-        }
-
-        return csrfToken;
+        var cookies = _cookieResolver.GetCookies();
+        return cookies != null && cookies.TryGetValue("bili_jct", out var token)
+            ? token
+            : string.Empty;
     }
 }

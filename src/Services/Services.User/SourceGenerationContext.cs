@@ -38,6 +38,12 @@ namespace Richasy.BiliKernel.Services.User;
 [JsonSerializable(typeof(MyInfo))]
 [JsonSerializable(typeof(Vip))]
 [JsonSerializable(typeof(PgcFavoriteListResponse))]
+[JsonSerializable(typeof(SpaceInfoResponse))]
+[JsonSerializable(typeof(BiliDataResponse<SpaceInfoResponse>))]
+[JsonSerializable(typeof(SpaceVideoResponse))]
+[JsonSerializable(typeof(BiliDataResponse<SpaceVideoResponse>))]
+[JsonSerializable(typeof(SpaceArticleResponse))]
+[JsonSerializable(typeof(BiliDataResponse<SpaceArticleResponse>))]
 [JsonSerializable(typeof(PgcArea))]
 [JsonSerializable(typeof(FavoritePgcItem))]
 [JsonSerializable(typeof(PgcProgress))]
@@ -95,6 +101,8 @@ namespace Richasy.BiliKernel.Services.User;
 [JsonSerializable(typeof(BiliDataResponse<bool>))]
 [JsonSerializable(typeof(BiliDataResponse<ViewLaterSetResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<UserCardDetailResponse>))]
+[JsonSerializable(typeof(WebHistoryResponse))]
+[JsonSerializable(typeof(BiliDataResponse<WebHistoryResponse>))]
 internal sealed partial class SourceGenerationContext : JsonSerializerContext
 {
 }

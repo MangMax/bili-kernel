@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Content;
@@ -77,6 +77,7 @@ namespace Richasy.BiliKernel;
 [JsonSerializable(typeof(PgcIndexFirstEpisode))]
 [JsonSerializable(typeof(PgcTimeLineResponse))]
 [JsonSerializable(typeof(PgcTimeLineItem))]
+[JsonSerializable(typeof(List<PgcTimeLineItem>))]
 [JsonSerializable(typeof(TimeLineEpisode))]
 [JsonSerializable(typeof(PlayerInformation))]
 [JsonSerializable(typeof(DashVideo))]
@@ -124,9 +125,14 @@ namespace Richasy.BiliKernel;
 [JsonSerializable(typeof(BiliDataResponse<PgcIndexConditionResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<PgcIndexResultResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<PlayerInformation>))]
+[JsonSerializable(typeof(PgcPlayUrlResponse))]
 [JsonSerializable(typeof(BiliDataResponse<LiveRoomDetailResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<LiveAppPlayResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<PgcDetailResponse>))]
+[JsonSerializable(typeof(PgcDetailEnvelope))]
+[JsonSerializable(typeof(PgcTimeLineEnvelope))]
+[JsonSerializable(typeof(PartitionArchiveResponse))]
+[JsonSerializable(typeof(BiliDataResponse<PartitionArchiveResponse>))]
 [JsonSerializable(typeof(BiliResultResponse<PlayerInformation>))]
 [JsonSerializable(typeof(BiliDataResponse<EpisodeInteractionResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<BuvidResponse>))]
