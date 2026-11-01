@@ -156,7 +156,10 @@ internal sealed class ArticleDiscoveryClient
     {
         var url = BiliApis.Article.ArticleContent + $"?id={article.Id}";
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
-        var html = await _httpClient.GetStringAsync(request, cancellationToken).ConfigureAwait(false);
+
+        // 阅读页可能对 403/认证等永久错误返回带空状态的页面。只在 HTTP 成功时
+        // 才把空状态视为可重取；HTTP 错误直接失败一次，不进入重取循环。
+        var html = await _httpClient.GetStringAsync(request, cancellationToken, ensureSuccess: true).ConfigureAwait(false);
         const string pattern = @"window\.__INITIAL_STATE__\s*=\s*(\{.*?\});";
         var match = Regex.Match(html, pattern, RegexOptions.Singleline);
         return match.Success ? match.Groups[1].Value : null;

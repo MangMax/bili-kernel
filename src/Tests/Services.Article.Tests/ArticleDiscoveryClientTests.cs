@@ -68,6 +68,63 @@ public sealed class ArticleDiscoveryClientTests
         Assert.Equal(1, handler.ViewRequests);
     }
 
+    [Theory]
+    [InlineData("{\"author\": {\"mid\": 42}, \"opus\": {\"content\": {\"paragraphs\": [{\"para_type\": 99}]}}}")]
+    [InlineData("{\"author\": {\"mid\": 42}, \"content\": \"<p></p>\"}")]
+    [InlineData("{\"author\": {\"mid\": 42}, \"content\": \"<p>fallback</p>\", \"opus\": {}}")]
+    public async Task UnrenderableBodyIsRefetched(string readInfo)
+    {
+        // 与 ToArticleDetail 的 opus 优先 + FormatHtmlContent 规则一致：
+        // 未知段落独占、格式化后为空的正文、opus 存在但为空时都应重取。
+        var handler = new ArticleHandler(["{\"readInfo\":" + readInfo + "}", CompleteState]);
+        using var client = CreateClient(handler, out var discovery);
+        var detail = await discovery.GetArticleContentAsync(Identifier, CancellationToken.None);
+        Assert.Equal("<p>synthetic body</p>", detail!.HtmlContent);
+        Assert.Equal(2, handler.ContentRequests);
+        Assert.Equal(1, handler.ViewRequests);
+    }
+
+    [Theory]
+    [InlineData("{\"author\": {\"mid\": 42}, \"opus\": {\"content\": {\"paragraphs\": [{\"para_type\": 2, \"pic\": {\"pics\": [{\"url\": \"https://example.invalid/image.png\", \"width\": 640, \"height\": 480}]}}]}}}", "https://example.invalid/image.png")]
+    [InlineData("{\"author\": {\"mid\": 42}, \"opus\": {\"content\": {\"paragraphs\": [{\"para_type\": 3, \"line\": {\"pic\": {\"url\": \"https://example.invalid/line.png\", \"height\": 20}}}]}}}", "https://example.invalid/line.png")]
+    [InlineData("{\"author\": {\"mid\": 42}, \"opus\": {\"content\": {\"paragraphs\": [{\"para_type\": 99}, {\"para_type\": 1, \"text\": {\"nodes\": [{\"node_type\": 1, \"word\": {\"words\": \"mixed body\"}}]}}]}}}", "mixed body")]
+    public async Task RenderableMediaAndMixedContentAreFetchedOnlyOnce(string readInfo, string expected)
+    {
+        // 合法图片、分割线与有效混合文本不能被可用性判断误拒而多余重取。
+        var handler = new ArticleHandler(["{\"readInfo\":" + readInfo + "}", CompleteState]);
+        using var client = CreateClient(handler, out var discovery);
+        var detail = await discovery.GetArticleContentAsync(Identifier, CancellationToken.None);
+        Assert.Contains(expected, detail!.HtmlContent, StringComparison.Ordinal);
+        Assert.Equal(1, handler.ContentRequests);
+        Assert.Equal(1, handler.ViewRequests);
+    }
+
+    [Fact]
+    public async Task CancellationDuringDelayPreventsMoreRequests()
+    {
+        // 调用方取消后，重取间隔与元数据请求都不应继续。
+        var handler = new ArticleHandler([EmptyState, CompleteState]);
+        using var client = CreateClient(handler, out var discovery);
+        using var cts = new CancellationTokenSource();
+        var task = discovery.GetArticleContentAsync(Identifier, cts.Token);
+        Assert.True(SpinWait.SpinUntil(() => handler.ContentRequests == 1, TimeSpan.FromSeconds(5)));
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        Assert.Equal(1, handler.ContentRequests);
+        Assert.Equal(0, handler.ViewRequests);
+    }
+
+    [Fact]
+    public async Task HttpForbiddenWithEmptyStateMustNotRetry()
+    {
+        // 403/认证等永久 HTTP 错误即使带空状态也只失败一次，不进入重取。
+        var handler = new ArticleHandler([EmptyState]) { Status = HttpStatusCode.Forbidden };
+        using var client = CreateClient(handler, out var discovery);
+        await Assert.ThrowsAnyAsync<Exception>(() => discovery.GetArticleContentAsync(Identifier, CancellationToken.None));
+        Assert.Equal(1, handler.ContentRequests);
+        Assert.Equal(0, handler.ViewRequests);
+    }
+
     private static BiliHttpClient CreateClient(ArticleHandler handler, out ArticleDiscoveryClient discovery)
     {
         var client = new BiliHttpClient(handler);
@@ -141,6 +198,8 @@ public sealed class ArticleDiscoveryClientTests
     {
         private readonly Queue<string> _contentStates = new(contentStates);
 
+        public HttpStatusCode Status { get; init; } = HttpStatusCode.OK;
+
         public int ContentRequests { get; private set; }
 
         public int ViewRequests { get; private set; }
@@ -152,7 +211,9 @@ public sealed class ArticleDiscoveryClientTests
             {
                 ContentRequests++;
                 var state = _contentStates.Count > 0 ? _contentStates.Dequeue() : EmptyState;
-                return Task.FromResult(Html($"<html><script>window.__INITIAL_STATE__ = {state};</script></html>"));
+                var response = Html($"<html><script>window.__INITIAL_STATE__ = {state};</script></html>");
+                response.StatusCode = Status;
+                return Task.FromResult(response);
             }
 
             if (path.Contains("article/viewinfo", StringComparison.Ordinal))

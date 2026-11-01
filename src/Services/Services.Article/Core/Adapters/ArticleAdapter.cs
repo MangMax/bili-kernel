@@ -42,18 +42,23 @@ internal static class ArticleAdapter
     /// <remarks>
     /// 阅读页偶尔会返回结构完整但 <c>readInfo</c> 为空、或缺少作者与正文的状态。
     /// 这类响应不能直接当作最终结果，否则同一篇文章会在重试后本可成功时被判为失败。
+    /// 这里复用最终映射的正文生成与格式化规则，避免重试判断与
+    /// <see cref="ToArticleDetail"/> 对“正文是否可显示”得出不同结论。
     /// </remarks>
     internal static bool HasUsableContent(ArticleContentResponse? response)
     {
         var readInfo = response?.readInfo;
-        if (readInfo?.author is null)
-        {
-            return false;
-        }
+        return readInfo?.author is not null
+            && !string.IsNullOrWhiteSpace(GetRenderableContent(readInfo));
+    }
 
-        // 只做存在性判断，避免为重试检查重复生成整篇正文 HTML。
-        return readInfo.opus?.content?.paragraphs is { Count: > 0 }
-            || !string.IsNullOrWhiteSpace(readInfo.content);
+    /// <summary>
+    /// 按最终展示规则生成正文 HTML：存在 opus 时忽略旧 content，再统一格式化.
+    /// </summary>
+    private static string GetRenderableContent(Readinfo readInfo)
+    {
+        var rawContent = readInfo.opus is null ? readInfo.content : BuildHtmlContent(readInfo.opus);
+        return FormatHtmlContent(rawContent);
     }
 
     public static ArticleDetail ToArticleDetail(this ArticleContentResponse response, ArticleIdentifier identifier, ArticleViewResponse view)
@@ -71,8 +76,7 @@ internal static class ArticleAdapter
         var isFav = view?.favorite ?? false;
         var relation = view?.attention == true ? UserRelationStatus.Following : UserRelationStatus.Unfollow;
         var userCard = new UserCard(detailProfile, new UserCommunityInformation(author.mid.ToString(), fansCount: author.fans, relation: relation));
-        var rawContent = readInfo.opus is null ? readInfo.content : BuildHtmlContent(readInfo.opus);
-        var content = FormatHtmlContent(rawContent);
+        var content = GetRenderableContent(readInfo);
         if (string.IsNullOrWhiteSpace(content))
         {
             // 正文为空或只有不受支持的节点时不能当作成功返回，否则阅读器会显示空白文章.
