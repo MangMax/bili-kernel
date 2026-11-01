@@ -107,11 +107,19 @@ public sealed partial class BiliHttpClient : IDisposable
     /// </summary>
     /// <param name="request">请求.</param>
     /// <param name="cancellationToken">终止令牌.</param>
+    public Task<string> GetStringAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
+        => GetStringAsync(request, cancellationToken, ensureSuccess: false);
+
+    /// <summary>
+    /// 直接获取字符串，可在读取前验证 HTTP 状态.
+    /// </summary>
+    /// <param name="request">请求.</param>
+    /// <param name="cancellationToken">终止令牌.</param>
     /// <param name="ensureSuccess">是否在读取正文前拒绝非成功状态.</param>
-    public async Task<string> GetStringAsync(HttpRequestMessage request, CancellationToken cancellationToken = default, bool ensureSuccess = false)
+    public async Task<string> GetStringAsync(HttpRequestMessage request, CancellationToken cancellationToken, bool ensureSuccess)
     {
         Verify.NotNull(request, nameof(request));
-        var response = await _client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        using var response = await _client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (ensureSuccess)
         {
             response.EnsureSuccessStatusCode();
