@@ -22,11 +22,13 @@ public sealed partial class BiliAuthenticator
     public BiliAuthenticator(
         IBiliCookiesResolver? localCookiesResolver,
         IBiliTokenResolver? localTokenResolver,
-        BuvidManager? buvidManager = null)
+        BuvidManager? buvidManager = null,
+        BiliHttpClient? httpClient = null)
     {
         _cookieResolver = localCookiesResolver;
         _tokenResolver = localTokenResolver;
         _buvidManager = buvidManager;
+        _httpClient = httpClient;
     }
 
     /// <summary>
@@ -141,6 +143,7 @@ public sealed partial class BiliAuthenticator
 
         if (executionSettings.NeedRID)
         {
+            FilterWbiIllegalCharacters(queryParameters);
             var rid = GenerateRID(queryParameters);
             queryParameters.Add("w_rid", rid);
         }
@@ -175,21 +178,37 @@ public sealed partial class BiliAuthenticator
             return;
         }
 
-        using var client = new HttpClient(new HttpClientHandler
-        {
-            UseCookies = true,
-        });
         var request = new HttpRequestMessage(HttpMethod.Get, BiliApis.Passport.WebNav);
-        if (_cookieResolver != null)
+        request.Headers.Add("User-Agent", BiliClientIdentity.WebUserAgent);
+        var cookieString = _cookieResolver?.GetCookieString();
+        if (!string.IsNullOrEmpty(cookieString))
         {
-            request.Headers.Add("Cookie", _cookieResolver.GetCookieString());
+            request.Headers.Add("Cookie", cookieString);
         }
 
-        var response = await client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        string responseText;
+        if (_httpClient != null)
+        {
+            responseText = await _httpClient.GetStringAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            using var client = new HttpClient(new HttpClientHandler
+            {
+                UseCookies = true,
+            });
+            var response = await client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        }
+
         var result = JsonSerializer.Deserialize(responseText, SourceGenerationContext.Default.BiliDataResponseWebNavResponse);
         var img = result?.Data?.Img?.ImgUrl ?? string.Empty;
         var sub = result?.Data?.Img?.SubUrl ?? string.Empty;
+        if (string.IsNullOrEmpty(img) || string.IsNullOrEmpty(sub))
+        {
+            return;
+        }
+
         _img = Path.GetFileNameWithoutExtension(img);
         _sub = Path.GetFileNameWithoutExtension(sub);
         _wbi = GenerateWbi(_img + _sub);

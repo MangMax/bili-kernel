@@ -23,6 +23,7 @@ public sealed partial class BiliAuthenticator
     private readonly IBiliCookiesResolver? _cookieResolver;
     private readonly IBiliTokenResolver? _tokenResolver;
     private readonly BuvidManager? _buvidManager;
+    private readonly BiliHttpClient? _httpClient;
 
 #pragma warning disable IDE1006 // 命名样式
     private static readonly byte[] MIXIN_KEY_ENC_TAB =
@@ -99,9 +100,32 @@ public sealed partial class BiliAuthenticator
 
     private static string GenerateQuery(Dictionary<string, string> parameters)
     {
-        var queryParameters = parameters.Select(p => $"{p.Key}={p.Value}").ToList();
-        queryParameters.Sort();
+        var queryParameters = parameters.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}").ToList();
+        queryParameters.Sort(StringComparer.Ordinal);
         return string.Join("&", queryParameters);
+    }
+
+    /// <summary>
+    /// 剔除 WBI 签名不允许的字符，服务端校验时会做同样的过滤.
+    /// </summary>
+    /// <param name="parameters">请求参数.</param>
+    private static void FilterWbiIllegalCharacters(Dictionary<string, string> parameters)
+    {
+        foreach (var key in parameters.Keys.ToList())
+        {
+            var value = parameters[key];
+            if (string.IsNullOrEmpty(value))
+            {
+                continue;
+            }
+
+            parameters[key] = value
+                .Replace("!", string.Empty)
+                .Replace("'", string.Empty)
+                .Replace("(", string.Empty)
+                .Replace(")", string.Empty)
+                .Replace("*", string.Empty);
+        }
     }
 
     private static long NowWithSeconds() => DateTimeOffset.Now.ToLocalTime().ToUnixTimeSeconds();
