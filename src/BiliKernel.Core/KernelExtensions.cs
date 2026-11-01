@@ -1,7 +1,8 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Http;
 using RichasyKernel;
@@ -20,7 +21,8 @@ public static class KernelExtensions
     /// <returns></returns>
     public static IKernelBuilder AddBiliClient(this IKernelBuilder builder)
     {
-        builder.Services.AddSingleton<BiliHttpClient>();
+        builder.Services.TryAddSingleton<BuvidManager>();
+        builder.Services.AddSingleton(provider => new BiliHttpClient(null, provider.GetService<BuvidManager>()));
         return builder;
     }
 
@@ -31,6 +33,7 @@ public static class KernelExtensions
     /// <returns><see cref="IKernelBuilder"/>.</returns>
     public static IKernelBuilder AddBiliAuthenticator(this IKernelBuilder builder)
     {
+        builder.Services.TryAddSingleton<BuvidManager>();
         builder.Services.AddSingleton<BiliAuthenticator>();
         return builder;
     }

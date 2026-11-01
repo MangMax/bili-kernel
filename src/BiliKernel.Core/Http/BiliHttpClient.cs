@@ -1,8 +1,9 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Google.Protobuf;
 using RichasyKernel;
+using System.Net.Http.Headers;
 using System.Security.Authentication;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -14,19 +15,44 @@ namespace Richasy.BiliKernel.Http;
 /// </summary>
 public sealed partial class BiliHttpClient : IDisposable
 {
+    private const string GrpcContentType = "application/grpc";
+
+    private readonly BuvidManager? _buvidManager;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="BiliHttpClient"/> class.
     /// </summary>
     public BiliHttpClient()
+        : this(null, null)
     {
-        _client = new HttpClient(new HttpClientHandler
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BiliHttpClient"/> class.
+    /// </summary>
+    /// <param name="messageHandler">消息处理器，未提供时使用真实网络。</param>
+    public BiliHttpClient(HttpMessageHandler? messageHandler)
+        : this(messageHandler, null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BiliHttpClient"/> class.
+    /// </summary>
+    /// <param name="messageHandler">消息处理器，未提供时使用真实网络。</param>
+    /// <param name="buvidManager">设备标识管理器。</param>
+    public BiliHttpClient(HttpMessageHandler? messageHandler, BuvidManager? buvidManager)
+    {
+        _buvidManager = buvidManager;
+        var handler = messageHandler ?? new HttpClientHandler
         {
             AllowAutoRedirect = true,
             UseCookies = true,
             SslProtocols = SslProtocols.None,
             ServerCertificateCustomValidationCallback = (_, _, _, _) => true
-        }, disposeHandler: true);
-        _client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69");
+        };
+        _client = new HttpClient(handler, disposeHandler: messageHandler == null);
+        _client.DefaultRequestHeaders.Add("User-Agent", BiliClientIdentity.WebUserAgent);
         _client.Timeout = TimeSpan.FromSeconds(30);
     }
 
@@ -52,7 +78,7 @@ public sealed partial class BiliHttpClient : IDisposable
         var stateBytes = new byte[] { 0x00, 0x00, 0x00, 0x00, Convert.ToByte(messageBytes.Length) };
         var bytes = stateBytes.Concat(messageBytes).ToArray();
         var byteArrayContent = new ByteArrayContent(bytes);
-        byteArrayContent.Headers.ContentType = new("application/grpc");
+        byteArrayContent.Headers.ContentType = new MediaTypeHeaderValue(GrpcContentType);
         byteArrayContent.Headers.ContentLength = bytes.Length;
         request.Content = byteArrayContent;
         return request;
@@ -65,13 +91,12 @@ public sealed partial class BiliHttpClient : IDisposable
     /// <param name="cancellationToken">终止令牌.</param>
     /// <returns>响应结果.</returns>
     /// <exception cref="KernelException"></exception>
-    /// <exception cref="KernelException"></exception>
     public async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
     {
         Verify.NotNull(request, nameof(request));
         try
         {
-            var response = await _client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
             await ThrowIfResponseInvalidAsync(response).ConfigureAwait(false);
             return response;
         }
@@ -95,7 +120,7 @@ public sealed partial class BiliHttpClient : IDisposable
     public async Task<string> GetStringAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
     {
         Verify.NotNull(request, nameof(request));
-        var response = await _client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
         return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 
@@ -132,4 +157,18 @@ public sealed partial class BiliHttpClient : IDisposable
     /// <inheritdoc/>
     public void Dispose()
         => _client?.Dispose();
+
+    private static bool IsGrpcRequest(HttpRequestMessage request)
+        => string.Equals(request.Content?.Headers.ContentType?.MediaType, GrpcContentType, StringComparison.OrdinalIgnoreCase);
+
+    private async Task<HttpResponseMessage> SendCoreAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (_buvidManager != null && !IsGrpcRequest(request))
+        {
+            await _buvidManager.EnsureAsync(cancellationToken).ConfigureAwait(false);
+            _buvidManager.ApplyToRequest(request);
+        }
+
+        return await _client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
 }
