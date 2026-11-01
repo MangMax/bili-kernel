@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Interfaces.V1;
@@ -66,7 +66,7 @@ internal sealed class SearchClient
         page ??= 1;
         var parameters = new Dictionary<string, string>
         {
-            { "keyword", Uri.EscapeDataString(keyword) },
+            { "keyword", keyword },
             { "search_type", "video" },
             { "order", orderType },
             { "page", page.ToString() },

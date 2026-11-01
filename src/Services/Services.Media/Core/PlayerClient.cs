@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Playeronline.V1;
@@ -382,7 +382,7 @@ internal sealed class PlayerClient
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Live.EnterRoom));
         _authenticator.AuthorizeRestRequest(request, parameters);
         await _httpClient.SendAsync(request).ConfigureAwait(false);
-        var liveDanmakuInfo = await GetLiveDanmakuInfoAsync(roomId).ConfigureAwait(false);
+        var liveDanmakuInfo = await GetLiveDanmakuInfoAsync(roomId, cancellationToken).ConfigureAwait(false);
         var socket = CreateLiveSocket();
         var host = liveDanmakuInfo.HostList.FirstOrDefault()?.Host;
         if (string.IsNullOrEmpty(host))
@@ -687,16 +687,24 @@ internal sealed class PlayerClient
         return responseObj.Data.B3;
     }
 
-    private async Task<LiveDanmakuResponse> GetLiveDanmakuInfoAsync(string roomId)
+    private async Task<LiveDanmakuResponse> GetLiveDanmakuInfoAsync(string roomId, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var queryParameters = new Dictionary<string, string>
         {
             { "id", roomId },
+            { "type", "0" },
+            { "web_location", "444.8" },
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.WebDanmakuInformation));
-        _authenticator.AuthorizeRestRequest(request, queryParameters, new BiliAuthorizeExecutionSettings { RequireCookie = true });
-        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+        _authenticator.AuthorizeRestRequest(request, queryParameters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedRID = true,
+            RequireCookie = true,
+        });
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var danmakuRes = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveDanmakuResponse).ConfigureAwait(false);
         return danmakuRes.Data;
     }
