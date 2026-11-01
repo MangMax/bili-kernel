@@ -16,6 +16,10 @@ namespace Richasy.BiliKernel.Tests;
 /// </summary>
 public sealed class EndpointMigrationTests
 {
+    private const string SeasonResponse = @"{""code"":0,""result"":{""season_id"":332584,""title"":""t"",""cover"":""https://i0.hdslb.com/a.jpg"",""staff"":""导演：甲\n主演：乙"",""publish"":{""is_finish"":0,""is_started"":1,""pub_time"":""2026-10-23 10:00:00"",""pub_time_show"":""10-23"",""time_length_show"":""更新至第9话""},""stat"":{""coins"":1,""danmakus"":2,""favorite"":3,""favorites"":4,""likes"":5,""reply"":6,""share"":7,""views"":8},""user_status"":{""follow"":0,""pay"":0,""vip"":0},""episodes"":[{""id"":7065889,""aid"":117466902760398,""cid"":123,""bvid"":""BV1xx411c7mD"",""title"":""1"",""long_title"":""第1话"",""share_copy"":""t"",""cover"":""https://i0.hdslb.com/b.jpg"",""duration"":1000,""pub_time"":1793239200,""badge"":"""",""stat"":{""coin"":1,""danmakus"":2,""likes"":3,""reply"":4,""views"":5,""favorite"":6},""report"":{""epid"":""7065889"",""season_id"":""332584"",""season_type"":""1"",""aid"":""117466902760398""}}]}}";
+
+    private const string TimelineResponse = @"{""code"":0,""result"":[{""date"":""10-29"",""date_ts"":1793203200,""day_of_week"":4,""is_today"":0,""episodes"":[{""season_id"":332584,""episode_id"":7065889,""title"":""t"",""cover"":""https://i0.hdslb.com/a.jpg"",""pub_index"":""第9话"",""pub_time"":""10:00"",""pub_ts"":1793239200,""published"":1}]}]}";
+
     [Fact]
     public async Task SeasonDetailUsesWebEndpoint()
     {
@@ -33,7 +37,7 @@ public sealed class EndpointMigrationTests
     public async Task SeasonDetailAcceptsWebStringStaff()
     {
         var handler = CreateHandler();
-        handler.With("/pgc/view/web/season", @"{""code"":0,""result"":{""season_id"":332584,""title"":""t"",""cover"":""https://i0.hdslb.com/a.jpg"",""staff"":""导演：甲\n主演：乙"",""publish"":{""is_finish"":0,""is_started"":1,""pub_time"":""2026-10-23 10:00:00"",""pub_time_show"":""10-23"",""time_length_show"":""更新至第9话""},""stat"":{""coins"":1,""danmakus"":2,""favorite"":3,""favorites"":4,""likes"":5,""reply"":6,""share"":7,""views"":8},""user_status"":{""follow"":0,""pay"":0,""vip"":0},""episodes"":[{""id"":7065889,""aid"":117466902760398,""cid"":123,""bvid"":""BV1xx411c7mD"",""title"":""1"",""long_title"":""第1话"",""share_copy"":""t"",""cover"":""https://i0.hdslb.com/b.jpg"",""duration"":1000,""pub_time"":1793239200,""badge"":"""",""stat"":{""coin"":1,""danmakus"":2,""likes"":3,""reply"":4,""views"":5,""favorite"":6},""report"":{""epid"":""7065889"",""season_id"":""332584"",""season_type"":""1"",""aid"":""117466902760398""}}]}}");
+        handler.With("/pgc/view/web/season", SeasonResponse);
         var service = CreatePlayerService(handler);
 
         var view = await service.GetPgcPageDetailAsync("332584", null, CancellationToken.None);
@@ -60,7 +64,7 @@ public sealed class EndpointMigrationTests
     public async Task AnimeTimelineParsesWebArrayResponse()
     {
         var handler = CreateHandler();
-        handler.With("/pgc/web/timeline", @"{""code"":0,""result"":[{""date"":""10-29"",""date_ts"":1793203200,""day_of_week"":4,""is_today"":0,""episodes"":[{""season_id"":332584,""episode_id"":7065889,""title"":""t"",""cover"":""https://i0.hdslb.com/a.jpg"",""pub_index"":""第9话"",""pub_time"":""10:00"",""pub_ts"":1793239200,""published"":1}]}]}");
+        handler.With("/pgc/web/timeline", TimelineResponse);
         var service = CreateEntertainmentService(handler);
 
         var (_, _, timeline) = await service.GetBangumiTimelineAsync(CancellationToken.None);

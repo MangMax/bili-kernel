@@ -47,9 +47,9 @@ internal static class PgcAdapter
         return info;
     }
 
-    public static EpisodeInformation ToEpisodeInformation(this PgcEpisodeDetail episode, PgcDetailResponse season = null)
+    public static EpisodeInformation ToEpisodeInformation(this PgcEpisodeDetail episode, PgcDetailResponse season)
     {
-        // Web 端点不返回 report/stat/season_id，需要回退到扁平字段.
+        // Web 端点不返回 report/stat/season_id.
         var epid = episode.Report?.EpisodeId ?? episode.Id.ToString(CultureInfo.InvariantCulture);
         var title = string.IsNullOrEmpty(episode.LongTitle)
             ? episode.ShareTitle
@@ -57,7 +57,7 @@ internal static class PgcAdapter
         var subtitle = episode.Subtitle;
         var duration = episode.Duration / 1000;
         var cover = episode.Cover.ToVideoCover();
-        var seasonId = episode.Report?.SeasonId ?? season?.SeasonId.ToString(CultureInfo.InvariantCulture);
+        var seasonId = episode.Report?.SeasonId ?? season.SeasonId.ToString(CultureInfo.InvariantCulture);
         var aid = episode.Aid;
         var cid = episode.PartId;
         var index = episode.Index;
@@ -179,7 +179,7 @@ internal static class PgcAdapter
             if (episodeModule != null)
             {
                 episodes = episodeModule.Data.Episodes
-                    .Select(p => p.ToEpisodeInformation())
+                    .Select(p => p.ToEpisodeInformation(display))
                     .ToList();
             }
 
@@ -198,7 +198,7 @@ internal static class PgcAdapter
 
                     if (section.Data?.Episodes?.Count > 0)
                     {
-                        extras.Add(title, section.Data.Episodes.Select(p => p.ToEpisodeInformation()).ToList());
+                        extras.Add(title, section.Data.Episodes.Select(p => p.ToEpisodeInformation(display)).ToList());
                     }
                 }
             }

@@ -39,13 +39,12 @@ internal sealed class PgcClient
         }
         catch (Exception ex) when (ex is KernelException or JsonException)
         {
-            // Web 版时间线结构变化时按回退处理.
             content = null;
         }
 
         if (content?.Data is null || content.Data.Count == 0)
         {
-            // Web 版时间线拿不到数据时回退旧版路径.
+            // 拿不到数据时回退旧版路径.
             var legacyResponse = await RequestTimelineAsync(BiliApis.Pgc.TimeLineLegacy, isBangumi, false, cancellationToken).ConfigureAwait(false);
             content = legacyResponse?.Content;
         }
@@ -62,7 +61,6 @@ internal sealed class PgcClient
             throw new KernelException($"{name}时间线数据为空");
         }
 
-        // Web 版时间线没有标题字段，返回空串避免调用方拿到 null.
         return (content.Title ?? string.Empty, content.Subtitle ?? string.Empty, timelineItems);
     }
 

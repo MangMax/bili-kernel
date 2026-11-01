@@ -68,14 +68,10 @@ public sealed class SpaceTests
 
     private static void AssertAntiCrawlParameters(RecordedRequest request)
     {
-        Assert.True(request.Query.TryGetValue("dm_img_list", out var imageList));
-        Assert.Equal("[]", imageList);
-        Assert.True(request.Query.TryGetValue("dm_img_str", out var imageString));
-        Assert.False(string.IsNullOrEmpty(imageString));
-        Assert.True(request.Query.TryGetValue("dm_cover_img_str", out var coverString));
-        Assert.False(string.IsNullOrEmpty(coverString));
-        Assert.True(request.Query.TryGetValue("dm_img_inter", out var interaction));
-        Assert.False(string.IsNullOrEmpty(interaction));
+        Assert.Equal("[]", request.Query["dm_img_list"]);
+        Assert.False(string.IsNullOrEmpty(request.Query["dm_img_str"]));
+        Assert.False(string.IsNullOrEmpty(request.Query["dm_cover_img_str"]));
+        Assert.False(string.IsNullOrEmpty(request.Query["dm_img_inter"]));
     }
 
     private static void AssertSpaceHeaders(RecordedRequest request, string refererPath)

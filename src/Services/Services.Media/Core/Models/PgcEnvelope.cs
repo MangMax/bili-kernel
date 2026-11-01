@@ -56,19 +56,12 @@ internal sealed class PgcTimeLineEnvelope : BiliResponse
         {
             if (Result is { } result && result.ValueKind != JsonValueKind.Null)
             {
-                if (result.ValueKind == JsonValueKind.Array)
-                {
-                    return new PgcTimeLineResponse
+                return result.ValueKind == JsonValueKind.Array
+                    ? new PgcTimeLineResponse
                     {
                         Data = result.Deserialize(SourceGenerationContext.Default.ListPgcTimeLineItem),
-                    };
-                }
-
-                var response = result.Deserialize(SourceGenerationContext.Default.PgcTimeLineResponse);
-                if (response != null)
-                {
-                    return response;
-                }
+                    }
+                    : result.Deserialize(SourceGenerationContext.Default.PgcTimeLineResponse);
             }
 
             return Data;

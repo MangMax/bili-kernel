@@ -150,7 +150,7 @@ internal sealed class PgcDetailResponse
     public int Status { get; set; }
 
     /// <summary>
-    /// 样式（现行 Web 端点为字符串数组）.
+    /// 样式列表.
     /// </summary>
     [JsonPropertyName("styles")]
     public List<string> Styles { get; set; }
@@ -222,13 +222,13 @@ internal sealed class PgcDetailResponse
     public PgcPlayerDialog Warning { get; set; }
 
     /// <summary>
-    /// 剧集列表（现行 Web 端点直接返回，旧版 App 端点放在 modules 中）.
+    /// 剧集列表.
     /// </summary>
     [JsonPropertyName("episodes")]
     public List<PgcEpisodeDetail> Episodes { get; set; }
 
     /// <summary>
-    /// 关联季度列表（现行 Web 端点直接返回，旧版 App 端点放在 modules 中）.
+    /// 关联季度列表.
     /// </summary>
     [JsonPropertyName("seasons")]
     public List<PgcSeason> Seasons { get; set; }
@@ -509,7 +509,7 @@ internal sealed class PgcStaff
 }
 
 /// <summary>
-/// 制作人员信息转换器。旧版 App 端点是 { info, title } 对象，现行 Web 端点直接给一个字符串.
+/// 制作人员信息转换器，兼容字符串与 { info, title } 对象.
 /// </summary>
 internal sealed class PgcStaffConverter : JsonConverter<PgcStaff>
 {
@@ -520,7 +520,6 @@ internal sealed class PgcStaffConverter : JsonConverter<PgcStaff>
         {
             return new PgcStaff
             {
-                Title = "制作人员",
                 Information = reader.GetString() ?? string.Empty,
             };
         }

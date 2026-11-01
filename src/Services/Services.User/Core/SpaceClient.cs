@@ -23,9 +23,7 @@ internal sealed class SpaceClient
 {
     private const string PageSize = "30";
 
-    /// <summary>
-    /// 空间 Web 端点要求携带的浏览器指纹参数，缺失时服务端返回 -352 风控校验失败.
-    /// </summary>
+    // 空间 Web 端点要求的浏览器指纹参数，缺失时服务端返回 -352.
     private static readonly Dictionary<string, string> _antiCrawlParameters = new(StringComparer.Ordinal)
     {
         { "dm_img_list", "[]" },
