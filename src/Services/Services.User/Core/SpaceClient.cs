@@ -52,7 +52,7 @@ internal sealed class SpaceClient
             { "web_location", "1550101" },
         };
 
-        var request = CreateWbiRequest(BiliApis.Account.SpaceInfo, parameters);
+        var request = CreateWbiRequest(BiliApis.Account.SpaceInfo, parameters, $"https://space.bilibili.com/{userId}");
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseSpaceInfoResponse).ConfigureAwait(false);
         var data = responseObj?.Data ?? throw new KernelException("解析用户空间信息失败");
@@ -74,7 +74,7 @@ internal sealed class SpaceClient
             { "web_location", "1550101" },
         };
 
-        var request = CreateWbiRequest(BiliApis.Account.SpaceVideos, parameters);
+        var request = CreateWbiRequest(BiliApis.Account.SpaceVideos, parameters, $"https://space.bilibili.com/{userId}/video");
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseSpaceVideoResponse).ConfigureAwait(false);
         var data = responseObj?.Data ?? throw new KernelException("解析用户投稿列表失败");
@@ -98,7 +98,7 @@ internal sealed class SpaceClient
             { "web_location", "1550101" },
         };
 
-        var request = CreateWbiRequest(BiliApis.Account.SpaceArticles, parameters);
+        var request = CreateWbiRequest(BiliApis.Account.SpaceArticles, parameters, $"https://space.bilibili.com/{userId}/article");
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseSpaceArticleResponse).ConfigureAwait(false);
         var data = responseObj?.Data ?? throw new KernelException("解析用户专栏列表失败");
@@ -132,9 +132,13 @@ internal sealed class SpaceClient
         return new ArticleInformation(identifier, publishDateTime: publishTime);
     }
 
-    private HttpRequestMessage CreateWbiRequest(string url, Dictionary<string, string> parameters)
+    private HttpRequestMessage CreateWbiRequest(string url, Dictionary<string, string> parameters, string referer)
     {
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
+
+        // 空间端点会校验来源页，缺失 Referer 时 Web 端返回 -352、WAF 直接返回 412.
+        request.Headers.TryAddWithoutValidation("Referer", referer);
+        request.Headers.TryAddWithoutValidation("Origin", "https://space.bilibili.com");
         _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
         {
             ApiType = BiliApiType.Web,
