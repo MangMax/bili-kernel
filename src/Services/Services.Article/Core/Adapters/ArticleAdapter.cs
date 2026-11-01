@@ -36,6 +36,26 @@ internal static class ArticleAdapter
         return info;
     }
 
+    /// <summary>
+    /// 判断阅读页返回的内容状态是否足以映射成文章.
+    /// </summary>
+    /// <remarks>
+    /// 阅读页偶尔会返回结构完整但 <c>readInfo</c> 为空、或缺少作者与正文的状态。
+    /// 这类响应不能直接当作最终结果，否则同一篇文章会在重试后本可成功时被判为失败。
+    /// </remarks>
+    internal static bool HasUsableContent(ArticleContentResponse? response)
+    {
+        var readInfo = response?.readInfo;
+        if (readInfo?.author is null)
+        {
+            return false;
+        }
+
+        // 只做存在性判断，避免为重试检查重复生成整篇正文 HTML。
+        return readInfo.opus?.content?.paragraphs is { Count: > 0 }
+            || !string.IsNullOrWhiteSpace(readInfo.content);
+    }
+
     public static ArticleDetail ToArticleDetail(this ArticleContentResponse response, ArticleIdentifier identifier, ArticleViewResponse view)
     {
         var readInfo = response?.readInfo ?? throw new KernelException("文章内容数据为空，无法解析该文章.");
