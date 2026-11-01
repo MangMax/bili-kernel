@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Bili.Authorization;
@@ -18,10 +18,11 @@ public sealed partial class BiliAuthenticator
     private const string AppSecret = "c2ed53a74eeefe3cf99fbd01d8c9c375";
     private const string WebKey = "aa1e74ee4874176e";
     private const string WebSecret = "54e6a9a31b911cd5fc0daa66ebf94bc4";
-    private const string BuildNumber = "80200100";
+    private const string BuildNumber = BiliClientIdentity.BuildNumber;
 
     private readonly IBiliCookiesResolver? _cookieResolver;
     private readonly IBiliTokenResolver? _tokenResolver;
+    private readonly BuvidManager? _buvidManager;
 
 #pragma warning disable IDE1006 // 命名样式
     private static readonly byte[] MIXIN_KEY_ENC_TAB =

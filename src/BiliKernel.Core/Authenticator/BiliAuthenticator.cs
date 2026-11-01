@@ -1,8 +1,9 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Bili;
 using Richasy.BiliKernel.Bili.Authorization;
+using Richasy.BiliKernel.Http;
 using RichasyKernel;
 using System.Text;
 using System.Text.Json;
@@ -20,10 +21,12 @@ public sealed partial class BiliAuthenticator
     /// </summary>
     public BiliAuthenticator(
         IBiliCookiesResolver? localCookiesResolver,
-        IBiliTokenResolver? localTokenResolver)
+        IBiliTokenResolver? localTokenResolver,
+        BuvidManager? buvidManager = null)
     {
         _cookieResolver = localCookiesResolver;
         _tokenResolver = localTokenResolver;
+        _buvidManager = buvidManager;
     }
 
     /// <summary>
@@ -73,11 +76,7 @@ public sealed partial class BiliAuthenticator
 
         var accessToken = token?.AccessToken ?? string.Empty;
         var grpcConfig = new GrpcConfig(accessToken);
-        var userAgent = $"bili-universal/80200100 "
-            + $"os/ios model/{GrpcConfig.Model} mobi_app/iphone_i "
-            + $"osVer/{GrpcConfig.OSVersion} "
-            + $"network/{GrpcConfig.NetworkType} "
-            + $"grpc-objc/1.47.0 grpc-c/25.0.0 (ios; cronet_http)";
+        var userAgent = BiliClientIdentity.GrpcUserAgent;
 
         if (!string.IsNullOrEmpty(accessToken))
         {
@@ -99,7 +98,7 @@ public sealed partial class BiliAuthenticator
         request.Headers.Add("TE", "trailers");
         request.Headers.Add("x-bili-aurora-eid", GrpcConfig.GetAuroraEid(token?.UserId ?? 0));
         request.Headers.Add("x-bili-trace-id", GrpcConfig.GetTraceId());
-        request.Headers.Add("buvid", GetBuvid());
+        request.Headers.Add("buvid", _buvidManager?.Buvid3 ?? GetBuvid());
     }
 
     /// <summary>
