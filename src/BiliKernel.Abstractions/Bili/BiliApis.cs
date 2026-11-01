@@ -687,17 +687,17 @@ public static class BiliApis
         /// <summary>
         /// 点赞视频.
         /// </summary>
-        public const string Like = _appBase + "/x/v2/view/like";
+        public const string Like = _apiBase + "/x/web-interface/archive/like";
 
         /// <summary>
         /// 给视频投币.
         /// </summary>
-        public const string Coin = _appBase + "/x/v2/view/coin/add";
+        public const string Coin = _apiBase + "/x/web-interface/coin/add";
 
         /// <summary>
         /// 添加或删除视频收藏.
         /// </summary>
-        public const string ModifyFavorite = _apiBase + "/x/v3/fav/resource/batch-deal";
+        public const string ModifyFavorite = _apiBase + "/x/v3/fav/resource/deal";
 
         /// <summary>
         /// 一键三连.
