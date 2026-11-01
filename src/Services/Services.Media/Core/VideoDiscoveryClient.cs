@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Show.Popular.V1;
@@ -163,8 +163,15 @@ internal sealed class VideoDiscoveryClient
             { "web_location", "bilibili-electron" },
         };
 
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(BiliApis.Home.CuratedPlaylist));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { NeedCSRF = true, RequireCookie = true, ForceNoToken = true });
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedRID = true,
+            RequireCookie = true,
+            ForceNoToken = true,
+        });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseCuratedPlaylistResponse).ConfigureAwait(false);
         return responseObj.Data is null || responseObj.Data.Items is null || responseObj.Data.Items.Count == 0
