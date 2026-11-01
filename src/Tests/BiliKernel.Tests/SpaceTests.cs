@@ -29,6 +29,7 @@ public sealed class SpaceTests
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("/x/space/wbi/acc/info", StringComparison.Ordinal));
         Assert.True(request.Query.ContainsKey("w_rid"));
         Assert.Equal("1", request.Query["mid"]);
+        AssertAntiCrawlParameters(request);
         Assert.Equal("up", card.Profile?.User.Name);
     }
 
@@ -43,6 +44,7 @@ public sealed class SpaceTests
         Assert.True(request.Query.ContainsKey("w_rid"));
         Assert.Equal("1", request.Query["mid"]);
         Assert.Equal("2", request.Query["pn"]);
+        AssertAntiCrawlParameters(request);
         Assert.Single(videos);
         Assert.Equal(1, total);
     }
@@ -56,8 +58,21 @@ public sealed class SpaceTests
 
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("/x/space/wbi/article", StringComparison.Ordinal));
         Assert.True(request.Query.ContainsKey("w_rid"));
+        AssertAntiCrawlParameters(request);
         Assert.Single(articles);
         Assert.Equal("a", articles[0].Identifier.Title);
+    }
+
+    private static void AssertAntiCrawlParameters(RecordedRequest request)
+    {
+        Assert.True(request.Query.TryGetValue("dm_img_list", out var imageList));
+        Assert.Equal("[]", imageList);
+        Assert.True(request.Query.TryGetValue("dm_img_str", out var imageString));
+        Assert.False(string.IsNullOrEmpty(imageString));
+        Assert.True(request.Query.TryGetValue("dm_cover_img_str", out var coverString));
+        Assert.False(string.IsNullOrEmpty(coverString));
+        Assert.True(request.Query.TryGetValue("dm_img_inter", out var interaction));
+        Assert.False(string.IsNullOrEmpty(interaction));
     }
 
     private static (RecordingHttpMessageHandler Handler, UserService Service) CreateService()

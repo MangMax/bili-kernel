@@ -155,14 +155,20 @@ internal sealed class PlayerClient
 
     public async Task<LivePlayerView> GetLivePageDetailAsync(MediaIdentifier live, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var parameters = new Dictionary<string, string>
         {
             { "room_id", live.Id },
             { "device", "phone" },
+            { "web_location", "444.8" },
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.RoomDetail));
-        _authenticator.AuthorizeRestRequest(request, parameters);
+        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedRID = true,
+        });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveRoomDetailResponse).ConfigureAwait(false)
             ?? throw new KernelException("解析直播间详情失败");

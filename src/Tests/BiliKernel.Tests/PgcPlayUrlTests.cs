@@ -15,7 +15,7 @@ public sealed class PgcPlayUrlTests
 {
     private const string NavResponse = @"{""code"":0,""data"":{""wbi_img"":{""img_url"":""https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png"",""sub_url"":""https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png""}}}";
     private const string SpiResponse = @"{""code"":0,""data"":{""b_3"":""BUV3"",""b_4"":""BUV4""}}";
-    private const string V2Response = @"{""code"":0,""data"":{""video_info"":{""accept_quality"":[64,32],""dash"":{""video"":[],""audio"":[]}}}}";
+    private const string V2Response = @"{""code"":0,""data"":{""video_info"":{""timelength"":1381396,""accept_quality"":[64,32],""dash"":{""video"":[],""audio"":[]}}}}";
     private const string LegacyResponse = @"{""code"":0,""result"":{""accept_quality"":[64],""dash"":{""video"":[],""audio"":[]}}}";
 
     [Fact]
@@ -24,8 +24,9 @@ public sealed class PgcPlayUrlTests
         var handler = CreateHandler(V2Response, LegacyResponse);
         var service = CreateService(handler);
 
-        _ = await service.GetPgcPlayDetailAsync("123", "456", "1");
+        var dash = await service.GetPgcPlayDetailAsync("123", "456", "1");
 
+        Assert.Equal(1381, dash.Duration);
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
         Assert.Equal("/pgc/player/web/v2/playurl", request.Path);
         Assert.True(request.Query.ContainsKey("w_rid"));

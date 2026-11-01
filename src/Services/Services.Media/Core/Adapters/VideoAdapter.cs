@@ -591,6 +591,7 @@ internal static class VideoAdapter
             audios = default;
         }
 
-        return new DashMediaInformation(videos, audios, formats, information.Duration);
+        // Web playurl 的 timelength 单位是毫秒，对外统一为秒.
+        return new DashMediaInformation(videos, audios, formats, information.Duration / 1000);
     }
 }

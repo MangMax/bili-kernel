@@ -30,6 +30,20 @@ public sealed class EndpointMigrationTests
     }
 
     [Fact]
+    public async Task SeasonDetailAcceptsWebStringStaff()
+    {
+        var handler = CreateHandler();
+        handler.With("/pgc/view/web/season", @"{""code"":0,""result"":{""season_id"":332584,""title"":""t"",""cover"":""https://i0.hdslb.com/a.jpg"",""staff"":""导演：甲\n主演：乙"",""publish"":{""is_finish"":0,""is_started"":1,""pub_time"":""2026-10-23 10:00:00"",""pub_time_show"":""10-23"",""time_length_show"":""更新至第9话""},""stat"":{""coins"":1,""danmakus"":2,""favorite"":3,""favorites"":4,""likes"":5,""reply"":6,""share"":7,""views"":8},""user_status"":{""follow"":0,""pay"":0,""vip"":0},""episodes"":[{""id"":7065889,""aid"":117466902760398,""cid"":123,""bvid"":""BV1xx411c7mD"",""title"":""1"",""long_title"":""第1话"",""share_copy"":""t"",""cover"":""https://i0.hdslb.com/b.jpg"",""duration"":1000,""pub_time"":1793239200,""badge"":"""",""stat"":{""coin"":1,""danmakus"":2,""likes"":3,""reply"":4,""views"":5,""favorite"":6},""report"":{""epid"":""7065889"",""season_id"":""332584"",""season_type"":""1"",""aid"":""117466902760398""}}]}}");
+        var service = CreatePlayerService(handler);
+
+        var view = await service.GetPgcPageDetailAsync("332584", null, CancellationToken.None);
+
+        Assert.Equal("332584", view.Information.Identifier.Id);
+        Assert.Equal("t", view.Information.Identifier.Title);
+        Assert.Single(view.Episodes!);
+    }
+
+    [Fact]
     public async Task AnimeTimelineUsesWebEndpoint()
     {
         var handler = CreateHandler();
@@ -40,6 +54,21 @@ public sealed class EndpointMigrationTests
         var request = handler.Requests.First(p => p.Path.Contains("timeline", StringComparison.Ordinal));
         Assert.Equal("/pgc/web/timeline", request.Path);
         Assert.Equal("1", request.Query["types"]);
+    }
+
+    [Fact]
+    public async Task AnimeTimelineParsesWebArrayResponse()
+    {
+        var handler = CreateHandler();
+        handler.With("/pgc/web/timeline", @"{""code"":0,""result"":[{""date"":""10-29"",""date_ts"":1793203200,""day_of_week"":4,""is_today"":0,""episodes"":[{""season_id"":332584,""episode_id"":7065889,""title"":""t"",""cover"":""https://i0.hdslb.com/a.jpg"",""pub_index"":""第9话"",""pub_time"":""10:00"",""pub_ts"":1793239200,""published"":1}]}]}");
+        var service = CreateEntertainmentService(handler);
+
+        var (_, _, timeline) = await service.GetBangumiTimelineAsync(CancellationToken.None);
+
+        var day = Assert.Single(timeline);
+        var season = Assert.Single(day.Seasons!);
+        Assert.Equal("332584", season.Identifier.Id);
+        Assert.DoesNotContain(handler.Requests, p => p.Path.Contains("/pgc/app/timeline", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -71,7 +100,7 @@ public sealed class EndpointMigrationTests
     }
 
     [Fact]
-    public async Task PagedPartitionVideosUseWebRegionEndpoint()
+    public async Task PagedPartitionVideosUseNewListEndpoint()
     {
         var handler = CreateHandler();
         var service = CreateVideoDiscoveryService(handler);
@@ -79,7 +108,7 @@ public sealed class EndpointMigrationTests
         _ = await Record.ExceptionAsync(() => service.GetChildPartitionVideoListAsync(new Partition("1", "动画"), 0, 1, PartitionVideoSortType.Play, CancellationToken.None));
 
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("region", StringComparison.Ordinal) || p.Path.Contains("newlist", StringComparison.Ordinal));
-        Assert.Equal("/x/web-interface/dynamic/region", request.Path);
+        Assert.Equal("/x/web-interface/newlist", request.Path);
         Assert.Equal("1", request.Query["rid"]);
         Assert.Equal("2", request.Query["pn"]);
         Assert.Equal("30", request.Query["ps"]);
@@ -87,22 +116,7 @@ public sealed class EndpointMigrationTests
     }
 
     [Fact]
-    public async Task PagedPartitionVideosFallBackToNewList()
-    {
-        var handler = CreateHandler();
-        handler.With("/x/web-interface/dynamic/region", @"{""code"":-404,""message"":""missing""}");
-        var service = CreateVideoDiscoveryService(handler);
-
-        _ = await Record.ExceptionAsync(() => service.GetChildPartitionVideoListAsync(new Partition("1", "动画"), 0, 1, PartitionVideoSortType.Play, CancellationToken.None));
-
-        var requests = handler.Requests.Where(p => p.Path.Contains("region", StringComparison.Ordinal) || p.Path.Contains("newlist", StringComparison.Ordinal)).ToList();
-        Assert.Equal(2, requests.Count);
-        Assert.Equal("/x/web-interface/dynamic/region", requests[0].Path);
-        Assert.Equal("/x/web-interface/newlist", requests[1].Path);
-    }
-
-    [Fact]
-    public async Task LiveRoomDetailUsesWebRoomEndpoint()
+    public async Task LiveRoomDetailUsesWebRoomEndpointWithWbi()
     {
         var handler = CreateHandler();
         var service = CreatePlayerService(handler);
@@ -111,6 +125,9 @@ public sealed class EndpointMigrationTests
 
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("getInfoByRoom", StringComparison.Ordinal));
         Assert.Equal("/xlive/web-room/v1/index/getInfoByRoom", request.Path);
+        Assert.Equal("444.8", request.Query["web_location"]);
+        Assert.True(request.Query.ContainsKey("w_rid"));
+        Assert.True(request.Query.ContainsKey("wts"));
     }
 
     [Fact]

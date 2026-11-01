@@ -430,12 +430,13 @@ public static class BiliApis
         public const string SubPartitionOrderOffset = _appBase + "/x/v2/region/show/child/list";
 
         /// <summary>
-        /// 分区视频（现行 Web 端点）.
+        /// 分区视频（服务端已下线，调用返回 -404）.
         /// </summary>
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string WebRegionVideos = _apiBase + "/x/web-interface/dynamic/region";
 
         /// <summary>
-        /// 分区视频（Web 端点兜底）.
+        /// 分区视频（现行 Web 端点）.
         /// </summary>
         public const string WebRegionNewList = _apiBase + "/x/web-interface/newlist";
     }

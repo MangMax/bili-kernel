@@ -9,6 +9,7 @@ using Richasy.BiliKernel.Models.Appearance;
 using Richasy.BiliKernel.Models.Media;
 using Richasy.BiliKernel.Services.Media.Core.Models;
 using RichasyKernel;
+using System.Text.Json;
 
 namespace Richasy.BiliKernel.Services.Media.Core;
 
@@ -30,31 +31,39 @@ internal sealed class PgcClient
 
     public async Task<(string Title, string Description, IReadOnlyList<TimelineInformation>)> GetAnimeTimelineAsync(bool isBangumi, CancellationToken cancellationToken = default)
     {
-        PgcTimeLineEnvelope? responseObj;
+        PgcTimeLineResponse? content;
         try
         {
-            responseObj = await RequestTimelineAsync(BiliApis.Pgc.TimeLine, isBangumi, true, cancellationToken).ConfigureAwait(false);
+            var webResponse = await RequestTimelineAsync(BiliApis.Pgc.TimeLine, isBangumi, true, cancellationToken).ConfigureAwait(false);
+            content = webResponse?.Content;
         }
-        catch (KernelException)
+        catch (Exception ex) when (ex is KernelException or JsonException)
         {
-            responseObj = null;
+            // Web 版时间线结构变化时按回退处理.
+            content = null;
         }
 
-        if (responseObj?.Content?.Data is null || responseObj.Content.Data.Count == 0)
+        if (content?.Data is null || content.Data.Count == 0)
         {
-            // Web 版时间线结构与旧版不同，拿不到数据时回退旧版路径.
-            responseObj = await RequestTimelineAsync(BiliApis.Pgc.TimeLineLegacy, isBangumi, false, cancellationToken).ConfigureAwait(false);
+            // Web 版时间线拿不到数据时回退旧版路径.
+            var legacyResponse = await RequestTimelineAsync(BiliApis.Pgc.TimeLineLegacy, isBangumi, false, cancellationToken).ConfigureAwait(false);
+            content = legacyResponse?.Content;
         }
 
-        var content = responseObj?.Content ?? throw new KernelException("解析番剧时间线失败");
-        var timelineItems = content.Data.Select(p => p.ToTimelineInformation()).ToList().AsReadOnly();
+        if (content is null)
+        {
+            throw new KernelException("解析番剧时间线失败");
+        }
+
+        var timelineItems = (content.Data ?? []).Select(p => p.ToTimelineInformation()).ToList().AsReadOnly();
         if (timelineItems.Count == 0)
         {
             var name = isBangumi ? "番剧" : "国创";
             throw new KernelException($"{name}时间线数据为空");
         }
 
-        return (content.Title!, content.Subtitle!, timelineItems);
+        // Web 版时间线没有标题字段，返回空串避免调用方拿到 null.
+        return (content.Title ?? string.Empty, content.Subtitle ?? string.Empty, timelineItems);
     }
 
     private async Task<PgcTimeLineEnvelope?> RequestTimelineAsync(string url, bool isBangumi, bool isWeb, CancellationToken cancellationToken)

@@ -6,6 +6,7 @@ using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Appearance;
 using Richasy.BiliKernel.Models.Media;
 using Richasy.BiliKernel.Services.Media.Core.Models;
+using System.Globalization;
 
 namespace Richasy.BiliKernel.Services.Media.Core;
 
@@ -46,24 +47,33 @@ internal static class PgcAdapter
         return info;
     }
 
-    public static EpisodeInformation ToEpisodeInformation(this PgcEpisodeDetail episode)
+    public static EpisodeInformation ToEpisodeInformation(this PgcEpisodeDetail episode, PgcDetailResponse season = null)
     {
-        var epid = episode.Report.EpisodeId;
+        // Web 端点不返回 report/stat/season_id，需要回退到扁平字段.
+        var epid = episode.Report?.EpisodeId ?? episode.Id.ToString(CultureInfo.InvariantCulture);
         var title = string.IsNullOrEmpty(episode.LongTitle)
             ? episode.ShareTitle
             : episode.LongTitle;
         var subtitle = episode.Subtitle;
         var duration = episode.Duration / 1000;
         var cover = episode.Cover.ToVideoCover();
-        var seasonId = episode.Report.SeasonId;
+        var seasonId = episode.Report?.SeasonId ?? season?.SeasonId.ToString(CultureInfo.InvariantCulture);
         var aid = episode.Aid;
         var cid = episode.PartId;
         var index = episode.Index;
-        var isPv = episode.BadgeText.Contains("预告");
-        var isVip = episode.BadgeText.Contains("会员");
+        var badge = episode.BadgeText ?? string.Empty;
+        var isPv = badge.Contains("预告", StringComparison.Ordinal);
+        var isVip = badge.Contains("会员", StringComparison.Ordinal);
         var publishTime = DateTimeOffset.FromUnixTimeSeconds(episode.PublishTime).ToLocalTime().DateTime;
-        var communityInfo = new VideoCommunityInformation(epid, episode.Stat.PlayCount, episode.Stat.DanmakuCount, episode.Stat.LikeCount, default, episode.Stat.CoinCount, episode.Stat.ReplyCount);
-        var seasonType = episode.Report.SeasonType;
+        var communityInfo = new VideoCommunityInformation(
+            epid,
+            episode.Stat?.PlayCount ?? 0,
+            episode.Stat?.DanmakuCount ?? 0,
+            episode.Stat?.LikeCount ?? 0,
+            default,
+            episode.Stat?.CoinCount ?? 0,
+            episode.Stat?.ReplyCount ?? 0);
+        var seasonType = episode.Report?.SeasonType;
         var width = episode.Dimension?.width ?? 1920;
         var height = episode.Dimension?.height ?? 1080;
         var ratio = new MediaAspectRatio(width, height);
@@ -115,15 +125,8 @@ internal static class PgcAdapter
             ? display.Rating.Count
             : -1;
         var labors = new Dictionary<string, string>();
-        if (!string.IsNullOrEmpty(display.Actor?.Information))
-        {
-            labors.Add(display.Actor.Title, display.Actor.Information);
-        }
-
-        if (!string.IsNullOrEmpty(display.Staff?.Information))
-        {
-            labors.Add(display.Staff.Title, display.Staff.Information);
-        }
+        AddLabor(labors, display.Actor?.Title, display.Actor?.Information);
+        AddLabor(labors, display.Staff?.Title, display.Staff?.Information);
 
         var celebrities = display.Celebrity?.Select(p => p.ToPublisherProfile());
         var stat = display.InformationStat;
@@ -200,6 +203,28 @@ internal static class PgcAdapter
                 }
             }
         }
+        else
+        {
+            // 现行 Web 端点直接返回扁平数组，没有 modules.
+            if (display.Episodes is { Count: > 0 })
+            {
+                episodes = display.Episodes.Select(p => p.ToEpisodeInformation(display)).ToList();
+            }
+
+            if (display.Seasons is { Count: > 0 })
+            {
+                seasons = [];
+                foreach (var item in display.Seasons)
+                {
+                    var cover = item.Cover.ToPgcCover();
+                    var title = string.IsNullOrEmpty(item.Title) ? item.SeasonTitle : item.Title;
+                    var identifier = new MediaIdentifier(item.SeasonId.ToString(CultureInfo.InvariantCulture), title, cover);
+                    var info = new SeasonInformation(identifier);
+                    info.AddExtensionIfNotNull(SeasonExtensionDataId.Highlight, item.Badge);
+                    seasons.Add(info);
+                }
+            }
+        }
 
         if (display.UserStatus?.Progress != null && episodes != null)
         {
@@ -223,6 +248,16 @@ internal static class PgcAdapter
 
         var warning = display.Warning?.Message;
         return new PgcPlayerView(seasonInfo, seasons, episodes, extras, history, warning);
+    }
+
+    private static void AddLabor(Dictionary<string, string> labors, string? title, string? information)
+    {
+        if (string.IsNullOrEmpty(information))
+        {
+            return;
+        }
+
+        labors[string.IsNullOrEmpty(title) ? "制作人员" : title] = information;
     }
 
     private static EntertainmentType GetPgcTypeFromTypeText(string typeText)

@@ -77,6 +77,7 @@ namespace Richasy.BiliKernel;
 [JsonSerializable(typeof(PgcIndexFirstEpisode))]
 [JsonSerializable(typeof(PgcTimeLineResponse))]
 [JsonSerializable(typeof(PgcTimeLineItem))]
+[JsonSerializable(typeof(List<PgcTimeLineItem>))]
 [JsonSerializable(typeof(TimeLineEpisode))]
 [JsonSerializable(typeof(PlayerInformation))]
 [JsonSerializable(typeof(DashVideo))]

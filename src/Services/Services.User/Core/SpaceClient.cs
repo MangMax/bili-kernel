@@ -12,6 +12,7 @@ using Richasy.BiliKernel.Models.User;
 using Richasy.BiliKernel.Services.User.Core.Models;
 using RichasyKernel;
 using System.Globalization;
+using System.Text;
 
 namespace Richasy.BiliKernel.Services.User.Core;
 
@@ -21,6 +22,17 @@ namespace Richasy.BiliKernel.Services.User.Core;
 internal sealed class SpaceClient
 {
     private const string PageSize = "30";
+
+    /// <summary>
+    /// 空间 Web 端点要求携带的浏览器指纹参数，缺失时服务端返回 -352 风控校验失败.
+    /// </summary>
+    private static readonly Dictionary<string, string> _antiCrawlParameters = new(StringComparer.Ordinal)
+    {
+        { "dm_img_list", "[]" },
+        { "dm_img_str", Convert.ToBase64String(Encoding.UTF8.GetBytes("WebGL 1.0 (OpenGL ES 2.0 Chromium)")) },
+        { "dm_cover_img_str", Convert.ToBase64String(Encoding.UTF8.GetBytes("ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0)")) },
+        { "dm_img_inter", "{\"ds\":[],\"wh\":[0,0,0],\"of\":[0,0,0]}" },
+    };
 
     private readonly BiliHttpClient _httpClient;
     private readonly BiliAuthenticator _authenticator;
@@ -34,7 +46,7 @@ internal sealed class SpaceClient
     public async Task<UserCard> GetUserSpaceInformationAsync(string userId, CancellationToken cancellationToken)
     {
         await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
-        var parameters = new Dictionary<string, string>
+        var parameters = new Dictionary<string, string>(_antiCrawlParameters, StringComparer.Ordinal)
         {
             { "mid", userId },
             { "web_location", "1550101" },
@@ -53,7 +65,7 @@ internal sealed class SpaceClient
     public async Task<(IReadOnlyList<VideoInformation> Videos, int TotalCount)> GetUserVideosAsync(string userId, int pageNumber, CancellationToken cancellationToken)
     {
         await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
-        var parameters = new Dictionary<string, string>
+        var parameters = new Dictionary<string, string>(_antiCrawlParameters, StringComparer.Ordinal)
         {
             { "mid", userId },
             { "ps", PageSize },
@@ -78,7 +90,7 @@ internal sealed class SpaceClient
     public async Task<IReadOnlyList<ArticleInformation>> GetUserArticlesAsync(string userId, int pageNumber, CancellationToken cancellationToken)
     {
         await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
-        var parameters = new Dictionary<string, string>
+        var parameters = new Dictionary<string, string>(_antiCrawlParameters, StringComparer.Ordinal)
         {
             { "mid", userId },
             { "ps", PageSize },

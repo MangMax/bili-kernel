@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Content;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Richasy.BiliKernel.Services.Media.Core.Models;
@@ -41,15 +42,38 @@ internal sealed class PgcTimeLineEnvelope : BiliResponse
     public PgcTimeLineResponse? Data { get; set; }
 
     /// <summary>
-    /// 现行数据.
+    /// 现行数据。Web 端点是时间线数组，旧版 App 端点是带标题的对象.
     /// </summary>
     [JsonPropertyName("result")]
-    public PgcTimeLineResponse? Result { get; set; }
+    public JsonElement? Result { get; set; }
 
     /// <summary>
     /// 实际内容.
     /// </summary>
-    public PgcTimeLineResponse? Content => Result ?? Data;
+    public PgcTimeLineResponse? Content
+    {
+        get
+        {
+            if (Result is { } result && result.ValueKind != JsonValueKind.Null)
+            {
+                if (result.ValueKind == JsonValueKind.Array)
+                {
+                    return new PgcTimeLineResponse
+                    {
+                        Data = result.Deserialize(SourceGenerationContext.Default.ListPgcTimeLineItem),
+                    };
+                }
+
+                var response = result.Deserialize(SourceGenerationContext.Default.PgcTimeLineResponse);
+                if (response != null)
+                {
+                    return response;
+                }
+            }
+
+            return Data;
+        }
+    }
 }
 
 /// <summary>
