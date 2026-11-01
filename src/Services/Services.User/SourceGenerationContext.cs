@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Content;
@@ -38,6 +38,12 @@ namespace Richasy.BiliKernel.Services.User;
 [JsonSerializable(typeof(MyInfo))]
 [JsonSerializable(typeof(Vip))]
 [JsonSerializable(typeof(PgcFavoriteListResponse))]
+[JsonSerializable(typeof(SpaceInfoResponse))]
+[JsonSerializable(typeof(BiliDataResponse<SpaceInfoResponse>))]
+[JsonSerializable(typeof(SpaceVideoResponse))]
+[JsonSerializable(typeof(BiliDataResponse<SpaceVideoResponse>))]
+[JsonSerializable(typeof(SpaceArticleResponse))]
+[JsonSerializable(typeof(BiliDataResponse<SpaceArticleResponse>))]
 [JsonSerializable(typeof(PgcArea))]
 [JsonSerializable(typeof(FavoritePgcItem))]
 [JsonSerializable(typeof(PgcProgress))]
