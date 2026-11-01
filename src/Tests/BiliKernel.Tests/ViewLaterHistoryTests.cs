@@ -1,3 +1,6 @@
+﻿// Copyright (c) Richasy. All rights reserved.
+// Licensed under the MIT License.
+
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models;

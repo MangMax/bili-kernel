@@ -94,7 +94,8 @@ public sealed partial class BiliAuthenticator
     private static string GenerateSign(Dictionary<string, string> parameters, BiliApiType device)
     {
         var secret = GetApiSecret(device);
-        var query = GenerateQuery(parameters);
+        // App 端签名使用未转义的键值串；POST 由 FormUrlEncodedContent 负责编码.
+        var query = string.Join("&", parameters.Select(p => $"{p.Key}={p.Value}").OrderBy(p => p, StringComparer.Ordinal));
         return (query + secret).Md5ComputeHash();
     }
 

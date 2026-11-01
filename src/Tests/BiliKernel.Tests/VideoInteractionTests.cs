@@ -1,3 +1,6 @@
+// Copyright (c) Richasy. All rights reserved.
+// Licensed under the MIT License.
+
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Services.Media;
@@ -22,6 +25,10 @@ public sealed class VideoInteractionTests
         Assert.Equal("POST", request.Method);
         Assert.Contains("like=1", request.Body, StringComparison.Ordinal);
         Assert.Contains("csrf=csrf-token", request.Body, StringComparison.Ordinal);
+
+        await service.ToggleVideoLikeAsync("42", false);
+        var unlike = handler.Requests.Last(p => p.Path.Contains("archive/like", StringComparison.Ordinal));
+        Assert.Contains("like=2", unlike.Body, StringComparison.Ordinal);
     }
 
     [Fact]

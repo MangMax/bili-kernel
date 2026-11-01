@@ -1,3 +1,6 @@
+﻿// Copyright (c) Richasy. All rights reserved.
+// Licensed under the MIT License.
+
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Services.User;
@@ -34,7 +37,7 @@ public sealed class SpaceTests
     {
         var (handler, service) = CreateService();
 
-        var (videos, total) = await service.GetUserVideosAsync("1", 2);
+        var (videos, total) = await service.GetUserVideosAsync("1", 1);
 
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("/x/space/wbi/arc/search", StringComparison.Ordinal));
         Assert.True(request.Query.ContainsKey("w_rid"));

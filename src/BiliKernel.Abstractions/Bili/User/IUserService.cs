@@ -1,4 +1,4 @@
-// Copyright (c) Richasy. All rights reserved.
+﻿// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Models.Article;
@@ -36,17 +36,17 @@ public interface IUserService
     /// 获取用户投稿列表（WBI 的 Web 端点）.
     /// </summary>
     /// <param name="userId">用户 Id.</param>
-    /// <param name="pageNumber">页码，从 1 开始.</param>
+    /// <param name="pageNumber">页码，从 0 开始.</param>
     /// <param name="cancellationToken">终止令牌.</param>
     /// <returns>视频列表与总数.</returns>
-    Task<(IReadOnlyList<VideoInformation> Videos, int TotalCount)> GetUserVideosAsync(string userId, int pageNumber = 1, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<VideoInformation> Videos, int TotalCount)> GetUserVideosAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 获取用户专栏列表（WBI 的 Web 端点）.
     /// </summary>
     /// <param name="userId">用户 Id.</param>
-    /// <param name="pageNumber">页码，从 1 开始.</param>
+    /// <param name="pageNumber">页码，从 0 开始.</param>
     /// <param name="cancellationToken">终止令牌.</param>
     /// <returns>专栏列表.</returns>
-    Task<IReadOnlyList<ArticleInformation>> GetUserArticlesAsync(string userId, int pageNumber = 1, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ArticleInformation>> GetUserArticlesAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default);
 }

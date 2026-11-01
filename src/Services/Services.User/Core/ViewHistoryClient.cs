@@ -3,6 +3,7 @@
 
 using Bilibili.App.Interfaces.V1;
 using Richasy.BiliKernel.Adapters;
+using System.Diagnostics;
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Bili;
 using Richasy.BiliKernel.Bili.Authorization;
@@ -34,15 +35,16 @@ internal sealed class ViewHistoryClient
 
     public async Task<ViewHistoryGroup> GetHistorySetAsync(ViewHistoryTabType tabType, long offset, CancellationToken cancellationToken)
     {
-        if (tabType is ViewHistoryTabType.Video or ViewHistoryTabType.All)
+        if (tabType == ViewHistoryTabType.Video)
         {
             try
             {
                 return await GetWebHistorySetAsync(tabType, offset, cancellationToken).ConfigureAwait(false);
             }
-            catch (KernelException)
+            catch (KernelException ex)
             {
                 // Web 端点异常时保留 gRPC 回退.
+                Debug.WriteLine($"Web 观看历史不可用，回退 gRPC：{ex.Message}");
             }
         }
 
@@ -96,9 +98,10 @@ internal sealed class ViewHistoryClient
             await _httpClient.SendAsync(webRequest, cancellationToken).ConfigureAwait(false);
             return;
         }
-        catch (KernelException)
+        catch (KernelException ex)
         {
             // Web 端点失败时回退 gRPC.
+            Debug.WriteLine($"Web 删除历史失败，回退 gRPC：{ex.Message}");
         }
 
         var request = BiliHttpClient.CreateRequest(new Uri(BiliApis.Account.DeleteHistoryItem), req);
@@ -121,9 +124,10 @@ internal sealed class ViewHistoryClient
             await _httpClient.SendAsync(webRequest, cancellationToken).ConfigureAwait(false);
             return;
         }
-        catch (KernelException)
+        catch (KernelException ex)
         {
             // Web 端点失败时回退 gRPC.
+            Debug.WriteLine($"Web 清空历史失败，回退 gRPC：{ex.Message}");
         }
 
         var request = BiliHttpClient.CreateRequest(new Uri(BiliApis.Account.ClearHistory), req);
@@ -169,7 +173,7 @@ internal sealed class ViewHistoryClient
         var list = responseObj?.Data?.List ?? [];
         if (list.Count == 0)
         {
-            throw new KernelException("观看历史为空");
+            return new ViewHistoryGroup(tabType, Array.Empty<VideoInformation>(), Array.Empty<LiveInformation>(), Array.Empty<ArticleInformation>(), 0);
         }
 
         var videos = list

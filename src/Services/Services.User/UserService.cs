@@ -1,4 +1,4 @@
-// Copyright (c) Richasy. All rights reserved.
+﻿// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
@@ -46,10 +46,10 @@ public sealed class UserService : IUserService
         => _spaceClient.GetUserSpaceInformationAsync(userId, cancellationToken);
 
     /// <inheritdoc/>
-    public Task<(IReadOnlyList<VideoInformation> Videos, int TotalCount)> GetUserVideosAsync(string userId, int pageNumber = 1, CancellationToken cancellationToken = default)
+    public Task<(IReadOnlyList<VideoInformation> Videos, int TotalCount)> GetUserVideosAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default)
         => _spaceClient.GetUserVideosAsync(userId, pageNumber, cancellationToken);
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<ArticleInformation>> GetUserArticlesAsync(string userId, int pageNumber = 1, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ArticleInformation>> GetUserArticlesAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default)
         => _spaceClient.GetUserArticlesAsync(userId, pageNumber, cancellationToken);
 }

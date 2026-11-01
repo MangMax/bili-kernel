@@ -1,3 +1,6 @@
+// Copyright (c) Richasy. All rights reserved.
+// Licensed under the MIT License.
+
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models;
@@ -36,7 +39,7 @@ public sealed class EndpointMigrationTests
 
         var request = handler.Requests.First(p => p.Path.Contains("timeline", StringComparison.Ordinal));
         Assert.Equal("/pgc/web/timeline", request.Path);
-        Assert.Equal("2", request.Query["types"]);
+        Assert.Equal("1", request.Query["types"]);
     }
 
     [Fact]
