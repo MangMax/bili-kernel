@@ -1,4 +1,4 @@
-// Copyright (c) Richasy. All rights reserved.
+﻿// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Adapters;
@@ -11,6 +11,7 @@ using Richasy.BiliKernel.Models.Media;
 using Richasy.BiliKernel.Models.User;
 using Richasy.BiliKernel.Services.User.Core.Models;
 using RichasyKernel;
+using System.Globalization;
 
 namespace Richasy.BiliKernel.Services.User.Core;
 
@@ -56,7 +57,7 @@ internal sealed class SpaceClient
         {
             { "mid", userId },
             { "ps", PageSize },
-            { "pn", pageNumber.ToString() },
+            { "pn", (pageNumber + 1).ToString(CultureInfo.InvariantCulture) },
             { "order", "pubdate" },
             { "web_location", "1550101" },
         };
@@ -81,7 +82,7 @@ internal sealed class SpaceClient
         {
             { "mid", userId },
             { "ps", PageSize },
-            { "pn", pageNumber.ToString() },
+            { "pn", (pageNumber + 1).ToString(CultureInfo.InvariantCulture) },
             { "web_location", "1550101" },
         };
 
@@ -104,7 +105,7 @@ internal sealed class SpaceClient
         var publishTime = item.Created.HasValue
             ? DateTimeOffset.FromUnixTimeSeconds(item.Created.Value).ToLocalTime()
             : (DateTimeOffset?)null;
-        return new VideoInformation(identifier, publisher, ToDurationSeconds(item.Length), item.BvId, publishTime, communityInformation: community);
+        return new VideoInformation(identifier, publisher, (item.Length ?? "0").ToDurationSeconds(), item.BvId, publishTime, communityInformation: community);
     }
 
     private static ArticleInformation CreateArticleInformation(SpaceArticleItem item)
@@ -117,22 +118,6 @@ internal sealed class SpaceClient
             ? DateTimeOffset.FromUnixTimeSeconds(item.PublishTime).ToLocalTime()
             : (DateTimeOffset?)null;
         return new ArticleInformation(identifier, publishDateTime: publishTime);
-    }
-
-    private static long ToDurationSeconds(string? durationText)
-    {
-        if (string.IsNullOrEmpty(durationText))
-        {
-            return 0;
-        }
-
-        var total = 0L;
-        foreach (var part in durationText.Split(':'))
-        {
-            total = (total * 60) + (long.TryParse(part, out var value) ? value : 0);
-        }
-
-        return total;
     }
 
     private HttpRequestMessage CreateWbiRequest(string url, Dictionary<string, string> parameters)

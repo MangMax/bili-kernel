@@ -1,4 +1,4 @@
-// Copyright (c) Richasy. All rights reserved.
+﻿// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Bili.Authorization;
@@ -56,7 +56,7 @@ public sealed class FileBuvidStore : IBuvidStore
     }
 
     /// <inheritdoc/>
-    public void Save(string buvid3, string buvid4)
+    public void Save(string buvid3, string? buvid4)
     {
         Verify.NotNullOrWhiteSpace(buvid3);
         _buvid3 = buvid3;

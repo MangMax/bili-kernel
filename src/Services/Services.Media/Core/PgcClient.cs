@@ -62,9 +62,9 @@ internal sealed class PgcClient
         var parameters = isWeb
             ? new Dictionary<string, string>
             {
-                { "types", isBangumi ? "2" : "3" },
-                { "before", "0" },
-                { "after", "0" },
+                { "types", isBangumi ? "1" : "4" },
+                { "before", "3" },
+                { "after", "7" },
             }
             : new Dictionary<string, string>
             {
@@ -99,7 +99,12 @@ internal sealed class PgcClient
 
         var url = isFollow ? BiliApis.Pgc.Follow : BiliApis.Pgc.Unfollow;
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, paramters);
+        _authenticator.AuthorizeRestRequest(request, paramters, new BiliAuthorizeExecutionSettings
+        {
+            ApiType = BiliApiType.Web,
+            NeedCSRF = true,
+            RequireCookie = true,
+        });
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 

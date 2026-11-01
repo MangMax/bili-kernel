@@ -1,4 +1,4 @@
-<Project>
+﻿<Project>
   <PropertyGroup>
     <!-- Central version prefix - applies to all nuget packages. -->
     <PackageVersion>0.0.2-preview2</PackageVersion>

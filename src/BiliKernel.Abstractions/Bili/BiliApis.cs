@@ -18,18 +18,21 @@ public static class BiliApis
     private const string CookieGetDomain = "https://www.bilibili.com";
     private const string CookieSetDomain = "bilibili.com";
 
+    // 已无调用或服务端下线的端点共用同一段说明，改文案时只需改这一处.
+    private const string DeprecatedEndpointMessage = "该端点已无调用且服务端可能已下线，请勿在新代码中使用。";
+
     public static class Passport
     {
         /// <summary>
         /// 字符串加密.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string PasswordEncrypt = _passBase + "/x/passport-login/web/key";
 
         /// <summary>
         /// 登录.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string Login = _passBase + "/x/passport-login/oauth2/login";
 
         /// <summary>
@@ -40,13 +43,13 @@ public static class BiliApis
         /// <summary>
         /// 验证令牌是否有效.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string CheckToken = _passBase + "/api/oauth2/info";
 
         /// <summary>
         /// SSO.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string SSO = _passBase + "/api/login/sso";
 
         /// <summary>
@@ -72,19 +75,19 @@ public static class BiliApis
         /// <summary>
         /// Cookie 验证，检查是否需要更新.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string CookieValidate = _passBase + "/x/passport-login/web/cookie/info";
 
         /// <summary>
         /// 刷新 Cookie.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string RefreshCookie = _passBase + "/x/passport-login/web/cookie/refresh";
 
         /// <summary>
         /// 确认 Cookie 信息.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string ConfirmCookie = _passBase + "/x/passport-login/web/confirm/refresh";
 
         /// <summary>
@@ -115,7 +118,7 @@ public static class BiliApis
         /// <summary>
         /// 用户空间.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string Space = _appBase + "/x/v2/space";
 
         /// <summary>
@@ -138,7 +141,7 @@ public static class BiliApis
         /// <summary>
         /// 用户空间中视频的增量请求.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string VideoCursor = _appBase + "/x/v2/space/archive/cursor";
 
         /// <summary>
@@ -154,7 +157,7 @@ public static class BiliApis
         /// <summary>
         /// 历史记录标签页.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string HistoryTabs = _grpcBase + "/bilibili.app.interface.v1.History/HistoryTabV2";
 
         /// <summary>
@@ -198,6 +201,11 @@ public static class BiliApis
         public const string WebHistoryClear = _apiBase + "/x/v2/history/clear";
 
         /// <summary>
+        /// 搜索观看历史（Web）.
+        /// </summary>
+        public const string WebHistorySearch = _apiBase + "/x/web-interface/history/search";
+
+        /// <summary>
         /// 获取历史记录选项.
         /// </summary>
         public const string HistoryRecordOption = _apiBase + "/x/v2/history/shadow";
@@ -210,7 +218,7 @@ public static class BiliApis
         /// <summary>
         /// 获取关注列表.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string Follows = _apiBase + "/x/relation/followings";
 
         /// <summary>
@@ -271,13 +279,13 @@ public static class BiliApis
         /// <summary>
         /// 获取用户收集的视频收藏夹分类的增量信息.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string CollectedVideoFavoriteFolderDelta = _apiBase + "/x/v3/fav/folder/collected/list";
 
         /// <summary>
         /// 获取用户创建的视频收藏夹分类的增量信息.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string CreatedVideoFavoriteFolderDelta = _apiBase + "/x/v3/fav/folder/created/list";
 
         /// <summary>
@@ -298,7 +306,7 @@ public static class BiliApis
         /// <summary>
         /// 取消关注收藏夹.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string UnFavoriteFolder = _apiBase + "/x/v3/fav/folder/unfav";
 
         /// <summary>
@@ -319,13 +327,13 @@ public static class BiliApis
         /// <summary>
         /// 添加视频收藏夹.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string AddFavoriteFolder = _apiBase + "/x/v3/fav/folder/add";
 
         /// <summary>
         /// 删除视频收藏夹.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string DeleteFavoriteFolder = _apiBase + "/x/v3/fav/folder/del";
 
         /// <summary>
@@ -452,7 +460,7 @@ public static class BiliApis
         /// <summary>
         /// 排行榜 - Web.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string Ranking = _apiBase + "/x/web-interface/ranking/v2";
 
         /// <summary>
@@ -481,13 +489,13 @@ public static class BiliApis
         /// <summary>
         /// 直播播放信息.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string PlayInformation = _liveBase + "/xlive/web-room/v1/index/getRoomPlayInfo";
 
         /// <summary>
         /// 聊天套接字地址.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string ChatSocket = "wss://broadcastlv.chat.bilibili.com/sub";
 
         /// <summary>
@@ -508,7 +516,7 @@ public static class BiliApis
         /// <summary>
         /// 移动应用上的播放信息.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string AppPlayInformation = _liveBase + "/xlive/app-room/v2/index/getRoomPlayInfo";
 
         /// <summary>
@@ -580,13 +588,13 @@ public static class BiliApis
         /// <summary>
         /// 顶部标签.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string Tab = _apiBase + "/pgc/page/tab";
 
         /// <summary>
         /// 页面详情.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string PageDetail = _apiBase + "/pgc/page";
 
         /// <summary>
@@ -627,7 +635,7 @@ public static class BiliApis
         /// <summary>
         /// 播放列表.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string PlayList = _apiBase + "/pgc/web/playlist";
 
         /// <summary>
@@ -700,7 +708,7 @@ public static class BiliApis
         /// <summary>
         /// 视频播放信息.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string PlayConfig = _appBase + "/bilibili.app.playurl.v1.PlayURL/PlayConf";
 
         /// <summary>
@@ -757,7 +765,7 @@ public static class BiliApis
         /// <summary>
         /// 获取互动视频选项.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string InteractionEdge = _apiBase + "/x/stein/edgeinfo_v2";
 
         /// <summary>
@@ -782,6 +790,7 @@ public static class BiliApis
         /// <summary>
         /// 热搜榜单.
         /// </summary>
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string HotSearch = _appBase + "/x/v2/search/trending/ranking";
 
         /// <summary>
@@ -797,13 +806,13 @@ public static class BiliApis
         /// <summary>
         /// 综合搜索.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string ComprehensiveSearch = _appBase + "/x/v2/search";
 
         /// <summary>
         /// 直播搜索.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string LiveModuleSearch = _appBase + "/x/v2/search/live";
 
         /// <summary>
@@ -814,7 +823,7 @@ public static class BiliApis
         /// <summary>
         /// 全部搜索.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string SearchAll = _grpcBase + "/bilibili.polymer.app.search.v1.Search/SearchAll";
 
         /// <summary>
@@ -825,7 +834,7 @@ public static class BiliApis
         /// <summary>
         /// 全部搜索（网页）.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string WebSearchAll = _apiBase + "/x/web-interface/wbi/search/all/v2";
 
         /// <summary>
@@ -872,7 +881,7 @@ public static class BiliApis
         /// <summary>
         /// 动态标签.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string DynamicTabs = _grpcBase + "/bilibili.app.dynamic.v2.Dynamic/DynTab";
 
         /// <summary>
@@ -908,7 +917,7 @@ public static class BiliApis
         /// <summary>
         /// 未登录时的动态推荐.
         /// </summary>
-        [Obsolete("该端点已无调用且服务端可能已下线，请勿在新代码中使用。")]
+        [Obsolete(DeprecatedEndpointMessage)]
         public const string DynamicWhenUnlogin = _grpcBase + "/bilibili.app.dynamic.v2.Dynamic/DynUnLoginRcmd";
 
         /// <summary>

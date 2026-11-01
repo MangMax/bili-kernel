@@ -23,6 +23,8 @@ namespace Richasy.BiliKernel.Services.Media.Core;
 
 internal sealed class PlayerClient
 {
+    private const int TripleCoinCount = 2;
+
     private readonly BiliHttpClient _httpClient;
     private readonly BiliAuthenticator _authenticator;
     private readonly IBiliTokenResolver _tokenResolver;
@@ -255,7 +257,7 @@ internal sealed class PlayerClient
         var parameters = new Dictionary<string, string>
         {
             { "aid", aid },
-            { "like", isLike ? "1" : "0" },
+            { "like", isLike ? "1" : "2" },
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.Like));
@@ -309,7 +311,7 @@ internal sealed class PlayerClient
     {
         // 三连由点赞与投币两次 Web 调用组成，收藏由调用方按需处理.
         await ToggleVideoLikeAsync(aid, true, cancellationToken).ConfigureAwait(false);
-        await CoinVideoAsync(aid, 2, true, cancellationToken).ConfigureAwait(false);
+        await CoinVideoAsync(aid, TripleCoinCount, true, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task ReportProgressAsync(string aid, string cid, int progress, CancellationToken cancellationToken)
@@ -709,6 +711,10 @@ internal sealed class PlayerClient
             { "module", "bangumi" },
             { "season_type", seasonType },
             { "ep_id", episodeId ?? string.Empty },
+            { "try_look", "1" },
+            { "voice_balance", "1" },
+            { "gaia_source", "pre-load" },
+            { "web_location", "1315873" },
         };
 
     private async Task<PlayerInformation> RequestPgcPlayInformationAsync(string url, bool isV2, string? cid, string? episodeId, string seasonType, CancellationToken cancellationToken)
@@ -724,8 +730,8 @@ internal sealed class PlayerClient
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         if (isV2)
         {
-            var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponsePgcPlayUrlResponse).ConfigureAwait(false);
-            return responseObj?.Data?.VideoInfo ?? throw new KernelException("解析PGC播放详情失败");
+            var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.PgcPlayUrlResponse).ConfigureAwait(false);
+            return responseObj?.Content ?? throw new KernelException("解析PGC播放详情失败");
         }
 
         var legacyObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliResultResponsePlayerInformation).ConfigureAwait(false);

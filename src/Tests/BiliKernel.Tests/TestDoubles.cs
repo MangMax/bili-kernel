@@ -1,3 +1,6 @@
+﻿// Copyright (c) Richasy. All rights reserved.
+// Licensed under the MIT License.
+
 using Richasy.BiliKernel.Bili;
 using Richasy.BiliKernel.Bili.Authorization;
 using Richasy.BiliKernel.Models.Authorization;
@@ -42,7 +45,7 @@ internal sealed class InMemoryBuvidStore : IBuvidStore
 
     public string? Buvid4 { get; private set; }
 
-    public void Save(string buvid3, string buvid4)
+    public void Save(string buvid3, string? buvid4)
     {
         Buvid3 = buvid3;
         Buvid4 = buvid4;

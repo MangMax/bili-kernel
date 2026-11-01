@@ -1,4 +1,4 @@
-// Copyright (c) Richasy. All rights reserved.
+﻿// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 namespace Richasy.BiliKernel.Bili.Authorization;
@@ -22,6 +22,6 @@ public interface IBuvidStore
     /// 持久化设备标识。
     /// </summary>
     /// <param name="buvid3">BUVID3。</param>
-    /// <param name="buvid4">BUVID4。</param>
-    void Save(string buvid3, string buvid4);
+    /// <param name="buvid4">BUVID4，可能不存在。</param>
+    void Save(string buvid3, string? buvid4);
 }

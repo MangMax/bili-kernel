@@ -1,3 +1,6 @@
+﻿// Copyright (c) Richasy. All rights reserved.
+// Licensed under the MIT License.
+
 using System.Net;
 using System.Text;
 

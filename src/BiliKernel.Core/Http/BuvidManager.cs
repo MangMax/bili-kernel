@@ -1,4 +1,4 @@
-// Copyright (c) Richasy. All rights reserved.
+﻿// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Bili;
@@ -77,9 +77,8 @@ public sealed class BuvidManager : IDisposable
 
             await FetchAsync(cancellationToken).ConfigureAwait(false);
         }
-#pragma warning disable CA1031 // 设备标识属于尽力而为的身份信息，失败不应阻断业务请求
+        // 设备标识属于尽力而为的身份信息，失败不应阻断业务请求.
         catch (Exception ex)
-#pragma warning restore CA1031
         {
             Debug.WriteLine($"获取设备标识失败：{ex.Message}");
         }
@@ -176,7 +175,7 @@ public sealed class BuvidManager : IDisposable
 
         try
         {
-            var cookies = _cookiesResolver.GetCookies()?.ToDictionary(p => p.Key, p => p.Value) ?? [];
+            var cookies = _cookiesResolver.GetCookies() ?? new Dictionary<string, string>(StringComparer.Ordinal);
             cookies["buvid3"] = _buvid3!;
             if (!string.IsNullOrEmpty(_buvid4))
             {

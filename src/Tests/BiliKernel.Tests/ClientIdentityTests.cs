@@ -1,5 +1,7 @@
+﻿// Copyright (c) Richasy. All rights reserved.
+// Licensed under the MIT License.
+
 using Bilibili.Metadata.Device;
-using Google.Protobuf;
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Http;
 using Xunit;
