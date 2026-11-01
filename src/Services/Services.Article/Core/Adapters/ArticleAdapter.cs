@@ -94,7 +94,7 @@ internal static class ArticleAdapter
                 var text = string.Empty;
                 foreach (var node in nodes)
                 {
-                    if (node?.word is null)
+                    if (node?.word is null || string.IsNullOrWhiteSpace(node.word.words))
                     {
                         // 没有文本内容的节点（例如被裁剪的 opus 数据）跳过，避免中断整篇文章.
                         continue;
