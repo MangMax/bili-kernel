@@ -56,12 +56,12 @@ public interface IVideoDiscoveryService
     /// </summary>
     /// <remarks>
     /// 推荐流不认 `ps`：显式传入页大小不会让服务端多返回内容.
-    /// 真正影响单次下发量的是 `column`（版面列数），它决定服务端按几列排版、下发多少张卡片.
+    /// 版面列数 `column` 实测只接受 4，传 5/6/7/8 都会返回 -400「请求错误」，
+    /// 因此单页条数完全由服务端决定，客户端没有「一次多要一点」的参数可用.
     /// </remarks>
     /// <param name="offset">翻页偏移量，首次请求传 0.</param>
-    /// <param name="column">请求声明的版面列数（请求参数 column）；小于等于 0 时使用客户端默认值.</param>
     /// <param name="cancellationToken">取消令牌.</param>
-    Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetRecommendVideoListAsync(long offset = 0, int column = 0, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetRecommendVideoListAsync(long offset = 0, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 获取热门视频列表.

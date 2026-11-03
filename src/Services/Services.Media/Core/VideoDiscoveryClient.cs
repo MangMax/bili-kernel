@@ -16,15 +16,6 @@ namespace Richasy.BiliKernel.Services.Media.Core;
 internal sealed class VideoDiscoveryClient
 {
     /// <summary>
-    /// 推荐流请求声明的版面列数.
-    /// </summary>
-    /// <remarks>
-    /// 服务端按这个值决定一次下发多少张卡片；`ps` 对推荐流无效（实测不改变返回量），
-    /// 7 列是对齐移动端实测能填满一屏的取值。
-    /// </remarks>
-    private const int DefaultRecommendColumn = 7;
-
-    /// <summary>
     /// 网页端推荐流的默认页大小.
     /// </summary>
     private const int DefaultCuratedPageSize = 10;
@@ -213,13 +204,15 @@ internal sealed class VideoDiscoveryClient
                 Math.Max(1, freshIndex) + 1);
     }
 
-    public async Task<(IReadOnlyList<VideoInformation> Videos, long Offset)> GetRecommendVideoListAsync(long offset, int column, CancellationToken cancellationToken)
+    public async Task<(IReadOnlyList<VideoInformation> Videos, long Offset)> GetRecommendVideoListAsync(long offset, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>
         {
             { "idx", offset.ToString() },
             { "flush", "5" },
-            { "column", (column > 0 ? column : DefaultRecommendColumn).ToString() },
+            // 实测该端点只接受 4；5/6/7/8 一律返回 -400「请求错误」。
+            // 单页条数因此是服务端决定的，客户端没有可用的「多要一点」参数。
+            { "column", "4" },
             { "device", "desktop" },
             { "pull", (offset == 0).ToString().ToLowerInvariant() },
         };
