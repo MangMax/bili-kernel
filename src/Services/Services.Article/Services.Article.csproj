@@ -22,5 +22,9 @@
     <ProjectReference Include="..\..\BiliKernel.Abstractions\BiliKernel.Abstractions.csproj" />
     <ProjectReference Include="..\..\BiliKernel.Core\BiliKernel.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Services.Article.Tests" />
+  </ItemGroup>
   
 </Project>

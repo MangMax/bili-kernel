@@ -1,0 +1,21 @@
+{
+  "readInfo": {
+    "id": 1001,
+    "title": "Synthetic article",
+    "publish_time": 1700000000,
+    "author": {
+      "mid": 42,
+      "name": "Author42",
+      "face": "https://example.invalid/face.png",
+      "fans": 7,
+      "level": 3,
+      "vip": { "type": 1 }
+    },
+    "tags": [
+      { "tid": 9, "name": "synthetic-tag" }
+    ],
+    "content": "<p>first paragraph</p><p></p><p><br></p><p><a href=\"//example.invalid/link\">link text</a></p><figure><img data-src=\"//example.invalid/image.png\"/></figure>",
+    "opus": null
+  },
+  "dynamicId": "synthetic"
+}
