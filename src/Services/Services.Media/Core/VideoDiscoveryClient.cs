@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Show.Popular.V1;
@@ -15,6 +15,15 @@ namespace Richasy.BiliKernel.Services.Media.Core;
 
 internal sealed class VideoDiscoveryClient
 {
+    /// <summary>
+    /// 推荐流请求声明的版面列数.
+    /// </summary>
+    /// <remarks>
+    /// 服务端按这个值决定一次下发多少张卡片；`ps` 对推荐流无效（实测不改变返回量），
+    /// 7 列是对齐移动端实测能填满一屏的取值。
+    /// </remarks>
+    private const int DefaultRecommendColumn = 7;
+
     private readonly BiliHttpClient _httpClient;
     private readonly BiliAuthenticator _authenticator;
     private readonly IBiliTokenResolver _tokenResolver;
@@ -190,21 +199,16 @@ internal sealed class VideoDiscoveryClient
             : (IReadOnlyList<VideoInformation>)responseObj.Data.Items.Select(p => p.ToVideoInformation()).ToList().AsReadOnly();
     }
 
-    public async Task<(IReadOnlyList<VideoInformation> Videos, long Offset)> GetRecommendVideoListAsync(long offset, int pageSize, CancellationToken cancellationToken)
+    public async Task<(IReadOnlyList<VideoInformation> Videos, long Offset)> GetRecommendVideoListAsync(long offset, int column, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>
         {
             { "idx", offset.ToString() },
             { "flush", "5" },
-            { "column", "4" },
+            { "column", (column > 0 ? column : DefaultRecommendColumn).ToString() },
             { "device", "desktop" },
             { "pull", (offset == 0).ToString().ToLowerInvariant() },
         };
-
-        if (pageSize > 0)
-        {
-            parameters.Add("ps", pageSize.ToString());
-        }
 
         var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(BiliApis.Home.Recommend));
         _authenticator.AuthorizeRestRequest(request, parameters);

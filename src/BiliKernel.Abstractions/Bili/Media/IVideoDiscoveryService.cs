@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Models;
@@ -39,12 +39,16 @@ public interface IVideoDiscoveryService
 
     /// <summary>
     /// 获取推荐视频列表.
-    /// 服务端会过滤掉非视频卡片，请求的页大小不等于实际返回数量.
+    /// 服务端会过滤掉非视频卡片，下发的卡片数不等于最终视频条数.
     /// </summary>
+    /// <remarks>
+    /// 推荐流不认 `ps`：显式传入页大小不会让服务端多返回内容.
+    /// 真正影响单次下发量的是 `column`（版面列数），它决定服务端按几列排版、下发多少张卡片.
+    /// </remarks>
     /// <param name="offset">翻页偏移量，首次请求传 0.</param>
-    /// <param name="pageSize">期望的页大小（请求参数 ps），小于等于 0 时使用服务端默认值.</param>
+    /// <param name="column">请求声明的版面列数（请求参数 column）；小于等于 0 时使用客户端默认值.</param>
     /// <param name="cancellationToken">取消令牌.</param>
-    Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetRecommendVideoListAsync(long offset = 0, int pageSize = 0, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetRecommendVideoListAsync(long offset = 0, int column = 0, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 获取热门视频列表.
