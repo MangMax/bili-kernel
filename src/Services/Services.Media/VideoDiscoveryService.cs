@@ -59,6 +59,10 @@ public sealed class VideoDiscoveryService : IVideoDiscoveryService
         => _client.GetCuratedPlaylistAsync(cancellationToken);
 
     /// <inheritdoc/>
+    public Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetCuratedFeedAsync(long freshIndex = 0, int pageSize = 0, CancellationToken cancellationToken = default)
+        => _client.GetCuratedFeedAsync(freshIndex, pageSize, cancellationToken);
+
+    /// <inheritdoc/>
     public Task<IReadOnlyList<VideoInformation>> GetGlobalRankingListAsync(CancellationToken cancellationToken = default)
         => _client.GetGlobalRankingListAsync(cancellationToken);
 

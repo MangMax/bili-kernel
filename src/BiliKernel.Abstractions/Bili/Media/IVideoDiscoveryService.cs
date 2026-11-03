@@ -38,6 +38,19 @@ public interface IVideoDiscoveryService
     Task<IReadOnlyList<VideoInformation>> GetCuratedPlaylistAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 分页获取网页端推荐流（与 <see cref="GetCuratedPlaylistAsync"/> 同一端点）.
+    /// </summary>
+    /// <remarks>
+    /// 网页端推荐按「刷新批次」推进：`fresh_idx` 每取一批递增一次，服务端回一批新卡片；
+    /// 与手机端推荐流不同，这里声明的 `ps` 是有效的.
+    /// </remarks>
+    /// <param name="freshIndex">刷新批次，首次传 0.</param>
+    /// <param name="pageSize">期望的页大小，小于等于 0 时使用默认值.</param>
+    /// <param name="cancellationToken">取消令牌.</param>
+    /// <returns>本批视频与下一批的刷新批次.</returns>
+    Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetCuratedFeedAsync(long freshIndex = 0, int pageSize = 0, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 获取推荐视频列表.
     /// 服务端会过滤掉非视频卡片，下发的卡片数不等于最终视频条数.
     /// </summary>
