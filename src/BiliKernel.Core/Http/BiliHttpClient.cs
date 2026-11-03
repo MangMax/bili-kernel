@@ -99,6 +99,10 @@ public sealed partial class BiliHttpClient : IDisposable
             await ThrowIfResponseInvalidAsync(response).ConfigureAwait(false);
             return response;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (KernelException)
         {
             throw;
@@ -116,10 +120,28 @@ public sealed partial class BiliHttpClient : IDisposable
     /// <summary>
     /// 直接获取字符串.
     /// </summary>
-    public async Task<string> GetStringAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
+    /// <param name="request">请求.</param>
+    /// <param name="cancellationToken">终止令牌.</param>
+    /// <returns>响应正文.</returns>
+    public Task<string> GetStringAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
+        => GetStringAsync(request, cancellationToken, ensureSuccess: false);
+
+    /// <summary>
+    /// 直接获取字符串，可在读取正文前验证 HTTP 状态.
+    /// </summary>
+    /// <param name="request">请求.</param>
+    /// <param name="cancellationToken">终止令牌.</param>
+    /// <param name="ensureSuccess">是否在读取正文前拒绝非成功状态.</param>
+    /// <returns>响应正文.</returns>
+    public async Task<string> GetStringAsync(HttpRequestMessage request, CancellationToken cancellationToken, bool ensureSuccess)
     {
         Verify.NotNull(request, nameof(request));
-        var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
+        using var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
+        if (ensureSuccess)
+        {
+            response.EnsureSuccessStatusCode();
+        }
+
         return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 

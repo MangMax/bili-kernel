@@ -1,0 +1,15 @@
+{
+  "like": 1,
+  "attention": true,
+  "favorite": true,
+  "stats": {
+    "view": 10,
+    "favorite": 2,
+    "like": 3,
+    "reply": 4,
+    "share": 5,
+    "coin": 6
+  },
+  "title": "Synthetic article",
+  "mid": 42
+}
