@@ -48,8 +48,7 @@ public sealed partial class BiliHttpClient : IDisposable
         {
             AllowAutoRedirect = true,
             UseCookies = true,
-            SslProtocols = SslProtocols.None,
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+            SslProtocols = SslProtocols.None
         };
         _client = new HttpClient(handler, disposeHandler: messageHandler == null);
         _client.DefaultRequestHeaders.Add("User-Agent", BiliClientIdentity.WebUserAgent);
