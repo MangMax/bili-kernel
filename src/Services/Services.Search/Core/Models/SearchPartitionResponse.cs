@@ -7,6 +7,7 @@ namespace Richasy.BiliKernel.Services.Search.Core;
 
 internal sealed class SearchPartitionResponse
 {
+    public string v_voucher { get; set; }
     public int page { get; set; }
     public int pagesize { get; set; }
     public int numResults { get; set; }
