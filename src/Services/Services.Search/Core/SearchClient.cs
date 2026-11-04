@@ -6,6 +6,7 @@ using Bilibili.Polymer.App.Search.V1;
 using Richasy.BiliKernel.Adapters;
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Bili;
+using Richasy.BiliKernel.Bili.Search;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Media;
@@ -91,6 +92,11 @@ internal sealed class SearchClient
         var resp = await _httpClient.SendAsync(r, cancellationToken).ConfigureAwait(false);
         var respText = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
         var responseObj = JsonSerializer.Deserialize(respText, SourceGenerationContext.Default.BiliDataResponseSearchPartitionResponse);
+        if (!string.IsNullOrEmpty(responseObj.Data.v_voucher))
+        {
+            throw new SearchVerificationRequiredException();
+        }
+
         var videos = responseObj.Data.result?.ConvertAll(p => p.ToVideoInformation()) ?? [];
         return (videos.AsReadOnly(), responseObj.Data.numPages > page ? page + 1 : null);
     }
