@@ -551,7 +551,7 @@ public static class BiliApis
         /// <summary>
         /// 文章内容.
         /// </summary>
-        public const string ArticleContent = "https://www.bilibili.com/read/native/";
+        public const string ArticleContent = _apiBase + "/x/article/view";
 
         /// <summary>
         /// 文章元数据.

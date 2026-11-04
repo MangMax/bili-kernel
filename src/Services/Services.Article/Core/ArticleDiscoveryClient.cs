@@ -10,19 +10,18 @@ using Richasy.BiliKernel.Models.Article;
 using Richasy.BiliKernel.Services.Article.Core.Models;
 using RichasyKernel;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace Richasy.BiliKernel.Services.Article.Core;
 
 internal sealed class ArticleDiscoveryClient
 {
     /// <summary>
-    /// 阅读页返回可用内容状态的最大尝试次数（包含第一次）.
+    /// 正文接口返回可用数据的最大尝试次数（包含第一次）.
     /// </summary>
     private const int ContentFetchAttempts = 3;
 
     /// <summary>
-    /// 两次读取阅读页内容之间的等待时间.
+    /// 正文重取线性退避的基础等待时间.
     /// </summary>
     private static readonly TimeSpan ContentFetchRetryDelay = TimeSpan.FromMilliseconds(200);
 
@@ -129,40 +128,43 @@ internal sealed class ArticleDiscoveryClient
     }
 
     /// <summary>
-    /// 获取可用的阅读页内容状态，必要时重取.
+    /// 获取结构化正文；空数据或频控最多尝试三次.
     /// </summary>
-    /// <remarks>
-    /// 阅读页会对同一篇文章间歇性返回 <c>readInfo</c> 为空的状态（缺少作者与正文），
-    /// 短暂等待后重取通常即可恢复。这里只重取正文页面；元数据接口保持原有的一次调用。
-    /// 达到上限后仍返回最后一次状态，由适配器抛出原有的可辨识异常。
-    /// </remarks>
     private async Task<ArticleContentResponse> GetUsableArticleContentAsync(ArticleIdentifier article, CancellationToken cancellationToken)
     {
         for (var attempt = 1; ; attempt++)
         {
-            var sourceJson = await GetArticleInitialJsonAsync(article, cancellationToken).ConfigureAwait(false);
-            var content = JsonSerializer.Deserialize(sourceJson, SourceGenerationContext.Default.ArticleContentResponse)
+            cancellationToken.ThrowIfCancellationRequested();
+            var parameters = new Dictionary<string, string>
+            {
+                { "id", article.Id },
+                { "gaia_source", "main_web" },
+            };
+            using var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Article.ArticleContent));
+            _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false });
+            var json = await _httpClient.GetStringAsync(request, cancellationToken, ensureSuccess: true).ConfigureAwait(false);
+            var response = JsonSerializer.Deserialize(json, SourceGenerationContext.Default.BiliDataResponseReadinfo)
                 ?? throw new KernelException("无法解析该文章的内容.");
+            if (response.Code != 0)
+            {
+                if (response.Code is not (-509 or -799 or -412) || attempt >= ContentFetchAttempts)
+                {
+                    throw new KernelException($"获取文章正文失败：{response.Code} ({response.Message})");
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(ContentFetchRetryDelay.TotalMilliseconds * attempt), cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            // 保留适配器包装类型，待 #23 统一收口.
+            var content = new ArticleContentResponse { readInfo = response.Data! };
             if (ArticleAdapter.HasUsableContent(content) || attempt >= ContentFetchAttempts)
             {
                 return content;
             }
 
-            await Task.Delay(ContentFetchRetryDelay, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromMilliseconds(ContentFetchRetryDelay.TotalMilliseconds * attempt), cancellationToken).ConfigureAwait(false);
         }
-    }
-
-    private async Task<string> GetArticleInitialJsonAsync(ArticleIdentifier article, CancellationToken cancellationToken)
-    {
-        var url = BiliApis.Article.ArticleContent + $"?id={article.Id}";
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
-
-        // 阅读页可能对 403/认证等永久错误返回带空状态的页面。只在 HTTP 成功时
-        // 才把空状态视为可重取；HTTP 错误直接失败一次，不进入重取循环。
-        var html = await _httpClient.GetStringAsync(request, cancellationToken, ensureSuccess: true).ConfigureAwait(false);
-        const string pattern = @"window\.__INITIAL_STATE__\s*=\s*(\{.*?\});";
-        var match = Regex.Match(html, pattern, RegexOptions.Singleline);
-        return match.Success ? match.Groups[1].Value : null;
     }
 
     private async Task<ArticleViewResponse> GetArticleMetadataAsync(ArticleIdentifier article, CancellationToken cancellationToken)
