@@ -102,8 +102,8 @@ public sealed class ArticleAdapterTests
         var detail = response.ToArticleDetail(DefaultIdentifier, null!);
 
         Assert.Null(detail.CommunityInformation.ViewCount);
-        Assert.False(detail.IsLiked);
-        Assert.False(detail.IsFavorited);
+        Assert.Null(detail.IsLiked);
+        Assert.Null(detail.IsFavorited);
         Assert.Equal(UserRelationStatus.Unfollow, detail.Author.Community!.Relation);
         Assert.NotEmpty(detail.HtmlContent);
     }
@@ -139,9 +139,9 @@ public sealed class ArticleAdapterTests
     }
 
     [Fact]
-    public void MissingReadInfoFailsWithIdentifiableError()
+    public void MissingContentDataFailsWithIdentifiableError()
     {
-        var response = LoadContent("invalid-missing-readinfo.json");
+        var response = LoadContent("invalid-missing-content.json");
 
         var error = Assert.Throws<KernelException>(() => response.ToArticleDetail(DefaultIdentifier, LoadView("view-stats.json")));
 
@@ -171,11 +171,10 @@ public sealed class ArticleAdapterTests
         Assert.Contains("文章正文为空或格式不受支持", error.Message, StringComparison.Ordinal);
     }
 
-    private static ArticleContentResponse LoadContent(string name)
+    private static Readinfo? LoadContent(string name)
     {
         var json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
-        return JsonSerializer.Deserialize(json, SourceGenerationContext.Default.ArticleContentResponse)
-            ?? throw new InvalidOperationException($"Fixture '{name}' could not be deserialized.");
+        return JsonSerializer.Deserialize(json, SourceGenerationContext.Default.Readinfo);
     }
 
     private static ArticleViewResponse LoadView(string name)

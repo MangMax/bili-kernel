@@ -21,8 +21,8 @@ public sealed class ArticleDetail
         string htmlContent,
         DateTimeOffset publishTime,
         IList<BiliTag> tags,
-        bool isLiked,
-        bool isFavorite)
+        bool? isLiked,
+        bool? isFavorite)
     {
         Identifier = identifier;
         Author = profile;
@@ -60,14 +60,14 @@ public sealed class ArticleDetail
     public IList<BiliTag> Tags { get; }
 
     /// <summary>
-    /// 是否点赞.
+    /// 是否点赞，统计不可用时为空.
     /// </summary>
-    public bool IsLiked { get; }
+    public bool? IsLiked { get; }
 
     /// <summary>
-    /// 是否收藏.
+    /// 是否收藏，统计不可用时为空.
     /// </summary>
-    public bool IsFavorited { get; }
+    public bool? IsFavorited { get; }
 
     /// <summary>
     /// HTML 文本.

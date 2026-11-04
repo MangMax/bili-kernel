@@ -37,17 +37,16 @@ internal static class ArticleAdapter
     }
 
     /// <summary>
-    /// 判断阅读页返回的内容状态是否足以映射成文章.
+    /// 判断正文接口返回的数据是否足以映射成文章.
     /// </summary>
     /// <remarks>
-    /// 阅读页偶尔会返回结构完整但 <c>readInfo</c> 为空、或缺少作者与正文的状态。
+    /// 正文接口偶尔会返回空数据，或缺少作者与正文。
     /// 这类响应不能直接当作最终结果，否则同一篇文章会在重试后本可成功时被判为失败。
     /// 这里复用最终映射的正文生成与格式化规则，避免重试判断与
     /// <see cref="ToArticleDetail"/> 对“正文是否可显示”得出不同结论。
     /// </remarks>
-    internal static bool HasUsableContent(ArticleContentResponse? response)
+    internal static bool HasUsableContent(Readinfo? readInfo)
     {
-        var readInfo = response?.readInfo;
         return readInfo?.author is not null
             && !string.IsNullOrWhiteSpace(GetRenderableContent(readInfo));
     }
@@ -61,9 +60,12 @@ internal static class ArticleAdapter
         return FormatHtmlContent(rawContent);
     }
 
-    public static ArticleDetail ToArticleDetail(this ArticleContentResponse response, ArticleIdentifier identifier, ArticleViewResponse view)
+    public static ArticleDetail ToArticleDetail(this Readinfo? readInfo, ArticleIdentifier identifier, ArticleViewResponse? view)
     {
-        var readInfo = response?.readInfo ?? throw new KernelException("文章内容数据为空，无法解析该文章.");
+        if (readInfo is null)
+        {
+            throw new KernelException("文章内容数据为空，无法解析该文章.");
+        }
         var author = readInfo.author ?? throw new KernelException("文章作者信息缺失，无法解析该文章.");
         // 统计信息属于可选数据，缺失时保留为空而不是中断整篇文章.
         var stats = view?.stats;
@@ -72,8 +74,8 @@ internal static class ArticleAdapter
         var publishTime = DateTimeOffset.FromUnixTimeSeconds(readInfo.publish_time).ToLocalTime();
         var communityInfo = new ArticleCommunityInformation(identifier.Id, stats?.view, stats?.favorite, stats?.like, stats?.reply, stats?.share, stats?.coin);
         var tags = readInfo.tags?.Select(p => new BiliTag(p.tid.ToString(), p.name)).ToList();
-        var isLiked = view?.like > 0;
-        var isFav = view?.favorite ?? false;
+        bool? isLiked = view is null ? null : view.like > 0;
+        var isFav = view?.favorite;
         var relation = view?.attention == true ? UserRelationStatus.Following : UserRelationStatus.Unfollow;
         var userCard = new UserCard(detailProfile, new UserCommunityInformation(author.mid.ToString(), fansCount: author.fans, relation: relation));
         var content = GetRenderableContent(readInfo);
