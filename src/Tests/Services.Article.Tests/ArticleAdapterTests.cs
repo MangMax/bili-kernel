@@ -102,8 +102,8 @@ public sealed class ArticleAdapterTests
         var detail = response.ToArticleDetail(DefaultIdentifier, null!);
 
         Assert.Null(detail.CommunityInformation.ViewCount);
-        Assert.False(detail.IsLiked);
-        Assert.False(detail.IsFavorited);
+        Assert.Null(detail.IsLiked);
+        Assert.Null(detail.IsFavorited);
         Assert.Equal(UserRelationStatus.Unfollow, detail.Author.Community!.Relation);
         Assert.NotEmpty(detail.HtmlContent);
     }

@@ -125,6 +125,54 @@ public sealed class ArticleDiscoveryClientTests
         Assert.Equal(0, handler.ViewRequests);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-412)]
+    [InlineData(-509)]
+    [InlineData(-799)]
+    public async Task MetadataFailurePreservesBodyAndLeavesStatisticsAndStateUnknown(int code)
+    {
+        var state = CompleteState.Replace("synthetic body</p>",
+            """synthetic body</p><img src=\"https://example.invalid/image.png\"/>""");
+        var handler = new ArticleHandler([state]) { Metadata = $$"""{"code":{{code}},"message":"limited","data":null}""" };
+        using var client = CreateClient(handler, out var discovery);
+        var detail = await discovery.GetArticleContentAsync(Identifier, CancellationToken.None);
+
+        var successHandler = new ArticleHandler([state]);
+        using var successClient = CreateClient(successHandler, out var successDiscovery);
+        var success = await successDiscovery.GetArticleContentAsync(Identifier, CancellationToken.None);
+        Assert.Equal(success!.HtmlContent, detail!.HtmlContent);
+        Assert.Contains("https://example.invalid/image.png", detail.HtmlContent, StringComparison.Ordinal);
+        Assert.Equal("Author42", detail.Author.Profile!.User.Name);
+        Assert.Equal(success.PublishTime, detail.PublishTime);
+        Assert.Null(detail.CommunityInformation.ViewCount);
+        Assert.Null(detail.CommunityInformation.LikeCount);
+        Assert.Null(detail.CommunityInformation.FavoriteCount);
+        Assert.Null(detail.CommunityInformation.CommentCount);
+        Assert.Null(detail.CommunityInformation.ShareCount);
+        Assert.Null(detail.CommunityInformation.CoinCount);
+        Assert.Null(detail.IsLiked);
+        Assert.Null(detail.IsFavorited);
+        Assert.True(success.IsLiked);
+        Assert.False(success.IsFavorited);
+        Assert.Equal(10, success.CommunityInformation.ViewCount);
+        Assert.Equal(1, handler.ContentRequests);
+        Assert.Equal(1, handler.ViewRequests);
+    }
+
+    [Fact]
+    public async Task CancellationDuringMetadataRequestIsNotDegraded()
+    {
+        using var cts = new CancellationTokenSource();
+        var handler = new ArticleHandler([CompleteState]) { OnMetadataRequest = cts.Cancel };
+        using var client = CreateClient(handler, out var discovery);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => discovery.GetArticleContentAsync(Identifier, cts.Token));
+        Assert.Equal(1, handler.ContentRequests);
+        Assert.Equal(1, handler.ViewRequests);
+    }
+
     private static BiliHttpClient CreateClient(ArticleHandler handler, out ArticleDiscoveryClient discovery)
     {
         var client = new BiliHttpClient(handler);
@@ -200,6 +248,10 @@ public sealed class ArticleDiscoveryClientTests
 
         public HttpStatusCode Status { get; init; } = HttpStatusCode.OK;
 
+        public string Metadata { get; init; } = ViewState;
+
+        public Action? OnMetadataRequest { get; init; }
+
         public int ContentRequests { get; private set; }
 
         public int ViewRequests { get; private set; }
@@ -219,7 +271,9 @@ public sealed class ArticleDiscoveryClientTests
             if (path.Contains("article/viewinfo", StringComparison.Ordinal))
             {
                 ViewRequests++;
-                return Task.FromResult(Json(ViewState));
+                OnMetadataRequest?.Invoke();
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.FromResult(Json(Metadata));
             }
 
             throw new InvalidOperationException($"Unexpected request path '{path}'.");
