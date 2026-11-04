@@ -1,15 +1,13 @@
 {
-  "readInfo": {
-    "id": 1006,
-    "author": { "mid": 1, "name": "SyntheticAuthor" },
-    "content": null,
-    "opus": {
-      "opus_id": 7,
-      "content": {
-        "paragraphs": [
-          { "para_type": 99 }
-        ]
-      }
+  "id": 1006,
+  "author": { "mid": 1, "name": "SyntheticAuthor" },
+  "content": null,
+  "opus": {
+    "opus_id": 7,
+    "content": {
+      "paragraphs": [
+        { "para_type": 99 }
+      ]
     }
   }
 }
