@@ -118,7 +118,7 @@ public sealed partial class BiliAuthenticator
             queryParameters.Add("csrf", GetCsrfToken());
         }
 
-        if (!queryParameters.ContainsKey("build"))
+        if (!executionSettings.SkipBuild && !queryParameters.ContainsKey("build"))
         {
             queryParameters.Add("build", BuildNumber);
         }

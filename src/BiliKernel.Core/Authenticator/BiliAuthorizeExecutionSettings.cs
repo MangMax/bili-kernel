@@ -49,6 +49,11 @@ public class BiliAuthorizeExecutionSettings
     public bool ForceNoToken { get; set; }
 
     /// <summary>
+    /// 是否跳过自动附加 App build 参数，默认保留既有行为.
+    /// </summary>
+    public bool SkipBuild { get; set; }
+
+    /// <summary>
     /// 是否需要Cookie.
     /// </summary>
     public bool RequireCookie { get; set; }

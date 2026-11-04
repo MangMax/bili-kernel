@@ -78,15 +78,22 @@ internal sealed class SearchClient
             { "search_type", "video" },
             { "order", orderType },
             { "page", page.ToString() },
+            { "page_size", "30" },
+            { "platform", "pc" },
+            { "web_location", "1430654" },
         };
 
         await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var r = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Search.WebSearchByType));
+        r.Headers.Add("Origin", "https://search.bilibili.com");
+        r.Headers.Referrer = new Uri("https://search.bilibili.com/");
         _authenticator.AuthorizeRestRequest(r, parameters, new BiliAuthorizeExecutionSettings
         {
             ApiType = BiliApiType.None,
             RequireCookie = true,
             NeedRID = true,
+            ForceNoToken = true,
+            SkipBuild = true,
         });
 
         var resp = await _httpClient.SendAsync(r, cancellationToken).ConfigureAwait(false);
