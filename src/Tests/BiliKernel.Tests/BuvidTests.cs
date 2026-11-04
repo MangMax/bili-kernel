@@ -49,6 +49,7 @@ public sealed class BuvidTests
 
         Assert.DoesNotContain(handler.Requests, p => p.Path.Contains("/x/frontend/finger/spi", StringComparison.Ordinal));
         Assert.Contains("buvid3=STORED3", handler.Requests.Last().Cookie, StringComparison.Ordinal);
+        Assert.Single(handler.Requests, p => p.Path.Contains("/x/internal/gaia-gateway/", StringComparison.Ordinal));
     }
 
     [Fact]

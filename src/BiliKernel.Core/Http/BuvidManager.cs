@@ -24,6 +24,8 @@ public sealed class BuvidManager : IDisposable
     private string? _buvid3;
     private string? _buvid4;
     private bool _activated;
+    private DateTimeOffset _retryAfter;
+    private readonly Func<DateTimeOffset> _utcNow;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BuvidManager"/> class.
@@ -35,7 +37,18 @@ public sealed class BuvidManager : IDisposable
         IBiliCookiesResolver? cookiesResolver = null,
         IBuvidStore? store = null,
         HttpMessageHandler? messageHandler = null)
+        : this(cookiesResolver, store, messageHandler, () => DateTimeOffset.UtcNow)
     {
+    }
+
+    /// <summary>创建使用指定 UTC 时钟的设备管理器。</summary>
+    public BuvidManager(
+        IBiliCookiesResolver? cookiesResolver,
+        IBuvidStore? store,
+        HttpMessageHandler? messageHandler,
+        Func<DateTimeOffset> utcNow)
+    {
+        _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
         _cookiesResolver = cookiesResolver;
         _store = store ?? new FileBuvidStore();
         _disposeClient = messageHandler == null;
@@ -54,33 +67,54 @@ public sealed class BuvidManager : IDisposable
     /// <summary>
     /// 获取 BUVID4。
     /// </summary>
-    public string? Buvid4 => string.IsNullOrEmpty(_buvid4) ? _store.Buvid4 : _buvid4;
+    public string? Buvid4 => string.IsNullOrEmpty(_buvid3) ? _store.Buvid4 : _buvid4;
 
     /// <summary>
-    /// 确保设备标识可用。获取或激活失败只记录日志，不阻断业务请求。
+    /// 确保设备标识可用。失败不阻断业务；一分钟冷却后由显式调用重试。
+    /// 调用者取消会传播，不标记成功或进入冷却。成功激活在该管理器生命周期内只执行一次。
     /// </summary>
     /// <param name="cancellationToken">终止令牌。</param>
     public async Task EnsureAsync(CancellationToken cancellationToken = default)
     {
-        if (!string.IsNullOrEmpty(Buvid3))
-        {
-            return;
-        }
-
+        cancellationToken.ThrowIfCancellationRequested();
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!string.IsNullOrEmpty(Buvid3))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_activated || _utcNow() < _retryAfter)
             {
                 return;
             }
 
-            await FetchAsync(cancellationToken).ConfigureAwait(false);
+            var cookies = _cookiesResolver?.GetCookies();
+            if (string.IsNullOrEmpty(_buvid3) && cookies != null
+                && cookies.TryGetValue("buvid3", out var cookieBuvid3) && !string.IsNullOrEmpty(cookieBuvid3))
+            {
+                // The caller's current Cookie identity takes precedence over stored fallback data.
+                await FetchAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else if (!string.IsNullOrEmpty(Buvid3))
+            {
+                var buvid4 = Buvid4;
+                _buvid3 = Buvid3;
+                _buvid4 = buvid4;
+                SaveToCookies();
+                await ActivateAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await FetchAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
         // 设备标识属于尽力而为的身份信息，失败不应阻断业务请求.
-        catch (Exception ex)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            Debug.WriteLine($"获取设备标识失败：{ex.Message}");
+            throw;
+        }
+        catch (Exception)
+        {
+            _retryAfter = _utcNow().AddMinutes(1);
+            Debug.WriteLine("设备初始化失败；一分钟后允许显式调用重试。");
         }
         finally
         {
@@ -149,13 +183,16 @@ public sealed class BuvidManager : IDisposable
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(BiliApis.Account.Buvid));
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             var result = JsonSerializer.Deserialize(content, SourceGenerationContext.Default.BiliDataResponseBuvidResponse);
             var data = result?.Data;
-            if (data == null || string.IsNullOrEmpty(data.B3))
+            if (result?.Code != 0 || data == null || string.IsNullOrEmpty(data.B3))
             {
-                return;
+                throw new InvalidOperationException("Device registration failed.");
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             _buvid3 = data.B3;
             _buvid4 = data.B4;
@@ -197,27 +234,31 @@ public sealed class BuvidManager : IDisposable
             return;
         }
 
-        _activated = true;
-        try
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(BiliApis.Account.BuvidActivate))
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(BiliApis.Account.BuvidActivate))
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
-                Content = new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    { "payload", CreateActivationPayload() },
-                }),
-            };
-            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            Debug.WriteLine($"设备标识激活结果：{(int)response.StatusCode}");
-        }
-        catch (HttpRequestException ex)
+                { "payload", CreateActivationPayload() },
+            }),
+        };
+        var cookie = _cookiesResolver?.GetCookieString();
+        if (!string.IsNullOrEmpty(cookie))
         {
-            Debug.WriteLine($"激活设备标识失败：{ex.Message}");
+            request.Headers.Add("Cookie", cookie);
         }
-        catch (OperationCanceledException ex)
+
+        ApplyToRequest(request);
+        using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        using var document = JsonDocument.Parse(content);
+        if (!document.RootElement.TryGetProperty("code", out var code) || code.GetInt32() != 0)
         {
-            Debug.WriteLine($"激活设备标识被取消：{ex.Message}");
+            throw new InvalidOperationException("Device activation failed.");
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        _activated = true;
     }
 
     private static string CreateActivationPayload()

@@ -15,6 +15,10 @@ namespace Richasy.BiliKernel.Authenticator;
 /// </summary>
 public sealed partial class BiliAuthenticator
 {
+    private readonly Func<DateTimeOffset> _utcNow;
+    private readonly object _wbiGate = new();
+    private Task? _wbiRefresh;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="BiliAuthenticator"/> class.
     /// </summary>
@@ -23,7 +27,19 @@ public sealed partial class BiliAuthenticator
         IBiliTokenResolver? localTokenResolver,
         BuvidManager? buvidManager = null,
         BiliHttpClient? httpClient = null)
+        : this(localCookiesResolver, localTokenResolver, buvidManager, httpClient, () => DateTimeOffset.UtcNow)
     {
+    }
+
+    /// <summary>创建使用指定 UTC 时钟的授权器，缓存作用域为该实例。</summary>
+    public BiliAuthenticator(
+        IBiliCookiesResolver? localCookiesResolver,
+        IBiliTokenResolver? localTokenResolver,
+        BuvidManager? buvidManager,
+        BiliHttpClient? httpClient,
+        Func<DateTimeOffset> utcNow)
+    {
+        _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
         _cookieResolver = localCookiesResolver;
         _tokenResolver = localTokenResolver;
         _buvidManager = buvidManager;
@@ -168,16 +184,57 @@ public sealed partial class BiliAuthenticator
     }
 
     /// <summary>
-    /// 初始化 Wbi.
+    /// 初始化或刷新实例的 WBI 密钥，成功后缓存 24 小时；同实例并发请求合并。
+    /// 刷新发起者取消会取消本轮刷新；等待者取消仅结束自身等待。
+    /// 失败或取消后由后续显式调用重试，不使用过期密钥。
     /// </summary>
     public async Task InitializeWbiAsync(CancellationToken cancellationToken = default)
     {
-        if (!string.IsNullOrEmpty(_wbi))
+        cancellationToken.ThrowIfCancellationRequested();
+        Task refresh;
+        var ownsRefresh = false;
+        lock (_wbiGate)
+        {
+            if (_wbiCache != null && _utcNow() < _wbiCache.Item2)
+            {
+                return;
+            }
+
+            if (_wbiRefresh == null || _wbiRefresh.IsCompleted)
+            {
+                ownsRefresh = true;
+                _wbiRefresh = RefreshWbiAsync(cancellationToken);
+            }
+
+            refresh = _wbiRefresh;
+        }
+
+        if (ownsRefresh)
+        {
+            // Complete cancellation cleanup before a subsequent explicit call can retry.
+            await refresh.ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return;
+        }
+
+        // A waiting caller may cancel without cancelling another caller's refresh.
+        var cancelled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using (cancellationToken.Register(() => cancelled.TrySetResult(true)))
+        {
+            await Task.WhenAny(refresh, cancelled.Task).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            await refresh.ConfigureAwait(false);
+        }
+    }
+
+    private async Task RefreshWbiAsync(CancellationToken cancellationToken)
+    {
+        if (_wbiCache != null && _utcNow() < _wbiCache.Item2)
         {
             return;
         }
 
-        var request = new HttpRequestMessage(HttpMethod.Get, BiliApis.Passport.WebNav);
+        using var request = new HttpRequestMessage(HttpMethod.Get, BiliApis.Passport.WebNav);
         request.Headers.Add("User-Agent", BiliClientIdentity.WebUserAgent);
         var cookieString = _cookieResolver?.GetCookieString();
         if (!string.IsNullOrEmpty(cookieString))
@@ -188,7 +245,7 @@ public sealed partial class BiliAuthenticator
         string responseText;
         if (_httpClient != null)
         {
-            responseText = await _httpClient.GetStringAsync(request, cancellationToken).ConfigureAwait(false);
+            responseText = await _httpClient.GetStringAsync(request, cancellationToken, ensureSuccess: true).ConfigureAwait(false);
         }
         else
         {
@@ -196,7 +253,8 @@ public sealed partial class BiliAuthenticator
             {
                 UseCookies = true,
             });
-            var response = await client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            using var response = await client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
             responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         }
 
@@ -205,12 +263,17 @@ public sealed partial class BiliAuthenticator
         var sub = result?.Data?.Img?.SubUrl ?? string.Empty;
         if (string.IsNullOrEmpty(img) || string.IsNullOrEmpty(sub))
         {
-            return;
+            throw new InvalidOperationException("WBI response did not contain valid keys.");
         }
 
-        _img = Path.GetFileNameWithoutExtension(img);
-        _sub = Path.GetFileNameWithoutExtension(sub);
-        _wbi = GenerateWbi(_img + _sub);
+        var key = Path.GetFileNameWithoutExtension(img) + Path.GetFileNameWithoutExtension(sub);
+        if (key.Length < 64)
+        {
+            throw new InvalidOperationException("WBI response did not contain valid keys.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        _wbiCache = Tuple.Create(GenerateWbi(key), _utcNow().AddHours(24));
 
         string GenerateWbi(string key)
         {

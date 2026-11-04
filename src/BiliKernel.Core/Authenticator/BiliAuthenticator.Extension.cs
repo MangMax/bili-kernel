@@ -34,9 +34,7 @@ public sealed partial class BiliAuthenticator
             51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52,
         ];
 
-    private static string? _img;
-    private static string? _sub;
-    private static string? _wbi;
+    private volatile Tuple<string, DateTimeOffset>? _wbiCache;
 
     private static string? _buvid;
 
@@ -148,15 +146,21 @@ public sealed partial class BiliAuthenticator
         return _buvid;
     }
 
-    private static string GenerateRID(Dictionary<string, string> parameters)
+    private string GenerateRID(Dictionary<string, string> parameters)
     {
+        var cache = _wbiCache;
+        if (cache == null || _utcNow() >= cache.Item2)
+        {
+            throw new InvalidOperationException("WBI key is unavailable or expired. Call InitializeWbiAsync first.");
+        }
+
         if (!parameters.ContainsKey("wts"))
         {
             parameters.Add("wts", NowWithSeconds().ToString());
         }
 
         var query = GenerateQuery(parameters);
-        return (query + _wbi).Md5ComputeHash();
+        return (query + cache.Item1).Md5ComputeHash();
     }
 
     /// <summary>

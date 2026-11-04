@@ -129,6 +129,7 @@ internal sealed class MyClient
 
     public async Task<(IReadOnlyList<ChatMessage> Messages, long MaxNumber, bool HasMore)> GetChatMessagesAsync(UserProfile user, int messageCount, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var parameters = new Dictionary<string, string>
         {
             { "sender_device_id", "1" },
@@ -148,6 +149,7 @@ internal sealed class MyClient
 
     public async Task MarkChatMessagesAsReadAsync(UserProfile user, long maxSeqNo, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var parameters = new Dictionary<string, string>
         {
             { "talker_id", user.Id },
@@ -162,6 +164,7 @@ internal sealed class MyClient
 
     public async Task<ChatMessage> SendChatMessageAsync(string content, UserProfile user, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var now = DateTimeOffset.Now.ToUnixTimeSeconds();
         var localToken = _tokenResolver.GetToken();
         var parameters = new Dictionary<string, string>
@@ -191,6 +194,7 @@ internal sealed class MyClient
 
     public async Task<(IReadOnlyList<ChatSession> Sessions, long Offset, bool HasNext)> GetChatSessionsAsync(long? offset, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var queryParameters = new Dictionary<string, string>
         {
             { "session_type", "1" },
@@ -224,6 +228,7 @@ internal sealed class MyClient
 
     public async Task<IReadOnlyList<UserProfile>> BatchGetUsersAsync(IEnumerable<string> userIds, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var parameters = new Dictionary<string, string>
         {
             { "uids", string.Join(",", userIds) },
@@ -285,6 +290,7 @@ internal sealed class MyClient
 
     public async Task<(IReadOnlyList<VideoFavoriteFolderGroup>, VideoFavoriteFolderDetail)> GetVideoFavoriteGroupsAsync(CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var localToken = _tokenResolver.GetToken();
         var userId = localToken.UserId.ToString();
         var parameters = new Dictionary<string, string>
