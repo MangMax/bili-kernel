@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
@@ -38,5 +38,27 @@ public sealed class CuratedPlaylistTests
         Assert.Equal("1", request.Query["fresh_idx"]);
         Assert.Equal("10", request.Query["ps"]);
         Assert.Equal("1", request.Query["plat"]);
+    }
+
+    [Fact]
+    public async Task CuratedFeedAdvancesRefreshIndexAndHonorsPageSize()
+    {
+        var handler = new RecordingHttpMessageHandler()
+            .With("/x/web-interface/nav", NavResponse)
+            .With("/x/frontend/finger/spi", SpiResponse)
+            .With("/x/web-interface/wbi/index/top/feed/rcmd", PlaylistResponse);
+        var cookies = new FakeCookiesResolver();
+        var buvid = new BuvidManager(cookies, new InMemoryBuvidStore("B3", "B4"), handler);
+        var http = new BiliHttpClient(handler, buvid);
+        var authenticator = new BiliAuthenticator(cookies, new FakeTokenResolver(), buvid, http);
+        var service = new VideoDiscoveryService(http, authenticator, new FakeTokenResolver());
+
+        var (items, next) = await service.GetCuratedFeedAsync(5, 20, CancellationToken.None);
+
+        Assert.Single(items);
+        Assert.Equal(6, next);
+        var request = Assert.Single(handler.Requests, p => p.Path.Contains("feed/rcmd", StringComparison.Ordinal));
+        Assert.Equal("5", request.Query["fresh_idx"]);
+        Assert.Equal("20", request.Query["ps"]);
     }
 }

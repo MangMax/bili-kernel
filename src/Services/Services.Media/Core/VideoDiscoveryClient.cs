@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Show.Popular.V1;
@@ -15,6 +15,11 @@ namespace Richasy.BiliKernel.Services.Media.Core;
 
 internal sealed class VideoDiscoveryClient
 {
+    /// <summary>
+    /// 网页端推荐流的默认页大小.
+    /// </summary>
+    private const int DefaultCuratedPageSize = 10;
+
     private readonly BiliHttpClient _httpClient;
     private readonly BiliAuthenticator _authenticator;
     private readonly IBiliTokenResolver _tokenResolver;
@@ -164,10 +169,17 @@ internal sealed class VideoDiscoveryClient
 
     public async Task<IReadOnlyList<VideoInformation>> GetCuratedPlaylistAsync(CancellationToken cancellationToken)
     {
+        var (items, _) = await GetCuratedFeedAsync(0, 0, cancellationToken).ConfigureAwait(false);
+        return items;
+    }
+
+    public async Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetCuratedFeedAsync(long freshIndex, int pageSize, CancellationToken cancellationToken)
+    {
+        // 网页端推荐按「刷新批次」推进：每次请求给一个新的 fresh_idx，服务端回一批新卡片。
         var parameters = new Dictionary<string, string>
         {
-            { "fresh_idx", "1" },
-            { "ps", "10" },
+            { "fresh_idx", (freshIndex <= 0 ? 1 : freshIndex).ToString() },
+            { "ps", (pageSize > 0 ? pageSize : DefaultCuratedPageSize).ToString() },
             { "plat", "1" },
             { "feed_version", "CLIENT_SELECTED" },
             { "fresh_type", "0" },
@@ -187,24 +199,23 @@ internal sealed class VideoDiscoveryClient
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseCuratedPlaylistResponse).ConfigureAwait(false);
         return responseObj.Data is null || responseObj.Data.Items is null || responseObj.Data.Items.Count == 0
             ? throw new KernelException("精选视频数据为空")
-            : (IReadOnlyList<VideoInformation>)responseObj.Data.Items.Select(p => p.ToVideoInformation()).ToList().AsReadOnly();
+            : ((IReadOnlyList<VideoInformation> Items, long Offset))(
+                responseObj.Data.Items.Select(p => p.ToVideoInformation()).ToList().AsReadOnly(),
+                Math.Max(1, freshIndex) + 1);
     }
 
-    public async Task<(IReadOnlyList<VideoInformation> Videos, long Offset)> GetRecommendVideoListAsync(long offset, int pageSize, CancellationToken cancellationToken)
+    public async Task<(IReadOnlyList<VideoInformation> Videos, long Offset)> GetRecommendVideoListAsync(long offset, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>
         {
             { "idx", offset.ToString() },
             { "flush", "5" },
+            // 实测该端点只接受 4；5/6/7/8 一律返回 -400「请求错误」。
+            // 单页条数因此是服务端决定的，客户端没有可用的「多要一点」参数。
             { "column", "4" },
             { "device", "desktop" },
             { "pull", (offset == 0).ToString().ToLowerInvariant() },
         };
-
-        if (pageSize > 0)
-        {
-            parameters.Add("ps", pageSize.ToString());
-        }
 
         var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(BiliApis.Home.Recommend));
         _authenticator.AuthorizeRestRequest(request, parameters);

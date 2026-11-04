@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
@@ -59,6 +59,10 @@ public sealed class VideoDiscoveryService : IVideoDiscoveryService
         => _client.GetCuratedPlaylistAsync(cancellationToken);
 
     /// <inheritdoc/>
+    public Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetCuratedFeedAsync(long freshIndex = 0, int pageSize = 0, CancellationToken cancellationToken = default)
+        => _client.GetCuratedFeedAsync(freshIndex, pageSize, cancellationToken);
+
+    /// <inheritdoc/>
     public Task<IReadOnlyList<VideoInformation>> GetGlobalRankingListAsync(CancellationToken cancellationToken = default)
         => _client.GetGlobalRankingListAsync(cancellationToken);
 
@@ -67,6 +71,6 @@ public sealed class VideoDiscoveryService : IVideoDiscoveryService
         => _client.GetHotVideoListAsync(offset, cancellationToken);
 
     /// <inheritdoc/>
-    public Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetRecommendVideoListAsync(long offset = 0, int pageSize = 0, CancellationToken cancellationToken = default)
-        => _client.GetRecommendVideoListAsync(offset, pageSize, cancellationToken);
+    public Task<(IReadOnlyList<VideoInformation> Items, long Offset)> GetRecommendVideoListAsync(long offset = 0, CancellationToken cancellationToken = default)
+        => _client.GetRecommendVideoListAsync(offset, cancellationToken);
 }
