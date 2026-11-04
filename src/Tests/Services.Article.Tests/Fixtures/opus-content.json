@@ -1,46 +1,44 @@
 {
-  "readInfo": {
-    "id": 1002,
-    "publish_time": 1700000001,
-    "author": {
-      "mid": 43,
-      "name": "Author43",
-      "face": "https://example.invalid/face2.png",
-      "fans": 1,
-      "level": 2
-    },
-    "content": null,
-    "opus": {
-      "opus_id": 5,
-      "content": {
-        "paragraphs": [
-          {
-            "para_type": 1,
-            "text": {
-              "nodes": [
-                { "node_type": 1, "word": { "words": "bold", "font_size": 0, "style": { "bold": true } } },
-                { "node_type": 1, "word": { "words": "plain", "font_size": 20 } },
-                { "node_type": 1, "word": { "words": "\\n", "font_size": 0 } }
-              ]
-            }
-          },
-          {
-            "para_type": 2,
-            "pic": {
-              "style": 1,
-              "pics": [
-                { "url": "https://example.invalid/img.png", "width": 640, "height": 480, "size": 2 }
-              ]
-            }
-          },
-          {
-            "para_type": 3,
-            "line": {
-              "pic": { "url": "https://example.invalid/line.png", "height": 20 }
-            }
+  "id": 1002,
+  "publish_time": 1700000001,
+  "author": {
+    "mid": 43,
+    "name": "Author43",
+    "face": "https://example.invalid/face2.png",
+    "fans": 1,
+    "level": 2
+  },
+  "content": null,
+  "opus": {
+    "opus_id": 5,
+    "content": {
+      "paragraphs": [
+        {
+          "para_type": 1,
+          "text": {
+            "nodes": [
+              { "node_type": 1, "word": { "words": "bold", "font_size": 0, "style": { "bold": true } } },
+              { "node_type": 1, "word": { "words": "plain", "font_size": 20 } },
+              { "node_type": 1, "word": { "words": "\\n", "font_size": 0 } }
+            ]
           }
-        ]
-      }
+        },
+        {
+          "para_type": 2,
+          "pic": {
+            "style": 1,
+            "pics": [
+              { "url": "https://example.invalid/img.png", "width": 640, "height": 480, "size": 2 }
+            ]
+          }
+        },
+        {
+          "para_type": 3,
+          "line": {
+            "pic": { "url": "https://example.invalid/line.png", "height": 20 }
+          }
+        }
+      ]
     }
   }
 }

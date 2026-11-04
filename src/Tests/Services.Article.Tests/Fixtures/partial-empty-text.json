@@ -1,17 +1,15 @@
 {
-  "readInfo": {
-    "id": 1007,
-    "author": { "mid": 1, "name": "SyntheticAuthor" },
-    "opus": {
-      "opus_id": 8,
-      "content": {
-        "paragraphs": [
-          { "para_type": 1, "text": null },
-          { "para_type": 1, "text": { "nodes": [] } },
-          { "para_type": 1, "text": { "nodes": [ { "node_type": 1, "word": null } ] } },
-          { "para_type": 1, "text": { "nodes": [ { "node_type": 1, "word": { "words": "kept", "font_size": 0 } } ] } }
-        ]
-      }
+  "id": 1007,
+  "author": { "mid": 1, "name": "SyntheticAuthor" },
+  "opus": {
+    "opus_id": 8,
+    "content": {
+      "paragraphs": [
+        { "para_type": 1, "text": null },
+        { "para_type": 1, "text": { "nodes": [] } },
+        { "para_type": 1, "text": { "nodes": [ { "node_type": 1, "word": null } ] } },
+        { "para_type": 1, "text": { "nodes": [ { "node_type": 1, "word": { "words": "kept", "font_size": 0 } } ] } }
+      ]
     }
   }
 }

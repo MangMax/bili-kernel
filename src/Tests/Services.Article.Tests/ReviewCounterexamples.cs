@@ -9,8 +9,8 @@ namespace Services.Article.Tests;
 public class ReviewCounterexamples
 {
     private static ArticleDetail Map(string paragraphs) {
-        var json = "{\"readInfo\":{\"author\":{\"mid\":42,\"name\":\"Synthetic\",\"face\":\"https://example.invalid/a.png\"},\"opus\":{\"content\":{\"paragraphs\":" + paragraphs + "}}}}";
-        var response = JsonSerializer.Deserialize(json, SourceGenerationContext.Default.ArticleContentResponse)!;
+        var json = "{\"author\":{\"mid\":42,\"name\":\"Synthetic\",\"face\":\"https://example.invalid/a.png\"},\"opus\":{\"content\":{\"paragraphs\":" + paragraphs + "}}}";
+        var response = JsonSerializer.Deserialize(json, SourceGenerationContext.Default.Readinfo)!;
         return response.ToArticleDetail(new ArticleIdentifier("1", "Synthetic", null, null), null!);
     }
     [Theory]

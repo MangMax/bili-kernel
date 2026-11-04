@@ -130,7 +130,7 @@ internal sealed class ArticleDiscoveryClient
     /// <summary>
     /// 获取结构化正文；空数据或频控最多尝试三次.
     /// </summary>
-    private async Task<ArticleContentResponse> GetUsableArticleContentAsync(ArticleIdentifier article, CancellationToken cancellationToken)
+    private async Task<Readinfo?> GetUsableArticleContentAsync(ArticleIdentifier article, CancellationToken cancellationToken)
     {
         for (var attempt = 1; ; attempt++)
         {
@@ -156,8 +156,7 @@ internal sealed class ArticleDiscoveryClient
                 continue;
             }
 
-            // 保留适配器包装类型，待 #23 统一收口.
-            var content = new ArticleContentResponse { readInfo = response.Data! };
+            var content = response.Data;
             if (ArticleAdapter.HasUsableContent(content) || attempt >= ContentFetchAttempts)
             {
                 return content;
