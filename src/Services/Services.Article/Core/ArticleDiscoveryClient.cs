@@ -151,15 +151,14 @@ internal sealed class ArticleDiscoveryClient
                 {
                     throw new KernelException($"获取文章正文失败：{response.Code} ({response.Message})");
                 }
-
-                await Task.Delay(TimeSpan.FromMilliseconds(ContentFetchRetryDelay.TotalMilliseconds * attempt), cancellationToken).ConfigureAwait(false);
-                continue;
             }
-
-            var content = response.Data;
-            if (ArticleAdapter.HasUsableContent(content) || attempt >= ContentFetchAttempts)
+            else
             {
-                return content;
+                var content = response.Data;
+                if (ArticleAdapter.HasUsableContent(content) || attempt >= ContentFetchAttempts)
+                {
+                    return content;
+                }
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(ContentFetchRetryDelay.TotalMilliseconds * attempt), cancellationToken).ConfigureAwait(false);
