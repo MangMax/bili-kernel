@@ -725,6 +725,7 @@ internal sealed class PlayerClient
 
     private async Task<PlayerInformation> RequestPgcPlayInformationAsync(string url, bool isV2, string? cid, string? episodeId, string seasonType, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var parameters = CreatePgcPlayParameters(cid, episodeId, seasonType);
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
         _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
@@ -746,6 +747,7 @@ internal sealed class PlayerClient
 
     private async Task<PlayerProgress?> GetWebVideoProgressAsync(string aid, string cid, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var queryParameters = new Dictionary<string, string>
@@ -780,6 +782,7 @@ internal sealed class PlayerClient
     /// </remarks>
     public async Task<IReadOnlyList<VideoChapter>> GetWebVideoChaptersAsync(MediaIdentifier video, long cid, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var idType = GetVideoIdType(video.Id, out var videoId);
         if (idType == "bv")
         {
@@ -801,6 +804,7 @@ internal sealed class PlayerClient
 
     private async Task<VideoOperationInformation?> GetWebVideoOperationInformationAsync(string aid, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var queryParameters = new Dictionary<string, string>
@@ -824,6 +828,7 @@ internal sealed class PlayerClient
 
     private async Task<VideoPageResponse> GetWebVideoPageResponseAsync(string aid, CancellationToken cancellationToken)
     {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         if (aid.StartsWith("bv", StringComparison.OrdinalIgnoreCase))
         {
             aid = AvBvConverter.Bv2Av(aid).ToString();

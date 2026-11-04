@@ -18,6 +18,7 @@ public sealed class SearchVerificationTests
     public async Task ComprehensiveSearchVerificationRequiredThrowsTypedException()
     {
         using var handler = new RecordingHttpMessageHandler();
+        handler.With("/x/web-interface/nav", WbiLifecycleTests.Nav);
         handler.With(SearchPath, "{\"code\":0,\"data\":{\"v_voucher\":\"" + Guid.NewGuid().ToString("N") + "\"}}");
         using var http = new BiliHttpClient(handler);
         ISearchService service = new SearchService(http, new BiliAuthenticator(new FakeCookiesResolver(), new FakeTokenResolver(), httpClient: http));
@@ -33,6 +34,7 @@ public sealed class SearchVerificationTests
     public async Task ComprehensiveSearchVerificationTakesPrecedenceOverResults(int responseCase)
     {
         using var handler = new RecordingHttpMessageHandler();
+        handler.With("/x/web-interface/nav", WbiLifecycleTests.Nav);
         var results = responseCase == 1 ? "{}" : Video;
         var voucher = responseCase == 2 ? " " : Guid.NewGuid().ToString("N");
         handler.With(SearchPath, "{\"code\":0,\"data\":{\"v_voucher\":\"" + voucher + "\",\"result\":[" + results + "],\"numPages\":2}}");
@@ -50,6 +52,7 @@ public sealed class SearchVerificationTests
     public async Task ComprehensiveSearchNormalEmptyRemainsEmpty(int voucherCase)
     {
         using var handler = new RecordingHttpMessageHandler();
+        handler.With("/x/web-interface/nav", WbiLifecycleTests.Nav);
         handler.With(SearchPath, "{\"code\":0,\"data\":{" + EmptyVoucherField(voucherCase) + "\"result\":[],\"numPages\":0}}");
         using var http = new BiliHttpClient(handler);
 
@@ -66,6 +69,7 @@ public sealed class SearchVerificationTests
     public async Task ComprehensiveSearchNormalVideoAndPaginationRemainValid(int voucherCase)
     {
         using var handler = new RecordingHttpMessageHandler();
+        handler.With("/x/web-interface/nav", WbiLifecycleTests.Nav);
         handler.With(SearchPath, "{\"code\":0,\"data\":{" + EmptyVoucherField(voucherCase) + "\"result\":[" + Video + "],\"numPages\":2}}");
         using var http = new BiliHttpClient(handler);
 
@@ -82,6 +86,7 @@ public sealed class SearchVerificationTests
     public async Task ComprehensiveSearchRecoversOnSubsequentExplicitRequest()
     {
         using var handler = new RecordingHttpMessageHandler();
+        handler.With("/x/web-interface/nav", WbiLifecycleTests.Nav);
         handler.With(SearchPath, "{\"code\":0,\"data\":{\"v_voucher\":\"" + Guid.NewGuid().ToString("N") + "\"}}");
         using var http = new BiliHttpClient(handler);
         var service = CreateService(http);
@@ -101,6 +106,7 @@ public sealed class SearchVerificationTests
     {
         var sensitive = Guid.NewGuid().ToString("N");
         using var handler = new RecordingHttpMessageHandler();
+        handler.With("/x/web-interface/nav", WbiLifecycleTests.Nav);
         handler.With(SearchPath, "{\"code\":0,\"message\":\"" + sensitive + "\",\"data\":{\"v_voucher\":\"" + sensitive + "\",\"extra\":\"" + sensitive + "\"}}");
         using var http = new BiliHttpClient(handler);
         var cookies = new FakeCookiesResolver();
