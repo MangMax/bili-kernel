@@ -61,7 +61,7 @@ internal static class ArticleAdapter
         return FormatHtmlContent(rawContent);
     }
 
-    public static ArticleDetail ToArticleDetail(this ArticleContentResponse response, ArticleIdentifier identifier, ArticleViewResponse view)
+    public static ArticleDetail ToArticleDetail(this ArticleContentResponse response, ArticleIdentifier identifier, ArticleViewResponse? view)
     {
         var readInfo = response?.readInfo ?? throw new KernelException("文章内容数据为空，无法解析该文章.");
         var author = readInfo.author ?? throw new KernelException("文章作者信息缺失，无法解析该文章.");
@@ -72,8 +72,8 @@ internal static class ArticleAdapter
         var publishTime = DateTimeOffset.FromUnixTimeSeconds(readInfo.publish_time).ToLocalTime();
         var communityInfo = new ArticleCommunityInformation(identifier.Id, stats?.view, stats?.favorite, stats?.like, stats?.reply, stats?.share, stats?.coin);
         var tags = readInfo.tags?.Select(p => new BiliTag(p.tid.ToString(), p.name)).ToList();
-        var isLiked = view?.like > 0;
-        var isFav = view?.favorite ?? false;
+        bool? isLiked = view is null ? null : view.like > 0;
+        var isFav = view?.favorite;
         var relation = view?.attention == true ? UserRelationStatus.Following : UserRelationStatus.Unfollow;
         var userCard = new UserCard(detailProfile, new UserCommunityInformation(author.mid.ToString(), fansCount: author.fans, relation: relation));
         var content = GetRenderableContent(readInfo);

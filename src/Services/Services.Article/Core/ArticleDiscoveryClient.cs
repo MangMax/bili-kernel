@@ -165,7 +165,7 @@ internal sealed class ArticleDiscoveryClient
         return match.Success ? match.Groups[1].Value : null;
     }
 
-    private async Task<ArticleViewResponse> GetArticleMetadataAsync(ArticleIdentifier article, CancellationToken cancellationToken)
+    private async Task<ArticleViewResponse?> GetArticleMetadataAsync(ArticleIdentifier article, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>
         {
@@ -173,8 +173,24 @@ internal sealed class ArticleDiscoveryClient
         };
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Article.ArticleViewInfo));
         _authenticator.AuthorizeRestRequest(request, parameters);
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseArticleViewResponse).ConfigureAwait(false);
-        return responseObj.Data ?? throw new KernelException("无法获取文章元数据");
+        try
+        {
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseArticleViewResponse).ConfigureAwait(false);
+            return responseObj?.Data;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (KernelException)
+        {
+            // 统计请求失败不影响正文，也不触发重取；未知状态保持为空.
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }
