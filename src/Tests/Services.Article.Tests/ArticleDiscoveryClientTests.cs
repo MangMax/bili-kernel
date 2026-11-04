@@ -1,4 +1,4 @@
-// Copyright (c) Richasy. All rights reserved.
+﻿// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
@@ -16,8 +16,8 @@ namespace Services.Article.Tests;
 
 /// <summary>
 /// Exercises the real article discovery client (HTTP client, authenticator, JSON
-/// source generation and adapter) with a fake transport. The reading page
-/// intermittently returns a structurally valid page whose readInfo is empty for
+/// source generation and adapter) with a fake transport. The article endpoint
+/// intermittently returns a successful response whose data is empty for
 /// the same article; the client must re-fetch it instead of treating that state
 /// as the final result.
 /// </summary>
@@ -26,7 +26,7 @@ public sealed class ArticleDiscoveryClientTests
     private static readonly ArticleIdentifier Identifier = new("1001", "Synthetic article", null, null);
 
     [Fact]
-    public async Task EmptyReadInfoIsRefetchedAndThenMapped()
+    public async Task EmptyDataIsRefetchedAndThenMapped()
     {
         var handler = new ArticleHandler([EmptyState, CompleteState]);
 
@@ -54,7 +54,7 @@ public sealed class ArticleDiscoveryClientTests
     }
 
     [Fact]
-    public async Task PersistentlyEmptyReadInfoStopsAtTheBoundedAttempts()
+    public async Task PersistentlyEmptyDataStopsAtTheBoundedAttempts()
     {
         var handler = new ArticleHandler([EmptyState, EmptyState, EmptyState, EmptyState]);
 
@@ -72,11 +72,11 @@ public sealed class ArticleDiscoveryClientTests
     [InlineData("{\"author\": {\"mid\": 42}, \"opus\": {\"content\": {\"paragraphs\": [{\"para_type\": 99}]}}}")]
     [InlineData("{\"author\": {\"mid\": 42}, \"content\": \"<p></p>\"}")]
     [InlineData("{\"author\": {\"mid\": 42}, \"content\": \"<p>fallback</p>\", \"opus\": {}}")]
-    public async Task UnrenderableBodyIsRefetched(string readInfo)
+    public async Task UnrenderableBodyIsRefetched(string data)
     {
         // 与 ToArticleDetail 的 opus 优先 + FormatHtmlContent 规则一致：
         // 未知段落独占、格式化后为空的正文、opus 存在但为空时都应重取。
-        var handler = new ArticleHandler(["{\"readInfo\":" + readInfo + "}", CompleteState]);
+        var handler = new ArticleHandler(["{\"data\":" + data + "}", CompleteState]);
         using var client = CreateClient(handler, out var discovery);
         var detail = await discovery.GetArticleContentAsync(Identifier, CancellationToken.None);
         Assert.Equal("<p>synthetic body</p>", detail!.HtmlContent);
@@ -88,10 +88,10 @@ public sealed class ArticleDiscoveryClientTests
     [InlineData("{\"author\": {\"mid\": 42}, \"opus\": {\"content\": {\"paragraphs\": [{\"para_type\": 2, \"pic\": {\"pics\": [{\"url\": \"https://example.invalid/image.png\", \"width\": 640, \"height\": 480}]}}]}}}", "https://example.invalid/image.png")]
     [InlineData("{\"author\": {\"mid\": 42}, \"opus\": {\"content\": {\"paragraphs\": [{\"para_type\": 3, \"line\": {\"pic\": {\"url\": \"https://example.invalid/line.png\", \"height\": 20}}}]}}}", "https://example.invalid/line.png")]
     [InlineData("{\"author\": {\"mid\": 42}, \"opus\": {\"content\": {\"paragraphs\": [{\"para_type\": 99}, {\"para_type\": 1, \"text\": {\"nodes\": [{\"node_type\": 1, \"word\": {\"words\": \"mixed body\"}}]}}]}}}", "mixed body")]
-    public async Task RenderableMediaAndMixedContentAreFetchedOnlyOnce(string readInfo, string expected)
+    public async Task RenderableMediaAndMixedContentAreFetchedOnlyOnce(string data, string expected)
     {
         // 合法图片、分割线与有效混合文本不能被可用性判断误拒而多余重取。
-        var handler = new ArticleHandler(["{\"readInfo\":" + readInfo + "}", CompleteState]);
+        var handler = new ArticleHandler(["{\"data\":" + data + "}", CompleteState]);
         using var client = CreateClient(handler, out var discovery);
         var detail = await discovery.GetArticleContentAsync(Identifier, CancellationToken.None);
         Assert.Contains(expected, detail!.HtmlContent, StringComparison.Ordinal);
@@ -120,7 +120,7 @@ public sealed class ArticleDiscoveryClientTests
         // 403/认证等永久 HTTP 错误即使带空状态也只失败一次，不进入重取。
         var handler = new ArticleHandler([EmptyState]) { Status = HttpStatusCode.Forbidden };
         using var client = CreateClient(handler, out var discovery);
-        await Assert.ThrowsAnyAsync<Exception>(() => discovery.GetArticleContentAsync(Identifier, CancellationToken.None));
+        await Assert.ThrowsAsync<HttpRequestException>(() => discovery.GetArticleContentAsync(Identifier, CancellationToken.None));
         Assert.Equal(1, handler.ContentRequests);
         Assert.Equal(0, handler.ViewRequests);
     }
@@ -173,6 +173,60 @@ public sealed class ArticleDiscoveryClientTests
         Assert.Equal(1, handler.ViewRequests);
     }
 
+    [Theory]
+    [InlineData(-509)]
+    [InlineData(-799)]
+    [InlineData(-412)]
+    public async Task RateLimitIsRetriedAndThenMapped(int code)
+    {
+        var handler = new ArticleHandler([$"{{\"code\":{code}}}", CompleteState]);
+        using var client = CreateClient(handler, out var discovery);
+        var detail = await discovery.GetArticleContentAsync(Identifier, CancellationToken.None);
+        Assert.Equal("Author42", detail!.Author.Profile!.User.Name);
+        Assert.Equal("<p>synthetic body</p>", detail.HtmlContent);
+        Assert.Equal(2, handler.ContentRequests);
+        Assert.Equal(1, handler.ViewRequests);
+    }
+
+    [Theory]
+    [InlineData(-509, 3)]
+    [InlineData(-799, 3)]
+    [InlineData(-412, 3)]
+    [InlineData(-404, 1)]
+    public async Task ApiErrorStopsAtExpectedAttemptAndIncludesCode(int code, int attempts)
+    {
+        var errorState = $"{{\"code\":{code},\"message\":\"rejected\"}}";
+        var handler = new ArticleHandler([errorState, errorState, errorState, CompleteState]);
+        using var client = CreateClient(handler, out var discovery);
+        var error = await Assert.ThrowsAsync<KernelException>(
+            () => discovery.GetArticleContentAsync(Identifier, CancellationToken.None));
+        Assert.Contains(code.ToString(), error.Message, StringComparison.Ordinal);
+        Assert.Equal(attempts, handler.ContentRequests);
+        Assert.Equal(0, handler.ViewRequests);
+    }
+
+    [Fact]
+    public async Task MixedEmptyAndRateLimitResponsesShareLinearRetryBudget()
+    {
+        var handler = new ArticleHandler([EmptyState, "{\"code\":-509}", CompleteState]);
+        using var client = CreateClient(handler, out var discovery);
+        var detail = await discovery.GetArticleContentAsync(Identifier, CancellationToken.None);
+        Assert.Equal("<p>synthetic body</p>", detail!.HtmlContent);
+        Assert.Equal(3, handler.ContentRequests);
+        Assert.True(handler.RequestTimes[1] - handler.RequestTimes[0] >= TimeSpan.FromMilliseconds(180));
+        Assert.True(handler.RequestTimes[2] - handler.RequestTimes[1] >= TimeSpan.FromMilliseconds(380));
+    }
+
+    [Fact]
+    public async Task NullDataIsRefetched()
+    {
+        var handler = new ArticleHandler(["{\"code\":0,\"data\":null}", CompleteState]);
+        using var client = CreateClient(handler, out var discovery);
+        var detail = await discovery.GetArticleContentAsync(Identifier, CancellationToken.None);
+        Assert.Equal("<p>synthetic body</p>", detail!.HtmlContent);
+        Assert.Equal(2, handler.ContentRequests);
+    }
+
     private static BiliHttpClient CreateClient(ArticleHandler handler, out ArticleDiscoveryClient discovery)
     {
         var client = new BiliHttpClient(handler);
@@ -180,11 +234,11 @@ public sealed class ArticleDiscoveryClientTests
         return client;
     }
 
-    private const string EmptyState = """{"readInfo":{}}""";
+    private const string EmptyState = """{"data":{}}""";
 
     private const string CompleteState = """
         {
-          "readInfo": {
+          "data": {
             "id": 1001,
             "title": "Synthetic article",
             "publish_time": 1700000000,
@@ -239,7 +293,7 @@ public sealed class ArticleDiscoveryClientTests
     }
 
     /// <summary>
-    /// Fake transport: returns the queued reading-page states in order and a
+    /// Fake transport: returns the queued article API states in order and a
     /// single, successful metadata response.
     /// </summary>
     private sealed class ArticleHandler(IEnumerable<string> contentStates) : HttpMessageHandler
@@ -252,6 +306,10 @@ public sealed class ArticleDiscoveryClientTests
 
         public Action? OnMetadataRequest { get; init; }
 
+        public List<TimeSpan> RequestTimes { get; } = [];
+
+        private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+
         public int ContentRequests { get; private set; }
 
         public int ViewRequests { get; private set; }
@@ -259,11 +317,17 @@ public sealed class ArticleDiscoveryClientTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.AbsolutePath;
-            if (path.Contains("read/native", StringComparison.Ordinal))
+            if (path == "/x/article/view")
             {
+                RequestTimes.Add(_clock.Elapsed);
                 ContentRequests++;
                 var state = _contentStates.Count > 0 ? _contentStates.Dequeue() : EmptyState;
-                var response = Html($"<html><script>window.__INITIAL_STATE__ = {state};</script></html>");
+                Assert.Equal("api.bilibili.com", request.RequestUri.Host);
+                var query = request.RequestUri.Query;
+                Assert.Contains("id=1001", query, StringComparison.Ordinal);
+                Assert.Contains("gaia_source=main_web", query, StringComparison.Ordinal);
+                Assert.Contains("sign=", query, StringComparison.Ordinal);
+                var response = Json(state);
                 response.StatusCode = Status;
                 return Task.FromResult(response);
             }
@@ -278,9 +342,6 @@ public sealed class ArticleDiscoveryClientTests
 
             throw new InvalidOperationException($"Unexpected request path '{path}'.");
         }
-
-        private static HttpResponseMessage Html(string html)
-            => new(HttpStatusCode.OK) { Content = new StringContent(html, Encoding.UTF8, "text/html") };
 
         private static HttpResponseMessage Json(string json)
             => new(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };

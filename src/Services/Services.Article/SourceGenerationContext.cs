@@ -12,6 +12,7 @@ namespace Richasy.BiliKernel;
 [JsonSerializable(typeof(ArticleCategory))]
 [JsonSerializable(typeof(ArticleContentResponse))]
 [JsonSerializable(typeof(Readinfo))]
+[JsonSerializable(typeof(BiliDataResponse<Readinfo>))]
 [JsonSerializable(typeof(Category))]
 [JsonSerializable(typeof(Author))]
 [JsonSerializable(typeof(Official_Verify))]
