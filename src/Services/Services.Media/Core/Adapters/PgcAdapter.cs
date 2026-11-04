@@ -73,7 +73,9 @@ internal static class PgcAdapter
             default,
             episode.Stat?.CoinCount ?? 0,
             episode.Stat?.ReplyCount ?? 0);
-        var seasonType = episode.Report?.SeasonType;
+        var seasonType = string.IsNullOrEmpty(episode.Report?.SeasonType)
+            ? season.Type.ToString(CultureInfo.InvariantCulture)
+            : episode.Report.SeasonType;
         var width = episode.Dimension?.width ?? 1920;
         var height = episode.Dimension?.height ?? 1080;
         var ratio = new MediaAspectRatio(width, height);

@@ -20,6 +20,61 @@ public sealed class EndpointMigrationTests
 
     private const string TimelineResponse = @"{""code"":0,""result"":[{""date"":""10-29"",""date_ts"":1793203200,""day_of_week"":4,""is_today"":0,""episodes"":[{""season_id"":332584,""episode_id"":7065889,""title"":""t"",""cover"":""https://i0.hdslb.com/a.jpg"",""pub_index"":""第9话"",""pub_time"":""10:00"",""pub_ts"":1793239200,""published"":1}]}]}";
 
+    [Theory]
+    [InlineData(null, 1, "1", false)]
+    [InlineData(null, 4, "4", false)]
+    [InlineData("", 4, "4", false)]
+    [InlineData("2", 4, "2", false)]
+    [InlineData(null, 4, "4", true)]
+    public async Task WebSeasonDetailCanRequestSignedPlayback(string? reportType, int topLevelType, string expectedType, bool fallback)
+    {
+        var json = System.Text.Json.Nodes.JsonNode.Parse(SeasonResponse)!;
+        json["result"]!["type"] = topLevelType;
+        var episodeJson = json["result"]!["episodes"]![0]!;
+        if (reportType is null)
+        {
+            episodeJson.AsObject().Remove("report");
+        }
+        else
+        {
+            episodeJson["report"]!["season_type"] = reportType;
+        }
+
+        var handler = CreateHandler();
+        handler.With("/pgc/view/web/season", json.ToJsonString());
+        handler.With("/pgc/player/web/v2/playurl", """{"code":0,"data":{"video_info":{"timelength":1000,"accept_quality":[64],"dash":{"video":[],"audio":[]}}}}""");
+        if (fallback)
+        {
+            handler.With("/pgc/player/web/v2/playurl", """{"code":-404,"message":"not found"}""");
+            handler.With("/pgc/player/web/playurl", """{"code":0,"result":{"timelength":1000,"accept_quality":[64],"dash":{"video":[],"audio":[]}}}""");
+        }
+
+        var service = CreatePlayerService(handler);
+
+        var view = await service.GetPgcPageDetailAsync("332584", null, CancellationToken.None);
+        var episode = Assert.Single(view.Episodes!);
+        var seasonType = episode.GetExtensionIfNotNull<string>(EpisodeExtensionDataId.SeasonType);
+        var dash = await service.GetPgcPlayDetailAsync("123", episode.Identifier.Id, seasonType!);
+
+        Assert.Equal(expectedType, seasonType);
+        Assert.Equal(1, dash.Duration);
+        var requests = handler.Requests.Where(p => p.Path.Contains("playurl", StringComparison.Ordinal)).ToList();
+        Assert.Equal(fallback ? 2 : 1, requests.Count);
+        Assert.Equal("/pgc/player/web/v2/playurl", requests[0].Path);
+        if (fallback)
+        {
+            Assert.Equal("/pgc/player/web/playurl", requests[1].Path);
+        }
+
+        foreach (var request in requests)
+        {
+            Assert.Equal(expectedType, request.Query["season_type"]);
+            Assert.Equal("7065889", request.Query["ep_id"]);
+            Assert.Matches("^[0-9a-f]{32}$", request.Query["w_rid"]);
+            Assert.True(long.Parse(request.Query["wts"], System.Globalization.CultureInfo.InvariantCulture) > 0);
+        }
+    }
+
     [Fact]
     public async Task SeasonDetailUsesWebEndpoint()
     {
