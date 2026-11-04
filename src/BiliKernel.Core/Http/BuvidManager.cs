@@ -81,19 +81,25 @@ public sealed class BuvidManager : IDisposable
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var cookies = _cookiesResolver?.GetCookies();
+            if (cookies != null && cookies.TryGetValue("buvid3", out var cookieBuvid3)
+                && !string.IsNullOrEmpty(cookieBuvid3)
+                && !string.Equals(cookieBuvid3, _buvid3, StringComparison.Ordinal))
+            {
+                // A login can supply another identity after an earlier activation.
+                // Never write the manager's previous identity back over that session.
+                _buvid3 = cookieBuvid3;
+                _buvid4 = cookies.TryGetValue("buvid4", out var cookieBuvid4) ? cookieBuvid4 : null;
+                _activated = false;
+                _retryAfter = default;
+            }
+
             if (_activated || _utcNow() < _retryAfter)
             {
                 return;
             }
 
-            var cookies = _cookiesResolver?.GetCookies();
-            if (string.IsNullOrEmpty(_buvid3) && cookies != null
-                && cookies.TryGetValue("buvid3", out var cookieBuvid3) && !string.IsNullOrEmpty(cookieBuvid3))
-            {
-                // The caller's current Cookie identity takes precedence over stored fallback data.
-                await FetchAsync(cancellationToken).ConfigureAwait(false);
-            }
-            else if (!string.IsNullOrEmpty(Buvid3))
+            if (!string.IsNullOrEmpty(Buvid3))
             {
                 var buvid4 = Buvid4;
                 _buvid3 = Buvid3;

@@ -6,6 +6,38 @@ namespace Richasy.BiliKernel.Tests;
 public sealed class BuvidLifecycleTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UpdatedCookieIdentityIsActivatedWithoutRestoringPreviousIdentity(bool previousFailure)
+    {
+        var now = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+        var response = previousFailure ? "{\"code\":-1}" : "{\"code\":0}";
+        using var handler = new RecordingHttpMessageHandler(_ => RecordingHttpMessageHandler.Json(response));
+        var cookies = new FakeCookiesResolver();
+        cookies.SaveCookies(new Dictionary<string, string> { ["buvid3"] = "ACCOUNT-A3", ["buvid4"] = "ACCOUNT-A4", ["SESSDATA"] = "session-a" });
+        var store = new InMemoryBuvidStore("PERSISTED3", "PERSISTED4");
+        using var manager = new BuvidManager(cookies, store, handler, () => now);
+        await manager.EnsureAsync();
+        Assert.Single(handler.Requests);
+
+        cookies.SaveCookies(new Dictionary<string, string> { ["buvid3"] = "ACCOUNT-B3", ["SESSDATA"] = "session-b" });
+        if (previousFailure) now = now.AddMinutes(1);
+        response = "{\"code\":0}";
+        await manager.EnsureAsync();
+        await manager.EnsureAsync();
+
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Equal("ACCOUNT-B3", manager.Buvid3);
+        Assert.Null(manager.Buvid4);
+        Assert.Equal("ACCOUNT-B3", cookies.Cookies["buvid3"]);
+        Assert.Equal("session-b", cookies.Cookies["SESSDATA"]);
+        Assert.False(cookies.Cookies.ContainsKey("buvid4"));
+        Assert.Contains("buvid3=ACCOUNT-B3", handler.Requests[1].Cookie, StringComparison.Ordinal);
+        Assert.DoesNotContain("ACCOUNT-A", handler.Requests[1].Cookie, StringComparison.Ordinal);
+        Assert.Equal("PERSISTED3", store.Buvid3);
+    }
+
+    [Theory]
     [InlineData("{\"code\":-1}", 200)]
     [InlineData("{\"code\":0}", 500)]
     [InlineData("{}", 200)]
