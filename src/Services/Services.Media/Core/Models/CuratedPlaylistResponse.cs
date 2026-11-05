@@ -22,6 +22,15 @@ internal sealed class CuratedPlaylistResponse
 /// </summary>
 internal sealed class CuratedPlaylistVideo
 {
+    [JsonPropertyName("tid")]
+    public long? PartitionId { get; set; }
+
+    [JsonPropertyName("tname")]
+    public string? PartitionName { get; set; }
+
+    [JsonPropertyName("is_followed")]
+    public int? IsFollowed { get; set; }
+
     /// <summary>
     /// Avid.
     /// </summary>

@@ -39,4 +39,8 @@ public interface IRelationshipService
     /// 获取用户关系.
     /// </summary>
     Task<UserRelationStatus> GetRelationshipAsync(string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Gets relationships for distinct positive user IDs, keyed by canonical user ID.</summary>
+    /// <remarks>Only a successful response may classify an absent ID as unfollowed.</remarks>
+    Task<IReadOnlyDictionary<string, UserRelationStatus>> GetRelationshipsAsync(IEnumerable<string> userIds, CancellationToken cancellationToken = default);
 }

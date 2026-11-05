@@ -7,6 +7,7 @@ using Richasy.BiliKernel.Bili.Authorization;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Media;
+using RichasyKernel;
 using System.Text.Json.Serialization.Metadata;
 
 namespace Richasy.BiliKernel.Services.User.Core;
@@ -31,14 +32,16 @@ internal sealed class ViewLaterClient
     {
         var parameters = new Dictionary<string, string>
         {
-            { "pn", page.ToString() },
+            { "pn", (page + 1).ToString(System.Globalization.CultureInfo.InvariantCulture) },
             { "ps", "40" },
         };
 
         await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var responseObj = await GetAsync(BiliApis.Account.ViewLaterList, SourceGenerationContext.Default.BiliDataResponseViewLaterSetResponse, parameters, cancellationToken).ConfigureAwait(false);
         var videos = responseObj.Data?.List?.Select(p => p.ToVideoInformation()).ToList().AsReadOnly();
-        return (videos, responseObj.Data.Count);
+        return responseObj.Data is null
+            ? throw new KernelException("无法获取稍后再看列表数据")
+            : (videos, responseObj.Data.Count);
     }
 
     public async Task AddAsync(string aid, CancellationToken cancellationToken = default)
@@ -83,13 +86,13 @@ internal sealed class ViewLaterClient
 
     private async Task<T> GetAsync<T>(string url, JsonTypeInfo<T> converter, Dictionary<string, string>? paramters = default, CancellationToken cancellationToken = default)
     {
-        await _authenticationService.EnsureTokenAsync(cancellationToken).ConfigureAwait(false);
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
         _authenticator.AuthorizeRestRequest(request, paramters, new BiliAuthorizeExecutionSettings
         {
             ApiType = BiliApiType.Web,
             NeedRID = true,
             RequireCookie = true,
+            ForceNoToken = true,
         });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         return await BiliHttpClient.ParseAsync<T>(response, converter).ConfigureAwait(false);

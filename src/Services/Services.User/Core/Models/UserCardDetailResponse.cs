@@ -11,7 +11,7 @@ internal sealed class UserCardDetailResponse
     public UserCardDetail Card { get; set; }
 
     [JsonPropertyName("following")]
-    public bool Following { get; set; }
+    public bool? Following { get; set; }
 
     [JsonPropertyName("follower")]
     public int FollowerCount { get; set; }
