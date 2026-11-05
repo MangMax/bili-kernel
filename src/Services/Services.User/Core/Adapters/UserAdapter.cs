@@ -182,8 +182,13 @@ internal static class UserAdapter
     public static UserCard ToUserCard(this UserCardDetailResponse response)
     {
         var userProfile = UserAdapterBase.CreateUserProfile(Convert.ToInt64(response.Card.Mid), response.Card.Name, response.Card.Face, 96d);
-        var detailProfile = new UserDetailProfile(userProfile, response.Card.Sign, response.Card.Level.CurrentLevel, response.Card.Vip.Status >= 1, response.Card.IsSeniorMember == 1);
-        var relation = response.Following ? UserRelationStatus.Following : UserRelationStatus.Unfollow;
+        var detailProfile = new UserDetailProfile(userProfile, response.Card.Sign, response.Card.Level?.CurrentLevel, response.Card.Vip?.Status >= 1, response.Card.IsSeniorMember == 1);
+        var relation = response.Following switch
+        {
+            true => UserRelationStatus.Following,
+            false => UserRelationStatus.Unfollow,
+            _ => UserRelationStatus.Unknown,
+        };
         var communityInfo = new UserCommunityInformation(response.Card.Mid, response.Card.Attention, response.Card.Fans, likeCount: response.LikeCount, relation: relation);
         return new UserCard(detailProfile, communityInfo);
     }

@@ -27,6 +27,10 @@ public sealed class PlayerService : IPlayerService
         IBiliTokenResolver tokenResolver) => _client = new PlayerClient(httpClient, authenticator, tokenResolver);
 
     /// <inheritdoc/>
+    public Task<VideoInformation> GetVideoInformationAsync(MediaIdentifier video, CancellationToken cancellationToken = default)
+        => _client.GetVideoInformationWithRestAsync(video, cancellationToken);
+
+    /// <inheritdoc/>
     public async Task<VideoPlayerView> GetVideoPageDetailAsync(MediaIdentifier video, CancellationToken cancellationToken = default)
     {
         VideoPlayerView? view;

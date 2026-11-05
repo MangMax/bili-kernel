@@ -39,6 +39,12 @@ internal sealed class PlayerClient
         _tokenResolver = tokenResolver;
     }
 
+    public async Task<VideoInformation> GetVideoInformationWithRestAsync(MediaIdentifier video, CancellationToken cancellationToken)
+    {
+        var response = await GetWebVideoPageResponseAsync(video.Id, cancellationToken).ConfigureAwait(false);
+        return response?.View?.ToVideoInformation() ?? throw new KernelException("解析视频元数据失败");
+    }
+
     public async Task<VideoPlayerView> GetVideoPageDetailWithGrpcAsync(MediaIdentifier video, CancellationToken cancellationToken)
     {
         var idType = GetVideoIdType(video.Id, out var videoId);
