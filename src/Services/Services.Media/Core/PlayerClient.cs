@@ -234,9 +234,9 @@ internal sealed class PlayerClient
             var information = await RequestPgcPlayInformationAsync(BiliApis.Pgc.PlayInformation(), true, cid, episodeId, seasonType, cancellationToken).ConfigureAwait(false);
             return information.ToDashMediaInformation();
         }
-        catch (KernelException)
+        catch (KernelException ex) when (ex.InnerException is HttpRequestException { StatusCode: System.Net.HttpStatusCode.NotFound } or InvalidDataException)
         {
-            // v2 路径异常时回退到旧版路径，两条都走 WBI.
+            // 仅路由缺失或明确的非 DASH 格式回退；不掩盖登录、权限或内容错误。
             var information = await RequestPgcPlayInformationAsync(BiliApis.Pgc.PlayInformationLegacy(), false, cid, episodeId, seasonType, cancellationToken).ConfigureAwait(false);
             return information.ToDashMediaInformation();
         }
@@ -728,21 +728,22 @@ internal sealed class PlayerClient
         await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var parameters = CreatePgcPlayParameters(cid, episodeId, seasonType);
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
-        {
-            ApiType = BiliApiType.Web,
-            NeedRID = true,
-            RequireCookie = true,
-        });
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needRID: true));
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         if (isV2)
         {
             var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.PgcPlayUrlResponse).ConfigureAwait(false);
-            return responseObj?.Content ?? throw new KernelException("解析PGC播放详情失败");
+            var information = responseObj?.Content ?? throw new KernelException("解析PGC播放详情失败");
+            if (information.VideoInformation == null && information.FlvInformation?.Count > 0)
+            {
+                throw new KernelException("PGC 返回非 DASH 格式", new InvalidDataException());
+            }
+
+            return information.VideoInformation != null ? information : throw new KernelException("PGC 未返回 DASH 播放信息");
         }
 
         var legacyObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliResultResponsePlayerInformation).ConfigureAwait(false);
-        return legacyObj?.Result ?? throw new KernelException("解析PGC播放详情失败");
+        return legacyObj?.Result?.VideoInformation != null ? legacyObj.Result : throw new KernelException("解析PGC播放详情失败");
     }
 
     private async Task<PlayerProgress?> GetWebVideoProgressAsync(string aid, string cid, CancellationToken cancellationToken)
