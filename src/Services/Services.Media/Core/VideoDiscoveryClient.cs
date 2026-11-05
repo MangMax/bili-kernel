@@ -161,7 +161,7 @@ internal sealed class VideoDiscoveryClient
     {
         var requestParameters = new Dictionary<string, string>(parameters, StringComparer.Ordinal);
         var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, requestParameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, RequireToken = false });
+        _authenticator.AuthorizeRestRequest(request, requestParameters, BiliAuthorizeExecutionSettings.CookieOnly());
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponsePartitionArchiveResponse).ConfigureAwait(false);
         return responseObj?.Data?.Archives ?? [];
