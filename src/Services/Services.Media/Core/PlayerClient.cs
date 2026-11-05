@@ -267,7 +267,7 @@ internal sealed class PlayerClient
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.Like));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true });
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
@@ -285,7 +285,7 @@ internal sealed class PlayerClient
         }
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.Coin));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true });
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
@@ -309,7 +309,7 @@ internal sealed class PlayerClient
         }
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Video.ModifyFavorite));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true });
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
