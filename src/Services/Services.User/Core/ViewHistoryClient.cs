@@ -90,11 +90,11 @@ internal sealed class ViewHistoryClient
         {
             var parameters = new Dictionary<string, string>
             {
-                { "kid", itemId },
+                { "kid", $"{business}_{itemId}" },
             };
 
             var webRequest = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Post, new Uri(BiliApis.Account.WebHistoryDelete));
-            _authenticator.AuthorizeRestRequest(webRequest, parameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true, RequireCookie = true });
+            _authenticator.AuthorizeRestRequest(webRequest, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
             await _httpClient.SendAsync(webRequest, cancellationToken).ConfigureAwait(false);
             return;
         }
@@ -117,17 +117,21 @@ internal sealed class ViewHistoryClient
             Business = business,
         };
 
-        try
+        // Web clear has no category boundary. Preserve category-scoped gRPC semantics.
+        if (tab == ViewHistoryTabType.All)
         {
-            var webRequest = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Post, new Uri(BiliApis.Account.WebHistoryClear));
-            _authenticator.AuthorizeRestRequest(webRequest, new Dictionary<string, string>(), new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, NeedCSRF = true, RequireCookie = true });
-            await _httpClient.SendAsync(webRequest, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-        catch (KernelException ex)
-        {
-            // Web 端点失败时回退 gRPC.
-            Debug.WriteLine($"Web 清空历史失败，回退 gRPC：{ex.Message}");
+            try
+            {
+                var webRequest = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Post, new Uri(BiliApis.Account.WebHistoryClear));
+                _authenticator.AuthorizeRestRequest(webRequest, new Dictionary<string, string>(), BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
+                await _httpClient.SendAsync(webRequest, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            catch (KernelException ex)
+            {
+                // Web 端点失败时回退 gRPC.
+                Debug.WriteLine($"Web 清空历史失败，回退 gRPC：{ex.Message}");
+            }
         }
 
         var request = BiliHttpClient.CreateRequest(new Uri(BiliApis.Account.ClearHistory), req);
