@@ -33,11 +33,7 @@ public sealed class SpaceTests
         var card = await service.GetUserSpaceInformationAsync("1").ConfigureAwait(true);
 
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("/x/space/wbi/acc/info", StringComparison.Ordinal));
-        Assert.True(request.Query.ContainsKey("w_rid"));
-        Assert.True(request.Query.ContainsKey("wts"));
-        var signedQuery = string.Join("&", request.Query.Where(p => p.Key != "w_rid").OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
-        var expected = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(signedQuery + "ea1db124af3c7062474693fa704f4ff8"))).ToLowerInvariant();
-        Assert.Equal(expected, request.Query["w_rid"]);
+        AssertWbiSignature(request);
         Assert.False(request.Query.ContainsKey("access_key"));
         if (hasCookie)
         {
@@ -65,11 +61,7 @@ public sealed class SpaceTests
         var (videos, total) = await service.GetUserVideosAsync("1", 1);
 
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("/x/space/wbi/arc/search", StringComparison.Ordinal));
-        Assert.True(request.Query.ContainsKey("w_rid"));
-        Assert.True(request.Query.ContainsKey("wts"));
-        var signedQuery = string.Join("&", request.Query.Where(p => p.Key != "w_rid").OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
-        var expected = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(signedQuery + "ea1db124af3c7062474693fa704f4ff8"))).ToLowerInvariant();
-        Assert.Equal(expected, request.Query["w_rid"]);
+        AssertWbiSignature(request);
         Assert.False(request.Query.ContainsKey("access_key"));
         if (hasCookie)
         {
@@ -99,11 +91,7 @@ public sealed class SpaceTests
         var articles = await service.GetUserArticlesAsync("1", 1);
 
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("/x/space/wbi/article", StringComparison.Ordinal));
-        Assert.True(request.Query.ContainsKey("w_rid"));
-        Assert.True(request.Query.ContainsKey("wts"));
-        var signedQuery = string.Join("&", request.Query.Where(p => p.Key != "w_rid").OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
-        var expected = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(signedQuery + "ea1db124af3c7062474693fa704f4ff8"))).ToLowerInvariant();
-        Assert.Equal(expected, request.Query["w_rid"]);
+        AssertWbiSignature(request);
         Assert.False(request.Query.ContainsKey("access_key"));
         if (hasCookie)
         {
@@ -179,6 +167,15 @@ public sealed class SpaceTests
         public Task SignInAsync(Richasy.BiliKernel.Bili.AuthorizeExecutionSettings? settings = default, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Unrelated token refresh");
         public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task EnsureTokenAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Unrelated token refresh");
+    }
+
+    private static void AssertWbiSignature(RecordedRequest request)
+    {
+        Assert.True(request.Query.ContainsKey("w_rid"));
+        Assert.True(request.Query.ContainsKey("wts"));
+        var signedQuery = string.Join("&", request.Query.Where(p => p.Key != "w_rid").OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
+        var expected = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(signedQuery + "ea1db124af3c7062474693fa704f4ff8"))).ToLowerInvariant();
+        Assert.Equal(expected, request.Query["w_rid"]);
     }
 
     private static void AssertAntiCrawlParameters(RecordedRequest request)

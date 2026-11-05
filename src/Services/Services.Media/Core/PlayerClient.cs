@@ -29,6 +29,9 @@ internal sealed class PlayerClient
     private readonly BiliAuthenticator _authenticator;
     private readonly IBiliTokenResolver _tokenResolver;
 
+    // Transport boundary: receives the same encoded authentication packet sent by the real socket.
+    internal Func<Uri, byte[], CancellationToken, Task<ClientWebSocket>> ConnectLiveSocket { get; set; } = ConnectLiveSocketAsync;
+
     public PlayerClient(
         BiliHttpClient httpClient,
         BiliAuthenticator authenticator,
@@ -375,32 +378,35 @@ internal sealed class PlayerClient
         _authenticator.AuthorizeRestRequest(request, parameters);
         await _httpClient.SendAsync(request).ConfigureAwait(false);
         var liveDanmakuInfo = await GetLiveDanmakuInfoAsync(roomId, cancellationToken).ConfigureAwait(false);
-        var socket = CreateLiveSocket();
         var host = liveDanmakuInfo.HostList.FirstOrDefault()?.Host;
         if (string.IsNullOrEmpty(host))
         {
             throw new KernelException("无法获取直播弹幕服务器地址");
         }
 
-        await socket.ConnectAsync(new Uri($"wss://{host}/sub"), cancellationToken).ConfigureAwait(false);
+        var buvid = await GetBuvidAsync(cancellationToken).ConfigureAwait(false);
+        var authentication = new EnterRoomMessage
+        {
+            roomid = Convert.ToInt32(roomId),
+            uid = _tokenResolver.GetToken().UserId,
+            buvid = buvid,
+            protover = 2,
+            key = liveDanmakuInfo.Token,
+        };
+        var packet = EncodeLiveData(JsonSerializer.Serialize(authentication, SourceGenerationContext.Default.EnterRoomMessage), 7);
+        return await ConnectLiveSocket(new Uri($"wss://{host}/sub"), packet, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<ClientWebSocket> ConnectLiveSocketAsync(Uri uri, byte[] authentication, CancellationToken cancellationToken)
+    {
+        var socket = CreateLiveSocket();
+        await socket.ConnectAsync(uri, cancellationToken).ConfigureAwait(false);
         if (socket.State != WebSocketState.Open)
         {
             throw new KernelException("连接直播弹幕服务器失败");
         }
 
-        var buvid = await GetBuvidAsync(cancellationToken).ConfigureAwait(false);
-        await SendLiveMessageAsync(
-            socket,
-            new EnterRoomMessage
-            {
-                roomid = Convert.ToInt32(roomId),
-                uid = _tokenResolver.GetToken().UserId,
-                buvid = buvid,
-                protover = 2,
-                key = liveDanmakuInfo.Token,
-            },
-            7,
-            cancellationToken).ConfigureAwait(false);
+        await socket.SendAsync(new ArraySegment<byte>(authentication), WebSocketMessageType.Binary, true, cancellationToken).ConfigureAwait(false);
         await SendLiveHeartBeatAsync(socket, cancellationToken).ConfigureAwait(false);
         return socket;
     }

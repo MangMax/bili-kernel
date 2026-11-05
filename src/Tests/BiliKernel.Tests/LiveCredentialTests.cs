@@ -70,6 +70,34 @@ public sealed class LiveCredentialTests
         Assert.Equal("无法获取直播弹幕服务器地址", error.Message);
         AssertCredentials(Assert.Single(handler.Requests, r => r.Path == DanmakuPath), cookie);
     }
+    [Fact]
+    public async Task DanmakuSuccessConsumesHostRoomAndTokenIndependentlyOfDetail()
+    {
+        var (handler, service) = Create(true, true);
+        handler.With(DetailPath, """{"code":-403,"message":"detail denied"}""");
+        handler.With(DanmakuPath, """{"code":0,"data":{"token":"synthetic-chat-key","host_list":[{"host":"chat.example.test"}]}}""");
+        handler.With("/x/frontend/finger/spi", """{"code":0,"data":{"b_3":"B3","b_4":"B4"}}""");
+        var connected = false;
+        service.ConnectLiveSocket = (uri, authentication, cancellationToken) =>
+        {
+            Assert.Equal("wss://chat.example.test/sub", uri.AbsoluteUri);
+            Assert.Equal(7, System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(authentication.AsSpan(8, 4)));
+            using var payload = System.Text.Json.JsonDocument.Parse(authentication.AsMemory(16));
+            Assert.Equal(1234, payload.RootElement.GetProperty("roomid").GetInt32());
+            Assert.Equal("synthetic-chat-key", payload.RootElement.GetProperty("key").GetString());
+            Assert.Equal(2, payload.RootElement.GetProperty("protover").GetInt32());
+            connected = true;
+            return Task.FromResult(new System.Net.WebSockets.ClientWebSocket());
+        };
+        using var socket = await service.EnterLiveRoomAsync("1234", CancellationToken.None);
+        Assert.True(connected);
+        Assert.DoesNotContain(handler.Requests, r => r.Path == DetailPath);
+        var request = Assert.Single(handler.Requests, r => r.Path == DanmakuPath);
+        Assert.Equal("1234", request.Query["id"]);
+        Assert.Equal("0", request.Query["type"]);
+        AssertCredentials(request, true);
+    }
+
     private static void AssertCredentials(RecordedRequest request, bool cookie)
     {
         Assert.False(request.Query.ContainsKey("access_key"));

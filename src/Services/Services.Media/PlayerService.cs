@@ -26,6 +26,11 @@ public sealed class PlayerService : IPlayerService
         BiliAuthenticator authenticator,
         IBiliTokenResolver tokenResolver) => _client = new PlayerClient(httpClient, authenticator, tokenResolver);
 
+    internal Func<Uri, byte[], CancellationToken, Task<ClientWebSocket>> ConnectLiveSocket
+    {
+        set => _client.ConnectLiveSocket = value;
+    }
+
     /// <inheritdoc/>
     public async Task<VideoPlayerView> GetVideoPageDetailAsync(MediaIdentifier video, CancellationToken cancellationToken = default)
     {
