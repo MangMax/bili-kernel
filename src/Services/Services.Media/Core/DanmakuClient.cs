@@ -42,13 +42,10 @@ internal sealed class DanmakuClient
 
         DmWebViewReply? reply = default;
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Video.DanmakuMetaData));
-        _authenticator.AuthorizeRestRequest(request, queryParameters, new BiliAuthorizeExecutionSettings
-        {
-            RequireCookie = true,
-            ApiType = BiliApiType.Web,
-        });
+        _authenticator.AuthorizeRestRequest(request, queryParameters, BiliAuthorizeExecutionSettings.CookieOnly());
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        reply = await BiliHttpClient.ParseAsync(response, DmWebViewReply.Parser).ConfigureAwait(false);
+        // Web endpoints return raw protobuf, without the five-byte gRPC frame header.
+        reply = DmWebViewReply.Parser.ParseFrom(await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false));
 
         return new DanmakuMeta { SegmentCount = Convert.ToInt32(reply.DmSge?.Total ?? 0), Total = Convert.ToInt32(reply.Count) };
     }
@@ -76,13 +73,9 @@ internal sealed class DanmakuClient
                     { "segment_index", segmentIndex.ToString() },
                 };
                 var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Video.WebSegmentDanmaku));
-                _authenticator.AuthorizeRestRequest(request, queryParameters, new BiliAuthorizeExecutionSettings
-                {
-                    RequireCookie = true,
-                    ApiType = BiliApiType.Web,
-                });
+                _authenticator.AuthorizeRestRequest(request, queryParameters, BiliAuthorizeExecutionSettings.CookieOnly());
                 var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-                reply = await BiliHttpClient.ParseAsync(response, DmSegMobileReply.Parser).ConfigureAwait(false);
+                reply = DmSegMobileReply.Parser.ParseFrom(await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false));
             }
             catch (Exception)
             {
