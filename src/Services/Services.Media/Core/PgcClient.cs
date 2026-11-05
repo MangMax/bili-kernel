@@ -106,12 +106,7 @@ internal sealed class PgcClient
 
         var url = isFollow ? BiliApis.Pgc.Follow : BiliApis.Pgc.Unfollow;
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, paramters, new BiliAuthorizeExecutionSettings
-        {
-            ApiType = BiliApiType.Web,
-            NeedCSRF = true,
-            RequireCookie = true,
-        });
+        _authenticator.AuthorizeRestRequest(request, paramters, BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 

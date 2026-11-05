@@ -425,14 +425,8 @@ internal sealed class MyClient
             { "status", ((int)status).ToString() },
         };
 
-        await _authenticationService.EnsureTokenAsync(cancellationToken).ConfigureAwait(false);
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Account.UpdatePgcStatus));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
-        {
-            ApiType = BiliApiType.Web,
-            NeedCSRF = true,
-            RequireCookie = true,
-        });
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
