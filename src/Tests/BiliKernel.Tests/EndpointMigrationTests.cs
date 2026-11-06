@@ -45,7 +45,7 @@ public sealed class EndpointMigrationTests
         handler.With("/pgc/player/web/v2/playurl", """{"code":0,"data":{"video_info":{"timelength":1000,"accept_quality":[64],"dash":{"video":[],"audio":[]}}}}""");
         if (fallback)
         {
-            handler.With("/pgc/player/web/v2/playurl", """{"code":-404,"message":"not found"}""");
+            handler.With("/pgc/player/web/v2/playurl", """{"code":0,"data":{"video_info":{"durl":[{"url":"https://media.invalid/format.flv"}]}}}""");
             handler.With("/pgc/player/web/playurl", """{"code":0,"result":{"timelength":1000,"accept_quality":[64],"dash":{"video":[],"audio":[]}}}""");
         }
 
