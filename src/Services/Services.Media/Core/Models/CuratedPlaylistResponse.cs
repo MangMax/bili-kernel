@@ -22,6 +22,9 @@ internal sealed class CuratedPlaylistResponse
 /// </summary>
 internal sealed class CuratedPlaylistVideo
 {
+    [JsonPropertyName("track_id")]
+    public string? TrackId { get; set; }
+
     [JsonPropertyName("tid")]
     public long? PartitionId { get; set; }
 

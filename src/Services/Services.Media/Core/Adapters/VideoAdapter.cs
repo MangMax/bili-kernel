@@ -40,6 +40,16 @@ internal static class VideoAdapter
         info.AddExtensionIfNotNull(VideoExtensionDataId.Cid, video.Cid);
         info.AddExtensionIfNotNull(VideoExtensionDataId.MediaType, MediaType.Video);
         info.AddExtensionIfNotNull(VideoExtensionDataId.RecommendReason, video.RecommendReason?.Content);
+        info.RecommendationFeedback = new RecommendationFeedbackContext
+        {
+            Source = RecommendationFeedbackSource.Web, VideoId = video.AvId.ToString(),
+            PublisherId = video.Owner?.UserId, Goto = video.Goto, TrackId = video.TrackId,
+            Reasons = new List<RecommendationFeedbackReason>
+            {
+                new() { Id = 1, Operation = RecommendationFeedbackOperation.NotInterested },
+                new() { Id = 2, Operation = RecommendationFeedbackOperation.AvoidPublisher, Mid = video.Owner?.UserId },
+            }.AsReadOnly(),
+        };
         AddCategory(info, video.PartitionId, video.PartitionName);
         bool? following = video.IsFollowed switch { 0 => false, 1 => true, _ => null };
         info.AddExtensionIfNotNull(VideoExtensionDataId.PublisherIsFollowed, following);
@@ -65,11 +75,27 @@ internal static class VideoAdapter
             publishTime: card.PublishTime is > 0 ? DateTimeOffset.FromUnixTimeSeconds(card.PublishTime.Value).ToLocalTime() : null,
             communityInformation: communityInfo);
 
+        info.RecommendationFeedback = new RecommendationFeedbackContext
+        {
+            Source = RecommendationFeedbackSource.App,
+            VideoId = card.Parameter ?? card.Args.Aid.ToString(), Goto = card.Goto ?? card.CardGoto,
+            PublisherId = card.Args.UpId, TrackId = card.TrackId,
+            Reasons = (card.OverflowFlyout ?? []).SelectMany(menu => (menu.Reasons ?? []).Select(reason =>
+            {
+                var option = new RecommendationFeedbackReason
+                {
+                    Id = reason.Id ?? 0, Type = menu.Type, Name = reason.Name,
+                    Mid = reason.Mid, Rid = reason.Rid, TagId = reason.TagId,
+                };
+                option.Operation = option.GetProtocolOperation(RecommendationFeedbackSource.App);
+                return option;
+            })).ToList().AsReadOnly(),
+        };
         var flyoutItems = (card.OverflowFlyout ?? []).Where(p => p.Reasons != null).Select(p => new VideoOverflowFlyoutItem
         {
             Id = p.Type,
             Title = p.Title,
-            Options = p.Reasons.ToDictionary(r => r.Id.ToString() ?? string.Empty, r => r.Name ?? string.Empty),
+            Options = p.Reasons.GroupBy(r => r.Id).ToDictionary(g => g.Key.ToString() ?? string.Empty, g => g.First().Name ?? string.Empty),
         }).ToList();
 
         info.AddExtensionIfNotNull(VideoExtensionDataId.Cid, card.PlayerArgs?.Cid);

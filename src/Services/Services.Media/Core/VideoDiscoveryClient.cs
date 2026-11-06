@@ -268,4 +268,59 @@ internal sealed class VideoDiscoveryClient
             ? throw new KernelException("全站排行榜数据为空")
             : (IReadOnlyList<VideoInformation>)responseObj.Items.Select(p => p.ToVideoInformation()).ToList().AsReadOnly();
     }
+
+    public async Task SubmitRecommendationFeedbackAsync(RecommendationFeedbackContext context, RecommendationFeedbackReason reason, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (context == null || reason == null || !context.Options.Contains(reason))
+            throw new NotSupportedException("该推荐不支持所选反馈");
+        var parameters = new Dictionary<string, string>
+        {
+            { "id", context.VideoId },
+            { "goto", context.Goto! },
+            { "reason_id", reason.Id.ToString() },
+        };
+        var isWeb = context.Source == RecommendationFeedbackSource.Web;
+        using var request = BiliHttpClient.CreateRequest(isWeb ? System.Net.Http.HttpMethod.Post : System.Net.Http.HttpMethod.Get,
+            new Uri(isWeb ? "https://api.bilibili.com/x/web-interface/feedback/dislike" : "https://app.bilibili.com/x/feed/dislike"));
+        if (isWeb)
+        {
+            parameters.Add("mid", (context.PublisherId ?? 0).ToString());
+            parameters.Add("track_id", context.TrackId ?? string.Empty);
+            parameters.Add("app_id", "100");
+            parameters.Add("platform", "5");
+            parameters.Add("from_spmid", string.Empty);
+            parameters.Add("spmid", "333.1007.0.0");
+            parameters.Add("feedback_page", "1");
+            var settings = BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true);
+            settings.OnlyUseAppKey = true;
+            settings.SkipBuild = true;
+            _authenticator.AuthorizeRestRequest(request, parameters, settings);
+            var cookie = request.Headers.TryGetValues("Cookie", out var values) ? string.Join(";", values) : string.Empty;
+            if (!cookie.Split(';').Any(p => p.Trim().StartsWith("SESSDATA=", StringComparison.Ordinal) && p.Trim().Length > 9)
+                || !parameters.TryGetValue("csrf", out var csrf) || string.IsNullOrWhiteSpace(csrf))
+                throw new KernelException("推荐反馈需要有效网页 Cookie 和 CSRF");
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(_tokenResolver?.GetToken()?.AccessToken))
+                throw new KernelException("推荐反馈需要 App 令牌");
+            var mid = reason.Mid ?? (reason.Operation == RecommendationFeedbackOperation.AvoidPublisher ? context.PublisherId : null);
+            if (mid.HasValue) parameters.Add("mid", mid.Value.ToString());
+            if (reason.Rid.HasValue) parameters.Add("rid", reason.Rid.Value.ToString());
+            if (reason.TagId.HasValue) parameters.Add("tag_id", reason.TagId.Value.ToString());
+            parameters.Add("build", "1");
+            parameters.Add("mobi_app", "android");
+            _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = true, OnlyUseAppKey = true });
+        }
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        // Require an explicit numeric code, including when the general HTTP envelope accepts a missing default code.
+        var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        using var document = System.Text.Json.JsonDocument.Parse(text);
+        if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object
+            || !document.RootElement.TryGetProperty("code", out var code)
+            || !code.TryGetInt32(out var value) || value != 0)
+            throw new KernelException("推荐反馈响应缺少有效成功状态");
+        cancellationToken.ThrowIfCancellationRequested();
+    }
 }

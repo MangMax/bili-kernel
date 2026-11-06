@@ -9,6 +9,7 @@ using System.Text.Json.Serialization;
 namespace Richasy.BiliKernel;
 
 [JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(Richasy.BiliKernel.Models.Media.RecommendationFeedbackContext))]
 [JsonSerializable(typeof(ArchiveRelationResponse))]
 [JsonSerializable(typeof(BuvidResponse))]
 [JsonSerializable(typeof(CuratedPlaylistResponse))]

@@ -72,4 +72,7 @@ public interface IVideoDiscoveryService
     /// 获取全站排行榜.
     /// </summary>
     Task<IReadOnlyList<VideoInformation>> GetGlobalRankingListAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>提交推荐反馈。仅服务端确认接受才完成；不支持抛出 NotSupportedException，身份或业务失败抛出 KernelException，取消正常传播。不自动重试。</summary>
+    Task SubmitRecommendationFeedbackAsync(RecommendationFeedbackContext context, RecommendationFeedbackReason reason, CancellationToken cancellationToken = default);
 }
