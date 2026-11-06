@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Dynamic.V2;
@@ -18,19 +18,14 @@ internal static class VideoAdapter
         }
 
         var title = archive.Title;
-        if (string.IsNullOrEmpty(title))
-        {
-            title = "动态视频";
-        }
-
         var id = archive.Avid;
         var bvid = archive.Bvid;
         var duration = archive.Duration;
         var cover = archive.Cover.ToImage(600d, 400d);
         double playCount = archive.View;
-        if (playCount == 0 && !string.IsNullOrEmpty(archive.CoverLeftText2))
+        if (playCount <= 0 && !string.IsNullOrEmpty(archive.CoverLeftText2))
         {
-            playCount = archive.CoverLeftText2.ToCountNumber("观看");
+            playCount = archive.CoverLeftText2.Replace("播放", string.Empty).ToCountNumber("观看");
         }
         var danmakuCount = archive.CoverLeftText1.Contains("弹幕")
             ? archive.CoverLeftText1.ToCountNumber("弹幕")
@@ -38,6 +33,7 @@ internal static class VideoAdapter
         var communityInfo = new VideoCommunityInformation(archive.Avid.ToString(), playCount, danmakuCount);
         var identifier = new MediaIdentifier(id.ToString(), title, cover);
         var info = new VideoInformation(identifier, default, duration, bvid, communityInformation: communityInfo);
+        info.AddExtensionIfNotNull(VideoExtensionDataId.IsDynamicVideo, archive.Stype == VideoType.Dynamic);
         info.AddExtensionIfNotNull(VideoExtensionDataId.Cid, archive.Cid);
         info.AddExtensionIfNotNull(VideoExtensionDataId.MediaType, Models.MediaType.Video);
         return info;

@@ -60,6 +60,30 @@ internal static class MomentAdapter
             description = descModule.ToEmoteText();
         }
 
+        var opus = modules.Select(p => p.ModuleOpusSummary).FirstOrDefault(p => p is not null)
+            ?? item.Extend.OpusSummary;
+        if (opus?.Summary?.Text?.Nodes.Count > 0)
+        {
+            var paragraphs = new[] { opus.Title, opus.Summary };
+            var emotes = new Dictionary<string, BiliImage>();
+            var lines = new List<string>();
+            foreach (var paragraph in paragraphs)
+            {
+                if (paragraph?.Text is null) continue;
+                var text = string.Concat(paragraph.Text.Nodes.Select(node =>
+                {
+                    var value = node.Word?.Words ?? node.Link?.ShowText?.Words ?? node.Emote?.RawText?.Words ?? node.RawText;
+                    if (node.Emote is { EmoteUrl.Length: > 0 } emote && !string.IsNullOrEmpty(value))
+                        emotes[value] = emote.EmoteUrl.ToImage();
+                    return value;
+                }));
+                if (!string.IsNullOrWhiteSpace(text)) lines.Add(text);
+            }
+            if (opus.Title?.Text is null && !string.IsNullOrWhiteSpace(description?.Text))
+                lines.Insert(0, description.Text);
+            description = new EmoteText(string.Join("\n", lines), emotes.Count > 0 ? emotes : null);
+        }
+
         if (dataModule != null)
         {
             communityInfo = new MomentCommunityInformation(
@@ -178,7 +202,13 @@ internal static class MomentAdapter
         }
         else if (dynamic.Type == ModuleDynamicType.MdlDynDraw)
         {
-            return dynamic.DynDraw.Items.Select(p => p.Src.ToImage(240d, 240d)).ToList();
+            return dynamic.DynDraw.Items.Select(p =>
+            {
+                var image = p.Src.ToImage();
+                image.Width = p.Width;
+                image.Height = p.Height;
+                return image;
+            }).ToList();
         }
         else if (dynamic.Type == ModuleDynamicType.MdlDynArticle)
         {
