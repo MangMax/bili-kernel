@@ -1,4 +1,4 @@
-# 哔哩内核（独立维护版本）
+﻿# 哔哩内核（独立维护版本）
 
 本项目是 [Richasy/bili-kernel](https://github.com/Richasy/bili-kernel) 的独立维护版本。
 
@@ -34,3 +34,24 @@ git submodule add https://github.com/MangMax/bili-kernel.git externals/bili-kern
 ## 许可
 
 [GPL-3.0](LICENSE)。
+
+## 显式 REST 凭据策略
+
+网页端点可使用 `BiliAuthorizeExecutionSettings.CookieOnly(needRID: true)`：
+
+```csharp
+await authenticator.InitializeWbiAsync(cancellationToken);
+authenticator.AuthorizeRestRequest(request, parameters,
+    BiliAuthorizeExecutionSettings.CookieOnly(needRID: true));
+```
+
+该入口只携带已保存的 Cookie，不读取/附带 App `access_key`，也不触发 App token 刷新。
+Cookie 不存在时允许请求发出（适用于支持匿名的公共读取）；过期 Cookie 或服务端拒绝仍通过正常 HTTP/API 错误传播，不转换为空数据。
+它不验证 Cookie 有效性，也不负责调用 `EnsureTokenAsync`。调用方不得在 Cookie-only 路径上等待无关 token 刷新。
+`apiType` 仅决定客户端参数/签名类型，默认 Web；`needRID`、`needCSRF` 分别选择 WBI/CSRF，WBI 须先初始化。
+来源页 Referer/Origin、反爬参数、SkipBuild 等仍由各端点独立声明；不要把所有 Web 端点改成相同参数。
+用户空间资料、投稿分页和专栏分页共用此入口，保留原来源页与指纹参数。
+
+旧构造器和属性保持原语义：`RequireToken=false` 仍会附带已有 token；`ForceNoToken=true` 才排除自动添加。
+需要 App token 的旧请求继续使用原设置和 token 刷新流程；匿名请求可显式设置 `ForceNoToken=true, RequireCookie=false`。
+本变更没有全局默认值变化；不应记录 Cookie 或 token 内容。

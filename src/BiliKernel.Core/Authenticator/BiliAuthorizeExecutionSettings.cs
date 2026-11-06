@@ -34,6 +34,16 @@ public class BiliAuthorizeExecutionSettings
     }
 
     /// <summary>
+    /// 创建仅携带可用 Cookie 的凭据策略；不读取 App token，也不要求本地 Cookie 存在。
+    /// ApiType、WBI、CSRF 和来源页仍由端点独立指定。
+    /// </summary>
+    public static BiliAuthorizeExecutionSettings CookieOnly(
+        BiliApiType apiType = BiliApiType.Web,
+        bool needRID = false,
+        bool needCSRF = false)
+        => new(apiType: apiType, forceNoToken: true, useCookie: true, needRID: needRID, needCSRF: needCSRF);
+
+    /// <summary>
     /// 设备类型.
     /// </summary>
     public BiliApiType ApiType { get; set; }

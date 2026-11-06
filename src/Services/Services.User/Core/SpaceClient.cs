@@ -5,7 +5,6 @@ using Richasy.BiliKernel.Adapters;
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Bili;
 using Richasy.BiliKernel.Http;
-using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Article;
 using Richasy.BiliKernel.Models.Media;
 using Richasy.BiliKernel.Models.User;
@@ -137,12 +136,7 @@ internal sealed class SpaceClient
         // 空间端点会校验来源页，缺失 Referer 时 Web 端返回 -352、WAF 直接返回 412.
         request.Headers.TryAddWithoutValidation("Referer", referer);
         request.Headers.TryAddWithoutValidation("Origin", "https://space.bilibili.com");
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
-        {
-            ApiType = BiliApiType.Web,
-            NeedRID = true,
-            RequireCookie = true,
-        });
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needRID: true));
         return request;
     }
 }
