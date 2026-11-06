@@ -113,4 +113,3 @@ public sealed class HistoryWriteTests
         return new ViewHistoryService(http, new FakeAuthenticationService(), new BiliAuthenticator(cookies, tokens, httpClient: http));
     }
 }
-

@@ -23,4 +23,7 @@
     <ProjectReference Include="..\..\BiliKernel.Core\BiliKernel.Core.csproj" />
   </ItemGroup>
   
+  <ItemGroup>
+    <InternalsVisibleTo Include="BiliKernel.Tests" />
+  </ItemGroup>
 </Project>
