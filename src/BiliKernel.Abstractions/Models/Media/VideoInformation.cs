@@ -10,6 +10,9 @@ namespace Richasy.BiliKernel.Models.Media;
 /// </summary>
 public sealed class VideoInformation : VideoBase
 {
+    /// <summary>仅推荐读取提供的反馈能力及来源上下文。</summary>
+    public RecommendationFeedbackContext? RecommendationFeedback { get; set; }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="VideoInformation"/> class.
     /// </summary>

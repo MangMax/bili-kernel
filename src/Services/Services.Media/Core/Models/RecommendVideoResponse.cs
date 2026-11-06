@@ -13,6 +13,11 @@ internal sealed class RecommendVideoResponse
 
 internal sealed class RecommendCard
 {
+    [JsonPropertyName("goto")]
+    public string? Goto { get; set; }
+    [JsonPropertyName("track_id")]
+    public string? TrackId { get; set; }
+
     [JsonPropertyName("avatar")]
     public RecommendAvatar? Avatar { get; set; }
 
@@ -118,7 +123,7 @@ internal sealed class OverflowFlyoutItem
     [JsonPropertyName("title")]
     public string? Title { get; set; }
 
-    [JsonPropertyName("Type")]
+    [JsonPropertyName("type")]
     public string? Type { get; set; }
 
     [JsonPropertyName("icon")]
@@ -136,6 +141,13 @@ internal sealed class OverflowFlyoutItem
 
 internal sealed class OverflowReason
 {
+    [JsonPropertyName("mid")]
+    public long? Mid { get; set; }
+    [JsonPropertyName("rid")]
+    public long? Rid { get; set; }
+    [JsonPropertyName("tag_id")]
+    public long? TagId { get; set; }
+
     [JsonPropertyName("id")]
     public int? Id { get; set; }
 
