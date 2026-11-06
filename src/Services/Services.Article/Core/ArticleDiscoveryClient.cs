@@ -104,19 +104,15 @@ internal sealed class ArticleDiscoveryClient
         if (partition is null)
         {
             var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseArticleRecommendResponse).ConfigureAwait(false);
-            var recommendArticles = responseObj.Data.Articles.Select(p => p.ToArticleInformation()).ToList().AsReadOnly();
-            var topArticles = responseObj.Data.Ranks?.Select(p => p.ToArticleInformation()).ToList().AsReadOnly();
-            return recommendArticles.Count == 0
-                ? throw new KernelException("推荐专栏数据为空")
-                : ((IReadOnlyList<ArticleInformation>, IReadOnlyList<ArticleInformation>?))(recommendArticles, topArticles);
+            var recommendArticles = responseObj.Data?.Articles;
+            var topArticles = responseObj.Data?.Ranks?.Select(p => p.ToArticleInformation()).ToList().AsReadOnly();
+            return (recommendArticles is null ? [] : recommendArticles.Select(p => p.ToArticleInformation()).ToList().AsReadOnly(), topArticles);
         }
         else
         {
             var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseListArticle).ConfigureAwait(false);
-            var articles = responseObj.Data.Select(p => p.ToArticleInformation()).ToList().AsReadOnly();
-            return articles.Count == 0
-                ? throw new KernelException("没有获取到有效的专栏文章列表，请稍后再试")
-                : ((IReadOnlyList<ArticleInformation>, IReadOnlyList<ArticleInformation>?))(articles, null);
+            // 末页会成功返回 data:null，与空数组一样表示没有更多文章。
+            return (responseObj.Data is null ? [] : responseObj.Data.Select(p => p.ToArticleInformation()).ToList().AsReadOnly(), null);
         }
     }
 
