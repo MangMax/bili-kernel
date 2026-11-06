@@ -170,11 +170,7 @@ internal sealed class PlayerClient
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.RoomDetail));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings
-        {
-            ApiType = BiliApiType.Web,
-            NeedRID = true,
-        });
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needRID: true));
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveRoomDetailResponse).ConfigureAwait(false)
             ?? throw new KernelException("解析直播间详情失败");
@@ -700,12 +696,7 @@ internal sealed class PlayerClient
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.WebDanmakuInformation));
-        _authenticator.AuthorizeRestRequest(request, queryParameters, new BiliAuthorizeExecutionSettings
-        {
-            ApiType = BiliApiType.Web,
-            NeedRID = true,
-            RequireCookie = true,
-        });
+        _authenticator.AuthorizeRestRequest(request, queryParameters, BiliAuthorizeExecutionSettings.CookieOnly(needRID: true));
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var danmakuRes = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveDanmakuResponse).ConfigureAwait(false);
         return danmakuRes.Data;
