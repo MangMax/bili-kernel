@@ -76,7 +76,7 @@ public sealed class RecommendationFeedbackContext
     /// <summary>可提交选项。空列表表示该条目不支持反馈。</summary>
     public IReadOnlyList<RecommendationFeedbackReason> Options => Reasons.Where(p =>
         Goto == "av" && long.TryParse(VideoId, out var id) && id > 0
-        && (p.Operation == RecommendationFeedbackOperation.NotInterested || p.Operation == RecommendationFeedbackOperation.AvoidPublisher)
+        && p.Operation.HasValue
         && (p.Operation != RecommendationFeedbackOperation.AvoidPublisher || (p.Mid ?? PublisherId) > 0)
         && p.Operation == p.GetProtocolOperation(Source))
         .ToList().AsReadOnly();

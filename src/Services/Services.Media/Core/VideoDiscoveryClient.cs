@@ -276,16 +276,15 @@ internal sealed class VideoDiscoveryClient
             throw new NotSupportedException("该推荐不支持所选反馈");
         var parameters = new Dictionary<string, string>
         {
-            { "id", context.VideoId }, { "goto", context.Goto! },
+            { "id", context.VideoId },
+            { "goto", context.Goto! },
+            { "reason_id", reason.Id.ToString() },
         };
         var isWeb = context.Source == RecommendationFeedbackSource.Web;
-        if (!isWeb && context.Source != RecommendationFeedbackSource.App)
-            throw new NotSupportedException("未知推荐来源");
         using var request = BiliHttpClient.CreateRequest(isWeb ? System.Net.Http.HttpMethod.Post : System.Net.Http.HttpMethod.Get,
             new Uri(isWeb ? "https://api.bilibili.com/x/web-interface/feedback/dislike" : "https://app.bilibili.com/x/feed/dislike"));
         if (isWeb)
         {
-            parameters.Add("reason_id", reason.Id.ToString());
             parameters.Add("mid", (context.PublisherId ?? 0).ToString());
             parameters.Add("track_id", context.TrackId ?? string.Empty);
             parameters.Add("app_id", "100");
@@ -306,7 +305,6 @@ internal sealed class VideoDiscoveryClient
         {
             if (string.IsNullOrWhiteSpace(_tokenResolver?.GetToken()?.AccessToken))
                 throw new KernelException("推荐反馈需要 App 令牌");
-            parameters.Add("reason_id", reason.Id.ToString());
             var mid = reason.Mid ?? (reason.Operation == RecommendationFeedbackOperation.AvoidPublisher ? context.PublisherId : null);
             if (mid.HasValue) parameters.Add("mid", mid.Value.ToString());
             if (reason.Rid.HasValue) parameters.Add("rid", reason.Rid.Value.ToString());
