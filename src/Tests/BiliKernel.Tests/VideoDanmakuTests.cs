@@ -111,6 +111,3 @@ public sealed class VideoDanmakuTests
         return (handler, new DanmakuService(http, new BiliAuthenticator(cookies, tokens, buvid, http), tokens));
     }
 }
-
-
-
