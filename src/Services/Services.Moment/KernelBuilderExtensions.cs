@@ -22,6 +22,13 @@ public static class KernelBuilderExtensions
         return builder;
     }
 
+    /// <summary>Adds the Cookie-only web dynamic reader.</summary>
+    public static IKernelBuilder AddWebMomentDiscoveryService(this IKernelBuilder builder)
+    {
+        builder.Services.AddSingleton<IWebMomentDiscoveryService, WebMomentDiscoveryService>();
+        return builder;
+    }
+
     /// <summary>
     /// 添加动态操作服务.
     /// </summary>
