@@ -24,4 +24,19 @@ await discovery.SubmitRecommendationFeedbackAsync(context, selectedReason, cance
 3. [BewlyCat DislikeDialog.vue](https://github.com/keleus/BewlyCat/blob/eadc742c871dd1288016f51227f74c2fe8984774/src/components/VideoCard/VideoCardContextMenu/components/DislikeDialog.vue#L50)：同 ID 不同目标保留 mid/rid/tag_id；dislike 与 feedback 参数不能混用。
 4. [BewlyCat video.ts](https://github.com/keleus/BewlyCat/blob/eadc742c871dd1288016f51227f74c2fe8984774/src/background/messageListeners/api/video.ts#L41) 与 [菜单调用](https://github.com/keleus/BewlyCat/blob/eadc742c871dd1288016f51227f74c2fe8984774/src/components/VideoCard/VideoCardContextMenu/VideoCardContextMenu.vue)：Web POST `/x/web-interface/feedback/dislike` 表单，固定 app_id=100、platform=5、spmid=333.1007.0.0、feedback_page=1；reason_id=1/2 分别为内容/作者，携带 id/mid/goto/track_id 和 CSRF。
 
+### 网页可检查请求样本
+
+以下为上述固定版本 BewlyCat 源码参数与本仓库离线 HTTP 边界对应的脱敏样本；它不是线上抓包，不证明当前服务端接受该请求。作者反馈只将 `reason_id` 改为 `2`。
+
+```http
+POST /x/web-interface/feedback/dislike HTTP/1.1
+Host: api.bilibili.com
+Cookie: SESSDATA=REDACTED; bili_jct=REDACTED
+Content-Type: application/x-www-form-urlencoded
+
+id=123&goto=av&reason_id=1&mid=42&track_id=track-123&app_id=100&platform=5&from_spmid=&spmid=333.1007.0.0&feedback_page=1&csrf=REDACTED
+```
+
+`RecommendationFeedbackTests.WebReadToSubmitUsesCookieCsrfAndFixedReasonsWithTracking` 从脱敏推荐响应生成此类请求，并验证两种原因与身份隔离。成功响应 `{"code":0}` 为离线桩；失败、缺失 code、网络异常另有测试。尚无已有真实网页成功响应捕获，因此“服务端接受参数组合”的线上验证仍有限制；未为补证据进行真实账号写入。
+
 这些是直接响应及第三方客户端源码证据，并非 B 站稳定性承诺。未对任何真实账号提交反馈。离线测试在公开服务 + 假 HTTP 边界验证脱敏输入到实际请求，网页不读取 App token，App 原因不复用网页编号。新增响应字段由现有 JSON 源生成图覆盖；公开上下文亦注册在 Media SourceGenerationContext，无反射序列化。

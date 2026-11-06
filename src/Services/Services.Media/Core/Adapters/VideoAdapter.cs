@@ -80,16 +80,15 @@ internal static class VideoAdapter
             Source = RecommendationFeedbackSource.App,
             VideoId = card.Parameter ?? card.Args.Aid.ToString(), Goto = card.Goto ?? card.CardGoto,
             PublisherId = card.Args.UpId, TrackId = card.TrackId,
-            Reasons = (card.OverflowFlyout ?? []).SelectMany(menu => (menu.Reasons ?? []).Select(reason => new RecommendationFeedbackReason
+            Reasons = (card.OverflowFlyout ?? []).SelectMany(menu => (menu.Reasons ?? []).Select(reason =>
             {
-                Id = reason.Id ?? 0, Type = menu.Type, Name = reason.Name,
-                Mid = reason.Mid, Rid = reason.Rid, TagId = reason.TagId,
-                Operation = menu.Type == "dislike" ? reason.Id switch
+                var option = new RecommendationFeedbackReason
                 {
-                    1 => RecommendationFeedbackOperation.NotInterested,
-                    4 => RecommendationFeedbackOperation.AvoidPublisher,
-                    _ => (RecommendationFeedbackOperation?)null,
-                } : null,
+                    Id = reason.Id ?? 0, Type = menu.Type, Name = reason.Name,
+                    Mid = reason.Mid, Rid = reason.Rid, TagId = reason.TagId,
+                };
+                option.Operation = option.GetProtocolOperation(RecommendationFeedbackSource.App);
+                return option;
             })).ToList().AsReadOnly(),
         };
         var flyoutItems = (card.OverflowFlyout ?? []).Where(p => p.Reasons != null).Select(p => new VideoOverflowFlyoutItem

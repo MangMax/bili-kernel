@@ -285,7 +285,7 @@ internal sealed class VideoDiscoveryClient
             new Uri(isWeb ? "https://api.bilibili.com/x/web-interface/feedback/dislike" : "https://app.bilibili.com/x/feed/dislike"));
         if (isWeb)
         {
-            parameters.Add("reason_id", reason.Operation == RecommendationFeedbackOperation.NotInterested ? "1" : "2");
+            parameters.Add("reason_id", reason.Id.ToString());
             parameters.Add("mid", (context.PublisherId ?? 0).ToString());
             parameters.Add("track_id", context.TrackId ?? string.Empty);
             parameters.Add("app_id", "100");
@@ -306,8 +306,6 @@ internal sealed class VideoDiscoveryClient
         {
             if (string.IsNullOrWhiteSpace(_tokenResolver?.GetToken()?.AccessToken))
                 throw new KernelException("推荐反馈需要 App 令牌");
-            if (reason.Type != "dislike" || (reason.Operation == RecommendationFeedbackOperation.NotInterested ? reason.Id != 1 : reason.Id != 4))
-                throw new NotSupportedException("未知 App 原因语义");
             parameters.Add("reason_id", reason.Id.ToString());
             var mid = reason.Mid ?? (reason.Operation == RecommendationFeedbackOperation.AvoidPublisher ? context.PublisherId : null);
             if (mid.HasValue) parameters.Add("mid", mid.Value.ToString());

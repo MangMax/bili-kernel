@@ -38,6 +38,24 @@ public sealed class RecommendationFeedbackReason
     public long? TagId { get; set; }
     /// <summary>可执行操作；未知或不支持的原因为空。</summary>
     public RecommendationFeedbackOperation? Operation { get; set; }
+
+    /// <summary>按来源及服务端编号解析操作，不依赖展示文案。</summary>
+    public RecommendationFeedbackOperation? GetProtocolOperation(RecommendationFeedbackSource source) => source switch
+    {
+        RecommendationFeedbackSource.Web => Id switch
+        {
+            1 => RecommendationFeedbackOperation.NotInterested,
+            2 => RecommendationFeedbackOperation.AvoidPublisher,
+            _ => null,
+        },
+        RecommendationFeedbackSource.App when Type == "dislike" => Id switch
+        {
+            1 => RecommendationFeedbackOperation.NotInterested,
+            4 => RecommendationFeedbackOperation.AvoidPublisher,
+            _ => null,
+        },
+        _ => null,
+    };
 }
 
 /// <summary>推荐条目自含的提交上下文。普通视频不具有此能力。</summary>
@@ -60,9 +78,6 @@ public sealed class RecommendationFeedbackContext
         Goto == "av" && long.TryParse(VideoId, out var id) && id > 0
         && (p.Operation == RecommendationFeedbackOperation.NotInterested || p.Operation == RecommendationFeedbackOperation.AvoidPublisher)
         && (p.Operation != RecommendationFeedbackOperation.AvoidPublisher || (p.Mid ?? PublisherId) > 0)
-        && (Source == RecommendationFeedbackSource.Web
-            ? p.Id == (p.Operation == RecommendationFeedbackOperation.NotInterested ? 1 : 2)
-            : Source == RecommendationFeedbackSource.App && p.Type == "dislike"
-                && p.Id == (p.Operation == RecommendationFeedbackOperation.NotInterested ? 1 : 4)))
+        && p.Operation == p.GetProtocolOperation(Source))
         .ToList().AsReadOnly();
 }
