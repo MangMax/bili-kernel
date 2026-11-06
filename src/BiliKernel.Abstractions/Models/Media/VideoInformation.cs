@@ -97,6 +97,8 @@ public static class VideoExtensionDataId
 
     /// <summary>Explicit web dynamic archive.badge.text, when supplied.</summary>
     public const string WebBadgeText = "WebBadgeText";
+    /// <summary>Whether the dynamic API identifies this archive as a dynamic video (bool).</summary>
+    public const string IsDynamicVideo = "IsDynamicVideo";
 
     /// <summary>Account-specific publisher following state supplied by the feed (bool).</summary>
     public const string PublisherIsFollowed = "PublisherIsFollowed";
