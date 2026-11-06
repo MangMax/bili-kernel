@@ -89,6 +89,9 @@ public sealed class VideoInformation : VideoBase
 /// </summary>
 public static class VideoExtensionDataId
 {
+    /// <summary>Account-specific publisher following state supplied by the feed (bool).</summary>
+    public const string PublisherIsFollowed = "PublisherIsFollowed";
+
     /// <summary>
     /// 视频描述.
     /// </summary>
@@ -168,4 +171,10 @@ public static class VideoExtensionDataId
     /// 视频是否为原创.
     /// </summary>
     public const string IsOriginal = "IsOriginal";
+
+    /// <summary>是否为联合投稿。<see cref="bool"/>。</summary>
+    public const string IsCollaborativeSubmission = "IsCollaborativeSubmission";
+
+    /// <summary>是否为充电专属视频，不表示当前用户是否已获得观看权益。<see cref="bool"/>。</summary>
+    public const string IsChargingExclusive = "IsChargingExclusive";
 }

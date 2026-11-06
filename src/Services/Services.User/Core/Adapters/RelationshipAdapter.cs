@@ -16,7 +16,7 @@ internal static class RelationshipAdapter
             ? UserRelationStatus.SpeciallyFollowed
             : response.Type switch
             {
-                2 => UserRelationStatus.Following,
+                1 or 2 => UserRelationStatus.Following,
                 6 => UserRelationStatus.Friends,
                 0 => UserRelationStatus.Unfollow,
                 128 => UserRelationStatus.Blocked,

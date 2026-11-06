@@ -14,6 +14,16 @@ namespace Richasy.BiliKernel.Services.Media.Core;
 
 internal static class VideoAdapter
 {
+    private static void AddCategory(VideoInformation video, long? tagId, string? tagName, long? regionId = null, string? regionName = null)
+    {
+        var hasTag = !string.IsNullOrWhiteSpace(tagName);
+        var name = hasTag ? tagName : regionName;
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var id = hasTag ? tagId : regionId;
+        video.AddExtensionIfNotNull(VideoExtensionDataId.TagName, name.Trim());
+        if (id is > 0) video.AddExtensionIfNotNull(VideoExtensionDataId.TagId, id);
+    }
+
     public static VideoInformation ToVideoInformation(this CuratedPlaylistVideo video)
     {
         var identifier = new MediaIdentifier(video.AvId.ToString(), video.Title, video.Cover.ToVideoCover());
@@ -30,6 +40,9 @@ internal static class VideoAdapter
         info.AddExtensionIfNotNull(VideoExtensionDataId.Cid, video.Cid);
         info.AddExtensionIfNotNull(VideoExtensionDataId.MediaType, MediaType.Video);
         info.AddExtensionIfNotNull(VideoExtensionDataId.RecommendReason, video.RecommendReason?.Content);
+        AddCategory(info, video.PartitionId, video.PartitionName);
+        bool? following = video.IsFollowed switch { 0 => false, 1 => true, _ => null };
+        info.AddExtensionIfNotNull(VideoExtensionDataId.PublisherIsFollowed, following);
 
         return info;
     }
@@ -37,16 +50,22 @@ internal static class VideoAdapter
     public static VideoInformation ToVideoInformation(this RecommendCard card)
     {
         var identifier = new MediaIdentifier(card.Args.Aid.ToString(), card.Title, card.Cover.ToVideoCover());
-        var publisher = new PublisherInfo { Publisher = card.Args.UpName, UserId = card.Args.UpId ?? 0 };
+        var publisher = new PublisherInfo
+        {
+            Publisher = card.Args.UpName,
+            UserId = card.Args.UpId ?? 0,
+            PublisherAvatar = string.IsNullOrWhiteSpace(card.Mask?.Avatar?.Cover) ? card.Avatar?.Cover : card.Mask.Avatar.Cover,
+        };
         var communityInfo = new VideoCommunityInformation(card.Args.Aid.ToString(), card.PlayCountText.ToCountNumber(), card.DanmakuCountText.ToCountNumber());
         var duration = card.DurationText.ToDurationSeconds();
         var info = new VideoInformation(
             identifier,
             publisher.ToPublisherProfile(),
-            card.PlayerArgs?.Duration,
+            card.PlayerArgs?.Duration ?? duration,
+            publishTime: card.PublishTime is > 0 ? DateTimeOffset.FromUnixTimeSeconds(card.PublishTime.Value).ToLocalTime() : null,
             communityInformation: communityInfo);
 
-        var flyoutItems = card.OverflowFlyout.Where(p => p.Reasons != null).Select(p => new VideoOverflowFlyoutItem
+        var flyoutItems = (card.OverflowFlyout ?? []).Where(p => p.Reasons != null).Select(p => new VideoOverflowFlyoutItem
         {
             Id = p.Type,
             Title = p.Title,
@@ -55,9 +74,15 @@ internal static class VideoAdapter
 
         info.AddExtensionIfNotNull(VideoExtensionDataId.Cid, card.PlayerArgs?.Cid);
         info.AddExtensionIfNotNull(VideoExtensionDataId.MediaType, MediaType.Video);
-        info.AddExtensionIfNotNull(VideoExtensionDataId.RecommendReason, card.RecommendReason);
-        info.AddExtensionIfNotNull(VideoExtensionDataId.TagId, card.Args?.TagId);
-        info.AddExtensionIfNotNull(VideoExtensionDataId.TagName, card.Args?.TagName);
+        info.AddExtensionIfNotNull(VideoExtensionDataId.RecommendReason, card.RecommendReason ?? card.BottomReason);
+        var following = card.IsAttended ?? (string.Equals(card.BottomReason?.Trim(), "已关注", StringComparison.Ordinal) ? true : (bool?)null);
+        info.AddExtensionIfNotNull(VideoExtensionDataId.PublisherIsFollowed, following);
+        // This is a server-provided display description, not a fabricated timestamp.
+        var extra = card.MultipleDescription?.Extra ?? card.Description;
+        var separator = extra?.LastIndexOf('·') ?? -1;
+        if (separator >= 0 && separator < extra!.Length - 1)
+            info.AddExtensionIfNotNull(VideoExtensionDataId.Subtitle, extra.Substring(separator + 1).Trim());
+        AddCategory(info, card.Args?.TagId, card.Args?.TagName, card.Args?.Rid, card.Args?.Rname);
         info.AddExtensionIfNotNull(VideoExtensionDataId.OverflowFlyout, new VideoOverflowFlyout { Items = flyoutItems });
 
         return info;
@@ -71,7 +96,12 @@ internal static class VideoAdapter
         var title = baseCard.Title;
         var id = shareInfo.Aid.ToString();
         var bvId = shareInfo.Bvid;
-        var publisherInfo = new PublisherInfo { Publisher = shareInfo.Author, UserId = shareInfo.AuthorId };
+        var publisherInfo = new PublisherInfo
+        {
+            Publisher = shareInfo.Author,
+            UserId = shareInfo.AuthorId,
+            PublisherAvatar = v5.Up?.Avatar?.Cover,
+        };
         var description = shareInfo.Desc;
 
         var cover = baseCard.Cover.ToVideoCover();
@@ -94,6 +124,7 @@ internal static class VideoAdapter
         info.AddExtensionIfNotNull(VideoExtensionDataId.MediaType, MediaType.Video);
         info.AddExtensionIfNotNull(VideoExtensionDataId.RecommendReason, highlight);
         info.AddExtensionIfNotNull(VideoExtensionDataId.Cid, shareInfo.FirstCid);
+        AddCategory(info, baseCard.Args?.Tid, baseCard.Args?.Tname, baseCard.Args?.Rid, baseCard.Args?.Rname);
 
         return info;
     }
@@ -158,7 +189,7 @@ internal static class VideoAdapter
         var collaborators = reply.Staff?.Select(p => p.ToPublisherProfile()).ToList();
         var createTime = DateTimeOffset.FromUnixTimeSeconds(archive.Ctime).ToLocalTime();
         var videoInfo = new VideoInformation(identifier, author, archive.Duration, reply.Bvid, publishTime, collaborators, communityInfo);
-        videoInfo.AddExtensionIfNotNull(VideoExtensionDataId.TagName, archive.Tag);
+        AddCategory(videoInfo, null, archive.Tag, archive.TypeId, archive.TypeName);
         videoInfo.AddExtensionIfNotNull(VideoExtensionDataId.Description, desc);
         videoInfo.AddExtensionIfNotNull(VideoExtensionDataId.MediaType, MediaType.Video);
         videoInfo.AddExtensionIfNotNull(VideoExtensionDataId.Cid, archive.FirstCid);
@@ -210,10 +241,13 @@ internal static class VideoAdapter
         var publishTime = DateTimeOffset.FromUnixTimeSeconds(video.pubdate).ToLocalTime();
         var communityInfo = video.stat.ToVideoCommunityInformation();
         var identifier = new MediaIdentifier(id, title, cover);
-        var info = new VideoInformation(identifier, publisher, duration, bvid, publishTime, communityInformation: communityInfo);
+        var info = new VideoInformation(identifier, publisher, duration, bvid, publishTime, collaborators: video.staff?.Select(p => p.ToPublisherProfile()).ToList(), communityInformation: communityInfo);
         info.AddExtensionIfNotNull(VideoExtensionDataId.Description, desc);
         info.AddExtensionIfNotNull(VideoExtensionDataId.MediaType, MediaType.Video);
         info.AddExtensionIfNotNull(VideoExtensionDataId.Cid, video.cid);
+        info.AddExtensionIfNotNull(VideoExtensionDataId.IsCollaborativeSubmission, video.rights?.is_cooperation == 1);
+        info.AddExtensionIfNotNull(VideoExtensionDataId.IsChargingExclusive, video.is_upower_exclusive);
+        AddCategory(info, video.tid, video.tname);
         return info;
     }
 

@@ -13,6 +13,27 @@ internal sealed class RecommendVideoResponse
 
 internal sealed class RecommendCard
 {
+    [JsonPropertyName("avatar")]
+    public RecommendAvatar? Avatar { get; set; }
+
+    [JsonPropertyName("mask")]
+    public RecommendMask? Mask { get; set; }
+
+    [JsonPropertyName("is_atten")]
+    public bool? IsAttended { get; set; }
+
+    [JsonPropertyName("bottom_rcmd_reason")]
+    public string? BottomReason { get; set; }
+
+    [JsonPropertyName("desc")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("multiply_desc")]
+    public RecommendDescription? MultipleDescription { get; set; }
+
+    [JsonPropertyName("pubdate")]
+    public long? PublishTime { get; set; }
+
     [JsonPropertyName("card_type")]
     public string? CardType { get; set; }
 
@@ -123,4 +144,22 @@ internal sealed class OverflowReason
 
     [JsonPropertyName("toast")]
     public string? Toast { get; set; }
+}
+
+internal sealed class RecommendAvatar
+{
+    [JsonPropertyName("cover")]
+    public string? Cover { get; set; }
+}
+
+internal sealed class RecommendMask
+{
+    [JsonPropertyName("avatar")]
+    public RecommendAvatar? Avatar { get; set; }
+}
+
+internal sealed class RecommendDescription
+{
+    [JsonPropertyName("extra")]
+    public string? Extra { get; set; }
 }

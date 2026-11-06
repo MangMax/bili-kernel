@@ -149,6 +149,9 @@ public static class BiliApis
         /// </summary>
         public const string Relation = _apiBase + "/x/relation";
 
+        /// <summary>Batch user relationships.</summary>
+        public const string Relations = _apiBase + "/x/relation/relations";
+
         /// <summary>
         /// 修改与用户间的关系（关注/取消关注）.
         /// </summary>

@@ -11,6 +11,9 @@ namespace Richasy.BiliKernel.Bili.Media;
 /// </summary>
 public interface IPlayerService
 {
+    /// <summary>获取公开的视频元数据，不读取播放进度或用户互动状态。</summary>
+    Task<VideoInformation> GetVideoInformationAsync(MediaIdentifier video, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 获取视频页面详情.
     /// </summary>

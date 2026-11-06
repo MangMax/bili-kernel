@@ -29,6 +29,7 @@ internal sealed class VideoPageVideo
     public int state { get; set; }
     public int duration { get; set; }
     public PublisherInfo owner { get; set; }
+    public IList<VideoPageStaff> staff { get; set; }
     public VideoStatusInfo stat { get; set; }
     public UgcSeason ugc_season { get; set; }
     public string dynamic { get; set; }
@@ -52,7 +53,16 @@ internal sealed class VideoPageVideo
     internal sealed class Rights
     {
         public int is_stein_gate { get; set; }
+        public int is_cooperation { get; set; }
     }
+}
+
+internal sealed class VideoPageStaff
+{
+    public long mid { get; set; }
+    public string name { get; set; }
+    public string face { get; set; }
+    public string title { get; set; }
 }
 
 internal sealed class Dimension

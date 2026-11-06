@@ -60,4 +60,7 @@ public sealed class RelationshipService : IRelationshipService
     /// <inheritdoc/>
     public Task<UserRelationStatus> GetRelationshipAsync(string userId, CancellationToken cancellationToken = default)
         => _myClient.GetRelationshipAsync(userId, cancellationToken);
+    /// <inheritdoc/>
+    public Task<IReadOnlyDictionary<string, UserRelationStatus>> GetRelationshipsAsync(IEnumerable<string> userIds, CancellationToken cancellationToken = default)
+        => _myClient.GetRelationshipsAsync(userIds, cancellationToken);
 }

@@ -20,6 +20,9 @@ internal static class UserAdapter
     public static PublisherProfile ToPublisherProfile(this Author author)
         => new PublisherProfile(UserAdapterBase.CreateUserProfile(author.Mid, author.Name, author.Face, 96d));
 
+    public static PublisherProfile ToPublisherProfile(this VideoPageStaff staff)
+        => new PublisherProfile(UserAdapterBase.CreateUserProfile(staff.mid, staff.name, staff.face, 96d), staff.title);
+
     public static PublisherProfile ToPublisherProfile(this Staff staff)
     {
         var user = UserAdapterBase.CreateUserProfile(staff.Mid, staff.Name, staff.Face, 96d);

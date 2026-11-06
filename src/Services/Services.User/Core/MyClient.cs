@@ -109,6 +109,47 @@ internal sealed class MyClient
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyDictionary<string, UserRelationStatus>> GetRelationshipsAsync(IEnumerable<string> userIds, CancellationToken cancellationToken)
+    {
+        var ids = userIds.Select(id => long.TryParse(id, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var mid) && mid > 0
+            ? mid.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : throw new ArgumentException("User IDs must be positive integers.", nameof(userIds)))
+            .Distinct(StringComparer.Ordinal).ToArray();
+        var result = new Dictionary<string, UserRelationStatus>(StringComparer.Ordinal);
+        // Client-side URL budget, not an assumed server limit.
+        for (var offset = 0; offset < ids.Length; offset += 40)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var chunk = new ArraySegment<string>(ids, offset, Math.Min(40, ids.Length - offset));
+            var fids = string.Join(",", chunk);
+            var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Account.Relations));
+            _authenticator.AuthorizeRestRequest(request, new() { ["fids"] = fids },
+                new BiliAuthorizeExecutionSettings { ForceNoToken = true, ApiType = BiliApiType.Web, RequireCookie = true });
+            // This endpoint expects the fids list separator literally; leave other parameters encoded.
+            var query = request.RequestUri!.Query.TrimStart('?').Split('&');
+            for (var i = 0; i < query.Length; i++)
+                if (query[i].StartsWith("fids=", StringComparison.Ordinal))
+                    query[i] = "fids=" + fids;
+            request.RequestUri = new UriBuilder(request.RequestUri) { Query = string.Join("&", query) }.Uri;
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BatchUserRelations).ConfigureAwait(false);
+            if (payload.Code != 0) throw new KernelException("Unable to query user relationships.");
+            foreach (var id in chunk)
+            {
+                if (payload.Data is null || !payload.Data.TryGetValue(id, out var relation))
+                {
+                    result[id] = UserRelationStatus.Unfollow;
+                    continue;
+                }
+                result[id] = relation is null || (relation.UserId != 0 && relation.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture) != id)
+                    ? UserRelationStatus.Unknown
+                    : relation.ToUserRelationStatus();
+            }
+        }
+        return result;
+    }
+
     public async Task<UserRelationStatus> GetRelationshipAsync(string userId, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>
