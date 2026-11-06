@@ -10,7 +10,6 @@ using RichasyKernel;
 using System.Net;
 using System.Text;
 using Richasy.BiliKernel.Authenticator;
-using Richasy.BiliKernel.Bili;
 using Richasy.BiliKernel.Bili.Authorization;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models.Authorization;
@@ -23,17 +22,16 @@ public sealed class WebMomentTests
     [Fact]
     public async Task EmptyPageUsesOnlyCookieAndPreservesOpaqueCursor()
     {
-        using var handler = new Handler("""{"code":0,"data":{"items":[],"offset":"next/+?","has_more":false}}""");
-        using var client = new BiliHttpClient(handler);
-        var service = new WebMomentDiscoveryService(client, new BiliAuthenticator(new Cookies(), new Token(), httpClient: client));
+        using var fixture = new Fixture("""{"code":0,"data":{"items":[],"offset":"next/+?","has_more":false}}""");
+        var service = fixture.Service;
         var result = await service.GetComprehensiveMomentsAsync("input/+?");
         Assert.Empty(result.Moments);
         Assert.Equal("next/+?", result.Offset);
         Assert.False(result.HasMoreMoments);
         Assert.Null(result.UpdateBaseline);
-        Assert.Contains("offset=input%2F%2B%3F", handler.ListQuery);
-        Assert.DoesNotContain("access_key", handler.ListQuery);
-        Assert.Contains("SESSDATA=web-test-session", handler.Cookie);
+        Assert.Contains("offset=input%2F%2B%3F", fixture.Handler.ListQuery);
+        Assert.DoesNotContain("access_key", fixture.Handler.ListQuery);
+        Assert.Contains("SESSDATA=web-test-session", fixture.Handler.Cookie);
     }
 
     private static string Item(string type, string major, string id = "900", string extra = "") =>
@@ -47,9 +45,8 @@ public sealed class WebMomentTests
     public async Task VideoAndForwardKeepListDescriptionAndIndependentOperationTargets(string description)
     {
         var original = Item("DYNAMIC_TYPE_AV", "{\"archive\":{\"aid\":123,\"bvid\":\"BVtest\",\"title\":\"联合投稿 充电 动态视频\",\"desc\":\"" + description + "\",\"cover\":\"https://example.com/c.png\",\"duration_text\":\"01:02\",\"stat\":{\"play\":\"1.2万\",\"danmaku\":8},\"rights\":{\"is_cooperation\":1},\"is_upower_exclusive\":true}}", "901");
-        using var handler = new Handler(Page(original + "," + Item("DYNAMIC_TYPE_FORWARD", "null", extra: ",\"orig\":" + original)));
-        using var client = new BiliHttpClient(handler);
-        var service = new WebMomentDiscoveryService(client, new BiliAuthenticator(new Cookies(), new Token(), httpClient: client));
+        using var fixture = new Fixture(Page(original + "," + Item("DYNAMIC_TYPE_FORWARD", "null", extra: ",\"orig\":" + original)));
+        var service = fixture.Service;
         var page = await service.GetComprehensiveMomentsAsync();
         Assert.Equal(2, page.Moments.Count);
         var direct = page.Moments[0];
@@ -77,7 +74,7 @@ public sealed class WebMomentTests
             Assert.True(video.GetExtensionIfNotNull<bool>(VideoExtensionDataId.IsCollaborativeSubmission));
             Assert.True(video.GetExtensionIfNotNull<bool>(VideoExtensionDataId.IsChargingExclusive));
         }
-        Assert.Equal(1, handler.Requests);
+        Assert.Equal(1, fixture.Handler.Requests);
     }
 
     [Theory]
@@ -89,9 +86,8 @@ public sealed class WebMomentTests
     [InlineData("{\"code\":0,\"data\":{\"items\":[],\"has_more\":true}}")]
     public async Task InvalidPagesThrowInsteadOfBecomingEmpty(string json)
     {
-        using var handler = new Handler(json);
-        using var client = new BiliHttpClient(handler);
-        var service = new WebMomentDiscoveryService(client, new BiliAuthenticator(new Cookies(), new Token(), httpClient: client));
+        using var fixture = new Fixture(json);
+        var service = fixture.Service;
         await Assert.ThrowsAsync<KernelException>(() => service.GetComprehensiveMomentsAsync());
     }
 
@@ -100,9 +96,8 @@ public sealed class WebMomentTests
     {
         var items = Item("DYNAMIC_TYPE_WORD", "null") + "," + Item("DYNAMIC_TYPE_DRAW", "{\"draw\":{\"id\":88,\"items\":[{\"src\":\"https://example.com/p.png\"}]}}") + "," +
             Item("DYNAMIC_TYPE_ARTICLE", "{\"opus\":{\"opus_id\":\"77\",\"title\":\"title\",\"summary\":{\"text\":\"summary\"}}}") + "," + Item("DYNAMIC_TYPE_UNKNOWN", "null");
-        using var handler = new Handler(Page(items));
-        using var client = new BiliHttpClient(handler);
-        var service = new WebMomentDiscoveryService(client, new BiliAuthenticator(new Cookies(), new Token(), httpClient: client));
+        using var fixture = new Fixture(Page(items));
+        var service = fixture.Service;
         var page = await service.GetComprehensiveMomentsAsync();
         Assert.Equal(MomentItemType.PlainText, page.Moments[0].MomentType);
         Assert.Equal(MomentItemType.Image, page.Moments[1].MomentType);
@@ -119,9 +114,8 @@ public sealed class WebMomentTests
     [Fact]
     public async Task CancellationPropagates()
     {
-        using var handler = new Handler(Page(""));
-        using var client = new BiliHttpClient(handler);
-        var service = new WebMomentDiscoveryService(client, new BiliAuthenticator(new Cookies(), new Token(), httpClient: client));
+        using var fixture = new Fixture(Page(""));
+        var service = fixture.Service;
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.GetComprehensiveMomentsAsync(cancellationToken: cancellation.Token));
@@ -131,9 +125,8 @@ public sealed class WebMomentTests
     public async Task OpusKeepsPicturesAndUsesExplicitCommentTarget()
     {
         var item = Item("DYNAMIC_TYPE_DRAW", "{\"opus\":{\"opus_id\":\"77\",\"title\":\"title\",\"summary\":{\"text\":\"summary\"},\"pics\":[{\"url\":\"https://example.com/opus.png\"}]}}", extra: ",\"basic\":{\"comment_id_str\":\"555\",\"comment_type\":11}");
-        using var handler = new Handler(Page(item));
-        using var client = new BiliHttpClient(handler);
-        var service = new WebMomentDiscoveryService(client, new BiliAuthenticator(new Cookies(), new Token(), httpClient: client));
+        using var fixture = new Fixture(Page(item));
+        var service = fixture.Service;
         var moment = Assert.Single((await service.GetComprehensiveMomentsAsync()).Moments);
         Assert.Equal("555", moment.CommentId);
         Assert.Equal(CommentTargetType.Album, moment.CommentType);
@@ -143,11 +136,67 @@ public sealed class WebMomentTests
     }
 
     [Fact]
+    public async Task LegacyArticleKeepsStringCoversAndArticleTarget()
+    {
+        using var fixture = new Fixture(Page(Item("DYNAMIC_TYPE_ARTICLE", """{"article":{"id":66,"title":"legacy","desc":"summary","covers":["https://example.com/first.png","https://example.com/second.png"]}}""")));
+        var service = fixture.Service;
+        var moment = Assert.Single((await service.GetComprehensiveMomentsAsync()).Moments);
+        Assert.Equal(MomentItemType.Article, moment.MomentType);
+        Assert.Equal(CommentTargetType.Article, moment.CommentType);
+        Assert.Equal("66", moment.CommentId);
+        var article = Assert.IsType<ArticleInformation>(moment.Data);
+        Assert.Equal("66", article.Identifier.Id);
+        Assert.Equal("summary", article.Identifier.Summary);
+        Assert.Equal("https://example.com/first.png", article.Identifier.Cover!.Uri.AbsoluteUri);
+        var pictures = article.GetExtensionIfNotNull<List<Richasy.BiliKernel.Models.Appearance.BiliImage>>(ArticleExtensionDataId.Pictures)!;
+        Assert.Equal(2, pictures.Count);
+        Assert.Equal("https://example.com/first.png", pictures[0].Uri.AbsoluteUri);
+        Assert.Equal("https://example.com/second.png", pictures[1].Uri.AbsoluteUri);
+    }
+
+    [Theory]
+    [InlineData("DYNAMIC_TYPE_FORWARD", "null", "")]
+    [InlineData("DYNAMIC_TYPE_FORWARD", "null", ",\"orig\":null")]
+    [InlineData("DYNAMIC_TYPE_FORWARD", "null", ",\"orig\":{}")]
+    [InlineData("DYNAMIC_TYPE_DRAW", "null", "")]
+    [InlineData("DYNAMIC_TYPE_DRAW", "{\"draw\":null}", "")]
+    [InlineData("DYNAMIC_TYPE_ARTICLE", "{}", "")]
+    [InlineData("DYNAMIC_TYPE_ARTICLE", "{\"article\":null}", "")]
+    public async Task MalformedRecognizedPayloadsThrow(string type, string major, string extra)
+    {
+        using var fixture = new Fixture(Page(Item(type, major, extra: extra)));
+        var service = fixture.Service;
+        await Assert.ThrowsAsync<KernelException>(() => service.GetComprehensiveMomentsAsync());
+    }
+
+    [Fact]
+    public async Task ForwardKeepsUnsupportedOriginalExplicit()
+    {
+        var original = Item("DYNAMIC_TYPE_UNKNOWN", "null", "901");
+        using var fixture = new Fixture(Page(Item("DYNAMIC_TYPE_FORWARD", "null", extra: ",\"orig\":" + original)));
+        var moment = Assert.Single((await fixture.Service.GetComprehensiveMomentsAsync()).Moments);
+        Assert.Equal(MomentItemType.Forward, moment.MomentType);
+        var nested = Assert.IsType<MomentInformation>(moment.Data);
+        Assert.Equal("901", nested.Id);
+        Assert.Equal(MomentItemType.Unsupported, nested.MomentType);
+    }
+
+    [Fact]
+    public async Task DeletedOriginalRemainsExplicitlyUnsupported()
+    {
+        using var fixture = new Fixture(Page(Item("DYNAMIC_TYPE_FORWARD", "null", extra: """, "orig":{"type":"DYNAMIC_TYPE_NONE","modules":{"module_dynamic":{"major":{"type":"MAJOR_TYPE_NONE","none":{"tips":"deleted"}}}}}""")));
+        var service = fixture.Service;
+        var moment = Assert.Single((await service.GetComprehensiveMomentsAsync()).Moments);
+        Assert.Equal(MomentItemType.Unsupported, moment.MomentType);
+        Assert.Equal("900", moment.Id);
+        Assert.Equal("body\n[smile]", moment.Description!.Text);
+    }
+
+    [Fact]
     public async Task PgcKeepsEpisodeAndVideoTargetsSeparate()
     {
-        using var handler = new Handler(Page(Item("DYNAMIC_TYPE_PGC", "{\"pgc\":{\"epid\":22,\"aid\":33,\"season_id\":44,\"title\":\"episode\",\"cover\":\"https://example.com/e.png\"}}")));
-        using var client = new BiliHttpClient(handler);
-        var service = new WebMomentDiscoveryService(client, new BiliAuthenticator(new Cookies(), new Token(), httpClient: client));
+        using var fixture = new Fixture(Page(Item("DYNAMIC_TYPE_PGC", "{\"pgc\":{\"epid\":22,\"aid\":33,\"season_id\":44,\"title\":\"episode\",\"cover\":\"https://example.com/e.png\"}}")));
+        var service = fixture.Service;
         var moment = Assert.Single((await service.GetComprehensiveMomentsAsync()).Moments);
         Assert.Equal(MomentItemType.Pgc, moment.MomentType);
         Assert.Equal("33", moment.CommentId);
@@ -159,9 +208,8 @@ public sealed class WebMomentTests
     [Fact]
     public async Task TitlesDoNotCreateContentFlags()
     {
-        using var handler = new Handler(Page(Item("DYNAMIC_TYPE_AV", "{\"archive\":{\"aid\":123,\"title\":\"联合投稿 充电 动态视频\",\"desc\":\"\"}}")));
-        using var client = new BiliHttpClient(handler);
-        var service = new WebMomentDiscoveryService(client, new BiliAuthenticator(new Cookies(), new Token(), httpClient: client));
+        using var fixture = new Fixture(Page(Item("DYNAMIC_TYPE_AV", "{\"archive\":{\"aid\":123,\"title\":\"联合投稿 充电 动态视频\",\"desc\":\"\"}}")));
+        var service = fixture.Service;
         var video = Assert.IsType<VideoInformation>(Assert.Single((await service.GetComprehensiveMomentsAsync()).Moments).Data);
         Assert.False(video.ExtensionData!.ContainsKey(VideoExtensionDataId.IsCollaborativeSubmission));
         Assert.False(video.ExtensionData.ContainsKey(VideoExtensionDataId.IsChargingExclusive));
@@ -177,6 +225,24 @@ public sealed class WebMomentTests
         Assert.Contains(builder.Services, d => d.ServiceType == typeof(Richasy.BiliKernel.Bili.Moment.IWebMomentDiscoveryService));
     }
 
+    private sealed class Fixture : IDisposable
+    {
+        private readonly BiliHttpClient _client;
+
+        public Fixture(string response)
+        {
+            Handler = new Handler(response);
+            _client = new BiliHttpClient(Handler);
+            Service = new WebMomentDiscoveryService(_client, new BiliAuthenticator(new Cookies(), new Token(), httpClient: _client));
+        }
+
+        public Handler Handler { get; }
+
+        public WebMomentDiscoveryService Service { get; }
+
+        public void Dispose() => _client.Dispose();
+    }
+
     private sealed class Token : IBiliTokenResolver
     {
         public BiliToken GetToken() => new() { AccessToken = "app-token-must-not-be-sent", UserId = 1000 };
@@ -189,12 +255,6 @@ public sealed class WebMomentTests
         public string GetCookieString() => "SESSDATA=web-test-session";
         public void SaveCookies(IDictionary<string, string> cookies) => throw new NotSupportedException();
         public void RemoveCookies() => throw new NotSupportedException();
-    }
-    private sealed class NoTokenRefresh : IAuthenticationService
-    {
-        public Task EnsureTokenAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("A cookie-only read must not refresh the App token.");
-        public Task SignInAsync(AuthorizeExecutionSettings? settings = default, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task SignOutAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
     private sealed class Handler(string response) : HttpMessageHandler
     {
@@ -218,4 +278,3 @@ public sealed class WebMomentTests
         }
     }
 }
-
