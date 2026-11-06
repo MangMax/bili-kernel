@@ -89,6 +89,12 @@ public sealed class VideoInformation : VideoBase
 /// </summary>
 public static class VideoExtensionDataId
 {
+    /// <summary>Raw web dynamic archive.type value (long), when supplied. Not inferred from title.</summary>
+    public const string WebArchiveType = "WebArchiveType";
+
+    /// <summary>Explicit web dynamic archive.badge.text, when supplied.</summary>
+    public const string WebBadgeText = "WebBadgeText";
+
     /// <summary>Account-specific publisher following state supplied by the feed (bool).</summary>
     public const string PublisherIsFollowed = "PublisherIsFollowed";
 

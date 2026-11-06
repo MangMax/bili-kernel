@@ -97,6 +97,12 @@ public sealed class ArticleInformation
 /// </summary>
 public static class ArticleExtensionDataId
 {
+    /// <summary>Images supplied by a web Opus card (IList of BiliImage).</summary>
+    public const string Pictures = "Pictures";
+
+    /// <summary>Web Opus summary with its supplied emote information (EmoteText).</summary>
+    public const string SummaryEmoteText = "SummaryEmoteText";
+
     /// <summary>
     /// 副标题.
     /// </summary>
