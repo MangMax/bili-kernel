@@ -79,7 +79,14 @@ public sealed class WebMomentDiscoveryService : IWebMomentDiscoveryService
             case "DYNAMIC_TYPE_FORWARD":
                 type = MomentItemType.Forward;
                 commentType = CommentTargetType.Moment;
-                if (Child(item, "orig").ValueKind == JsonValueKind.Object) content = Map(Child(item, "orig"));
+                var original = Child(item, "orig");
+                if (original.ValueKind != JsonValueKind.Object) throw new KernelException("Missing web dynamic original.");
+                if (Required(original, "type") == "DYNAMIC_TYPE_NONE")
+                {
+                    // Deleted originals have no author or identifiers to map.
+                    type = MomentItemType.Unsupported;
+                }
+                else content = Map(original);
                 break;
             case "DYNAMIC_TYPE_PGC":
                 var pgc = Child(major, "pgc");
@@ -122,7 +129,9 @@ public sealed class WebMomentDiscoveryService : IWebMomentDiscoveryService
                     type = MomentItemType.Article;
                     var node = opus.ValueKind == JsonValueKind.Object ? opus : article;
                     var articleId = Text(node, "id") ?? Text(node, "opus_id") ?? id;
-                    var pictures = Pictures(Child(node, "pics"), "url");
+                    var pictures = opus.ValueKind == JsonValueKind.Object
+                        ? Pictures(Child(opus, "pics"), "url")
+                        : Pictures(Child(article, "covers"), null);
                     commentType = CommentTargetType.Moment;
                     var articleInfo = new ArticleInformation(new ArticleIdentifier(articleId, Text(node, "title"),
                         Text(Child(node, "summary"), "text") ?? Text(node, "desc"), pictures.FirstOrDefault()), user,
@@ -139,7 +148,12 @@ public sealed class WebMomentDiscoveryService : IWebMomentDiscoveryService
                     commentType = CommentTargetType.Album;
                     commentId = Required(draw, "id");
                 }
-                else { type = MomentItemType.PlainText; commentType = CommentTargetType.Moment; }
+                else if (Text(item, "type") == "DYNAMIC_TYPE_WORD")
+                {
+                    type = MomentItemType.PlainText;
+                    commentType = CommentTargetType.Moment;
+                }
+                else throw new KernelException("Missing web dynamic draw/article payload.");
                 break;
         }
         var basic = Child(item, "basic");
@@ -171,11 +185,15 @@ public sealed class WebMomentDiscoveryService : IWebMomentDiscoveryService
         return new EmoteText(Text(node, "text") ?? string.Empty, emotes.Count == 0 ? null : emotes);
     }
 
-    private static List<BiliImage> Pictures(JsonElement array, string key)
+    private static List<BiliImage> Pictures(JsonElement array, string? key)
     {
         var result = new List<BiliImage>();
         if (array.ValueKind == JsonValueKind.Array)
-            foreach (var node in array.EnumerateArray()) if (Image(Text(node, key)) is BiliImage image) result.Add(image);
+            foreach (var node in array.EnumerateArray())
+            {
+                var url = key != null ? Text(node, key) : node.ValueKind == JsonValueKind.String ? node.GetString() : null;
+                if (Image(url) is BiliImage image) result.Add(image);
+            }
         return result;
     }
 
