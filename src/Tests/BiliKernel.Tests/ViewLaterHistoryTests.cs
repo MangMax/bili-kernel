@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
@@ -53,11 +53,15 @@ public sealed class ViewLaterHistoryTests
         var handler = CreateHandler();
         var service = CreateViewHistoryService(handler);
 
-        await service.CleanHistoryAsync(ViewHistoryTabType.Video, CancellationToken.None);
+        await service.CleanHistoryAsync(ViewHistoryTabType.All, CancellationToken.None);
 
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("history/clear", StringComparison.Ordinal));
         Assert.Equal("/x/v2/history/clear", request.Path);
         Assert.Contains("csrf=csrf-token", request.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("access_key", request.Body);
+        Assert.False(request.Query.ContainsKey("access_key"));
+        Assert.Contains("SESSDATA=history-session", request.Cookie);
+        Assert.DoesNotContain(handler.Requests, p => p.Path.Contains("History/Clear"));
     }
 
     private static RecordingHttpMessageHandler CreateHandler()
@@ -74,10 +78,11 @@ public sealed class ViewLaterHistoryTests
         cookies.SaveCookies(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             { "bili_jct", "csrf-token" },
+            { "SESSDATA", "history-session" },
         });
         var buvid = new BuvidManager(cookies, new InMemoryBuvidStore("B3", "B4"), handler);
         var http = new BiliHttpClient(handler, buvid);
-        var authenticator = new BiliAuthenticator(cookies, new FakeTokenResolver(), buvid, http);
+        var authenticator = new BiliAuthenticator(cookies, new FakeTokenResolver { Token = new Richasy.BiliKernel.Models.Authorization.BiliToken { AccessToken = "app-token" } }, buvid, http);
         return (http, authenticator);
     }
 
