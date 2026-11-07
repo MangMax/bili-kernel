@@ -8,7 +8,7 @@
 - 这不是全局策略变化。鉴权器的全局默认值、`CookieOnly` 的语义、以及其余网页端点的凭据行为均未改动。
 - 理由：本应用的登录态由 App 令牌承载，Cookie 只是它的派生副本，两者不同步。Cookie 缺失或过期时，该端点不返回 `-101`，而是 `code 0` + `PLAY_PREVIEW` 的试看响应，于是「账号有权益但登录态没生效」被表现成「没有权益」。
 - 判定：响应里的 `play_check` / `is_preview` 决定「可完整播放 / 仅可试看」，不再把非 DASH 的成功响应当解析失败。
-- 证据等级：匿名只读复核与规格票实机对照已记录；「Cookie + App 令牌」组合**未在本机采样**，目前只有业务方报告支撑，需真实会员账号按文末步骤补采。
+- 证据等级：四种组合（无凭据 / 仅 Cookie / Cookie + App 令牌 / 仅 App 令牌）都已在同一集上实机采样（2026-11-07，只读）；本机会话的 Cookie 已失效，只剩试看，完整 DASH 只在带 App 令牌时出现。
 
 ## 为什么番剧播放要保留 App 令牌
 
@@ -34,13 +34,15 @@
 | 2 | 无凭据（对照组） | 2026-11-07 | 匿名（`is_login = 0`） | ep733316（免费集，season 28747） | 0 | `PLAY_WHOLE` | 0 | 视频 6 / 音频 3 | 1 条 | 本次匿名只读复核 |
 | 3 | 仅 Cookie（有效 SESSDATA） | 2026-11-07 | 大会员账号 | ep3854823 | 0 | `PLAY_WHOLE` | 未记录 | 19 条视频流 | 未记录 | 规格票 #52 实机对照，非本次复核 |
 | 4 | 仅 Cookie（过期 / 无效） | 2026-11-07 | 大会员账号（凭据已失效） | ep3854823 | 0（未返回 `-101`） | `PLAY_PREVIEW` | 未记录 | 无 | 未记录 | 规格票 #52 实机对照，非本次复核 |
-| 5 | Cookie + App 令牌 | 未采样 | 真实大会员账号 | 同一集 | 未采样 | 未采样 | 未采样 | 未采样 | 未采样 | 无本机凭据；仅业务方报告，待补采 |
+| 5 | Cookie + App 令牌 | 2026-11-07 | 大会员账号（本机已登录会话） | ep3854823 | 0 | `PLAY_WHOLE` | 0 | 视频 19 / 音频 3 | 未记录 | 本次复核（经内核 `PlayerService` 实际调用） |
+| 6 | 仅 App 令牌（空 Cookie） | 2026-11-07 | 大会员账号（同上） | ep3854823 | 0 | `PLAY_WHOLE` | 0 | 视频 19 / 音频 3 | 未记录 | 本次复核（同上） |
 
 来源与标注：
 
 - **第 1、2 行**：工单 #55 期间的匿名只读复核（2026-11-07，Asia/Shanghai）。未携带任何 Cookie 或 `access_key`，只带公共 `Referer` / `User-Agent`，命令形状见文末。同一命令、同一天、两个不同集，用来把「匿名限制」与「会员限制」分开：免费集在完全匿名下也给完整 DASH，会员集只给试看，说明试看来自内容权益而非请求写错。
 - **第 3、4 行**：来自规格票 #52 正文记录的 2026-11-07 大会员账号实机对照，**不是本次复核**。原记录只写了 `play_check`、`dash` 与「未返回 -101」，没有记 `is_preview` 与 `durl` 条数，此处不补写、不外推。
-- **第 5 行**：本机没有真实会员账号凭据，也未做任何账号写入，因此这一格是**未采样**，不是已验证。现有依据只有业务方报告：应用 #137 / 内核 PR #40 之前的双凭据实现可以正常播放会员集（即内核 `bf8ceb2` 之前的行为）。这条报告与「端点接受 Cookie 授权」并不矛盾——它说明的是令牌侧也能承载权益，但需要真实账号按文末步骤补采后才能写进表格。
+- **第 5、6 行**：工单 #55 期间的实机复核（2026-11-07，Asia/Shanghai）。使用本机 Bili.Copilot 已保存的登录会话（App 令牌 + 该会话的 5 条 Cookie），经内核 `PlayerService.GetPgcPlayDetailAsync` 的真实请求路径调用（含 WBI 与 `CookieAndToken`）；只读 GET，没有任何账号写入，凭据值未写入日志或文档。结果：仅带该会话 Cookie 仍是 `PLAY_PREVIEW`（与第 4 行一致，说明这 5 条 Cookie 已失效）；带上 App 令牌后，无论是否同时带 Cookie，都得到 `PLAY_WHOLE` 与 19 视频 / 3 音频。
+- 第 3 行（有效 Cookie 也能 `PLAY_WHOLE`）仍只有规格票的记录，本次没有重新取得有效 Cookie 样本；它与第 5、6 行不冲突：两条路径都能承载权益。
 
 两点观察，避免误读：
 
@@ -70,7 +72,7 @@
 
 这些 URL 可变，复核方式：`curl.exe -L -s <URL> -o <file>` 后比对 SHA256。研究期间网页本体返回的是错误页，只能依赖 bundle。
 
-**历史结论与本轮修正**：#137 时期据上述证据得出「两条路由都显式使用 `CookieOnly(needRID: true)`，没有证据支持双凭据」。该结论只在客户端维度成立，被本轮修正为：网页客户端只发 Cookie；服务端同时接受 Cookie 与 App 令牌，权益可由令牌承载（第 5 行待实机确认）。除凭据声明外，WBI、Referer/Origin、`qn=64`、`fnval=4048`、`fourk`、`try_look` 与集标识均保持不变；GET 不需要 CSRF。
+**历史结论与本轮修正**：#137 时期据上述证据得出「两条路由都显式使用 `CookieOnly(needRID: true)`，没有证据支持双凭据」。该结论只在客户端维度成立，被本轮修正为：网页客户端只发 Cookie；服务端同时接受 Cookie 与 App 令牌，权益可由令牌承载（证据表第 5、6 行）。除凭据声明外，WBI、Referer/Origin、`qn=64`、`fnval=4048`、`fourk`、`try_look` 与集标识均保持不变；GET 不需要 CSRF。
 
 ## 策略边界：只有这一处例外
 
@@ -138,17 +140,17 @@
 - 回退：主路径 404 与非 DASH 表示各跑一次 legacy，且**两次请求都带双凭据与签名**（`PlayUrlFallsBackToLegacyPathWithWbi`、`UnsupportedPrimaryFormatUsesLegacyDash`）。
 - 判定：试看有/无可播放地址、`PLAY_WHOLE` 完整 DASH，都进 `PlayCheck`/`IsPreview`/`PreviewUrls`/`AcceptedQualities`（`PreviewResponseReturnsPlayableUrlsWithoutFallback`、`PreviewWithoutPlayableUrlsStillReportsPreview`、`WholeEpisodeReturnsDashWithPlayCheck`）。
 - 异常分级与不回退：`-101`/`-403`/`-404`/`-10403` 四类原因、legacy 成功也不能掩盖主路径拒绝、付费弹窗归为无权益、JSON 错误/传输失败/取消都不回退。
-- 回归：#131 的其他网页端点仍然只带 Cookie、无 `access_key`（`OtherWebEndpointsStillOmitAppToken`）。
+- 回归：#131 的其他网页端点仍然只带 Cookie、无 `access_key`（`LiveCredentialTests` 的直播详情断言）。
 
 不证明：
 
-- 任何真实普通账号或大会员账号能拿到那些流，以及「Cookie 失效但令牌有效」时服务端到底返回什么——`AppTokenRestoresDashWhenCookieIsMissingOrExpired` 里的服务端行为是 fixture 编造的假设，不是实测结果。
+- 任何真实普通账号或大会员账号能拿到那些流；`AppTokenRestoresDashWhenCookieIsMissingOrExpired` 里的服务端行为仍是 fixture 假设（该假设在 2026-11-07 的本机会话复核中成立，见第 5、6 行，但单测只证明客户端会随凭据有无调整请求与判定）。
 - Cookie 是否仍然有效。客户端无法从 Cookie 字符串推断过期，只能从响应反推。
 - App 令牌与网页 Cookie 对应同一份权益。两者是否等价属于服务端规则。
 
 ## 复核步骤（可重复）
 
-同一集、同一组参数，分三种凭据组合各取一次响应。设备参数只影响风控，不影响判定字段。
+同一集、同一组参数，分四种凭据组合各取一次响应。设备参数只影响风控，不影响判定字段。
 
 ```powershell
 # 占位符，勿写真实值；凭据只从环境变量读取，不写进命令历史与文档
@@ -167,7 +169,10 @@ $r2 = curl.exe -s $url @hdr -b "SESSDATA=$env:BILI_SESSDATA" | ConvertFrom-Json
 # 组合 3：Cookie + App 令牌
 $r3 = curl.exe -s "$url&access_key=$env:BILI_ACCESS_KEY" @hdr -b "SESSDATA=$env:BILI_SESSDATA" | ConvertFrom-Json
 
-foreach ($r in $r1, $r2, $r3) {
+# 组合 4：仅 App 令牌（空 Cookie）
+$r4 = curl.exe -s "$url&access_key=$env:BILI_ACCESS_KEY" @hdr | ConvertFrom-Json
+
+foreach ($r in $r1, $r2, $r3, $r4) {
     $b = if ($null -ne $r.result) { $r.result } else { $r.data }
     [pscustomobject]@{
         code         = $r.code
@@ -192,16 +197,17 @@ foreach ($r in $r1, $r2, $r3) {
 | 仅 Cookie（有效） | `PLAY_WHOLE` | 有 | 若仍 `PLAY_PREVIEW`，先确认账号权益与 Cookie 新鲜度，而不是端点 |
 | 仅 Cookie（过期） | `PLAY_PREVIEW` | 无 | 若返回 `-101`，说明服务端改成显式拒绝，异常分级仍成立 |
 | Cookie + App 令牌 | `PLAY_WHOLE` | 有 | 若仍 `PLAY_PREVIEW`，问题在令牌或权益，不在凭据组合 |
+| 仅 App 令牌 | `PLAY_WHOLE` | 有 | 若与上一行不同，说明服务端对 Cookie 与令牌的权益判断不一致，需要重新取证 |
 
 注意事项：
 
 - 手工 curl 不带 WBI 签名，服务端可能直接拒绝该请求；若返回签名类错误，改为在内核的调试构建里打断点或看 `[PGC]` 日志取已签名请求的响应，不要因此判定契约变化。
 - 换账号或重新登录后需重启应用再取数：Cookie 是派生副本，不会随令牌刷新自动同步。
 - 免费集对照组（如 ep733316）建议一起跑，便于分离「匿名限制」与「会员限制」。
-- 结论写回本文表格，并标注日期、账号类型与集标识；「未采样」不得改写成「已验证」。
+- 结论写回本文表格，并标注日期、账号类型与集标识；没有实际取到的组合写「未采样」，不得改写成「已验证」。
 
 ## 维护提示
 
-- 该端点的凭据、WBI、判定与回退都集中在 `PlayerClient` 的 PGC 分支；改契约时先看本文第 5 行是否已补采。
-- 若某天「Cookie + 令牌」也拿不到 `PLAY_WHOLE`，先按上一节复现三种组合，再决定是端点契约变化还是账号侧问题，不要直接扩大双凭据到其他端点。
+- 该端点的凭据、WBI、判定与回退都集中在 `PlayerClient` 的 PGC 分支；改契约时先对照本文的证据表与复核步骤。
+- 若某天「Cookie + 令牌」也拿不到 `PLAY_WHOLE`，先按上一节复现四种组合，再决定是端点契约变化还是账号侧问题，不要直接扩大双凭据到其他端点。
 - 其他网页端点的凭据问题参照 #131 的结论，不要用本例外做先例。
