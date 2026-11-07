@@ -99,7 +99,12 @@ internal static class LiveAdapter
                 {
                     var name = codec.CodecName;
                     var urls = codec.Urls.Select(p => new LivePlayUrl(stream.ProtocolName, p.Host, codec.BaseUrl, p.Extra)).ToList();
-                    lines.Add(new LiveLineInformation(name, codec.CurrentQuality, codec.AcceptQualities, urls));
+                    lines.Add(new LiveLineInformation(
+                        name,
+                        codec.CurrentQuality,
+                        codec.AcceptQualities,
+                        urls,
+                        string.IsNullOrWhiteSpace(format.FormatName) ? null : format.FormatName));
                 }
             }
         }
