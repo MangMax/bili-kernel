@@ -503,6 +503,11 @@ public static class BiliApis
         public const string ChatSocket = "wss://broadcastlv.chat.bilibili.com/sub";
 
         /// <summary>
+        /// 直播间短号归一化.
+        /// </summary>
+        public const string RoomInit = _liveBase + "/room/v1/Room/room_init";
+
+        /// <summary>
         /// 进入直播间.
         /// </summary>
         public const string EnterRoom = _liveBase + "/xlive/app-room/v1/index/roomEntryAction";

@@ -1,9 +1,7 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Models.Media;
-using System.Net.WebSockets;
-
 namespace Richasy.BiliKernel.Bili.Media;
 
 /// <summary>
@@ -110,23 +108,4 @@ public interface IPlayerService
     /// </summary>
     Task ReportEpisodeProgressAsync(string aid, string cid, string episodeId, string seasonId, int progress, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// 获取直播间信息.
-    /// </summary>
-    Task<ClientWebSocket> EnterLiveRoomAsync(string roomId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// 发送直播间心跳，维持直播流.
-    /// </summary>
-    Task SendLiveHeartBeatAsync(ClientWebSocket client, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// 发送直播间消息.
-    /// </summary>
-    Task SendLiveMessageAsync(ClientWebSocket client, object data, int action, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// 获取直播间消息.
-    /// </summary>
-    Task<IReadOnlyList<LiveMessage>?> GetLiveSocketMessagesAsync(ClientWebSocket client, CancellationToken cancellationToken);
 }

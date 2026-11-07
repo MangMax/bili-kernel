@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
@@ -7,7 +7,6 @@ using Richasy.BiliKernel.Bili.Media;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models.Media;
 using Richasy.BiliKernel.Services.Media.Core;
-using System.Net.WebSockets;
 
 namespace Richasy.BiliKernel.Services.Media;
 
@@ -25,11 +24,6 @@ public sealed class PlayerService : IPlayerService
         BiliHttpClient httpClient,
         BiliAuthenticator authenticator,
         IBiliTokenResolver tokenResolver) => _client = new PlayerClient(httpClient, authenticator, tokenResolver);
-
-    internal Func<Uri, byte[], CancellationToken, Task<ClientWebSocket>> ConnectLiveSocket
-    {
-        set => _client.ConnectLiveSocket = value;
-    }
 
     /// <inheritdoc/>
     public Task<VideoInformation> GetVideoInformationAsync(MediaIdentifier video, CancellationToken cancellationToken = default)
@@ -128,19 +122,4 @@ public sealed class PlayerService : IPlayerService
     public Task<VideoOperationInformation> GetEpisodeOperationInformationAsync(string episodeId, CancellationToken cancellationToken = default)
         => _client.GetEpisodeOpeartionInformationAsync(episodeId, cancellationToken);
 
-    /// <inheritdoc/>
-    public Task<ClientWebSocket> EnterLiveRoomAsync(string roomId, CancellationToken cancellationToken)
-        => _client.EnterLiveRoomAsync(roomId, cancellationToken);
-
-    /// <inheritdoc/>
-    public Task SendLiveHeartBeatAsync(ClientWebSocket client, CancellationToken cancellationToken)
-        => PlayerClient.SendLiveHeartBeatAsync(client, cancellationToken);
-
-    /// <inheritdoc/>
-    public Task SendLiveMessageAsync(ClientWebSocket client, object data, int action, CancellationToken cancellationToken)
-        => PlayerClient.SendLiveMessageAsync(client, data, action, cancellationToken);
-
-    /// <inheritdoc/>
-    public Task<IReadOnlyList<LiveMessage>?> GetLiveSocketMessagesAsync(ClientWebSocket client, CancellationToken cancellationToken)
-        => PlayerClient.GetLiveSocketMessagesAsync(client, cancellationToken);
 }
