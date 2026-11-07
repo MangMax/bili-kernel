@@ -1,4 +1,4 @@
-﻿# 哔哩内核（独立维护版本）
+# 哔哩内核（独立维护版本）
 
 本项目是 [Richasy/bili-kernel](https://github.com/Richasy/bili-kernel) 的独立维护版本。
 
@@ -51,6 +51,7 @@ Cookie 不存在时允许请求发出（适用于支持匿名的公共读取）�
 `apiType` 仅决定客户端参数/签名类型，默认 Web；`needRID`、`needCSRF` 分别选择 WBI/CSRF，WBI 须先初始化。
 来源页 Referer/Origin、反爬参数、SkipBuild 等仍由各端点独立声明；不要把所有 Web 端点改成相同参数。
 用户空间资料、投稿分页和专栏分页共用此入口，保留原来源页与指纹参数。
+番剧播放地址是唯一显式例外，使用 `BiliAuthorizeExecutionSettings.CookieAndToken(needRID: true)`：按可用性同时附加 Cookie 与 App `access_key`，两者都缺失时仍按匿名请求发出。理由、证据与复核步骤见 [番剧播放凭据](docs/pgc-playback-credentials.md)；新增端点默认仍用 `CookieOnly`。
 
 旧构造器和属性保持原语义：`RequireToken=false` 仍会附带已有 token；`ForceNoToken=true` 才排除自动添加。
 需要 App token 的旧请求继续使用原设置和 token 刷新流程；匿名请求可显式设置 `ForceNoToken=true, RequireCookie=false`。

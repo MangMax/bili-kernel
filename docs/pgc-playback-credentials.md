@@ -92,7 +92,8 @@
 | `play_check.play_detail` | `PlayCheck` | `PLAY_WHOLE` 可完整播放；`PLAY_PREVIEW` 仅可试看；不支持该标记的路径为 `null` |
 | `video_info.is_preview` | `IsPreview` | 与 `PLAY_PREVIEW` 任一成立即判为试看 |
 | `video_info.durl`（试看时） | `PreviewUrls` | 试看地址照常返回，供上层播放或提示，不丢弃 |
-| `video_info.support_formats` / `accept_quality` | `Formats` | 清晰度列表；VIP/登录标记是客户端按清晰度得出的约定，不是服务端权益校验 |
+| `video_info.support_formats` | `Formats` | 清晰度描述；VIP/登录标记是客户端按清晰度得出的约定，不是服务端权益校验 |
+| `video_info.accept_quality` | `AcceptedQualities` | 服务端接受的清晰度原文；试看响应也会列出会员清晰度，不能当作权益判据 |
 
 ### 播放不可用的四种原因
 
@@ -107,6 +108,8 @@
 | 其他非零 `code` | — | 不猜测，抛 `KernelException`，保留 `code`/`message` |
 
 `code 0` + `PLAY_PREVIEW` + 无 `video_info` 不算错误，返回 `IsPreview = true` 的空 DASH 信息，由上层决定播放试看还是提示。
+
+该端点通常不返回 `-101`：未登录或 Cookie 过期时服务端直接给 `PLAY_PREVIEW`，客户端据此返回试看结果而不是 `LoginRequired`。`LoginRequired` 只在服务端显式返回 `-101` 时出现，不要把它当作「未登录」的唯一表达。
 
 ### 回退边界
 
@@ -133,7 +136,7 @@
 
 - 请求形状：主路径走 `/pgc/player/web/v2/playurl`；`access_key` 与 `SESSDATA` 同时出现；`cid`/`ep_id`/`season_type`/`qn=64`/`fnval=4048`/`fourk`/`try_look` 齐全；无 `csrf`/`sign`；`w_rid` 覆盖含 `access_key` 在内的全部参数（`PlayUrlUsesV2PathWithWbi`、`PgcPlaybackConsultsAppTokenAlongsideCookie`、`OptionalCredentialsAllowPublicPlayback`）。
 - 回退：主路径 404 与非 DASH 表示各跑一次 legacy，且**两次请求都带双凭据与签名**（`PlayUrlFallsBackToLegacyPathWithWbi`、`UnsupportedPrimaryFormatUsesLegacyDash`）。
-- 判定：试看有/无可播放地址、`PLAY_WHOLE` 完整 DASH，都进 `PlayCheck`/`IsPreview`/`PreviewUrls`（`PreviewResponseReturnsPlayableUrlsWithoutFallback`、`PreviewWithoutPlayableUrlsStillReportsPreview`、`WholeEpisodeReturnsDashWithPlayCheck`）。
+- 判定：试看有/无可播放地址、`PLAY_WHOLE` 完整 DASH，都进 `PlayCheck`/`IsPreview`/`PreviewUrls`/`AcceptedQualities`（`PreviewResponseReturnsPlayableUrlsWithoutFallback`、`PreviewWithoutPlayableUrlsStillReportsPreview`、`WholeEpisodeReturnsDashWithPlayCheck`）。
 - 异常分级与不回退：`-101`/`-403`/`-404`/`-10403` 四类原因、legacy 成功也不能掩盖主路径拒绝、付费弹窗归为无权益、JSON 错误/传输失败/取消都不回退。
 - 回归：#131 的其他网页端点仍然只带 Cookie、无 `access_key`（`OtherWebEndpointsStillOmitAppToken`）。
 

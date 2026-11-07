@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 namespace Richasy.BiliKernel.Models.Media;
@@ -14,7 +14,8 @@ public sealed class DashMediaInformation(
     IList<VideoChapter>? chapters = null,
     string? playCheck = null,
     bool isPreview = false,
-    IList<string>? previewUrls = null)
+    IList<string>? previewUrls = null,
+    IList<int>? acceptedQualities = null)
 {
     /// <summary>
     /// 视频时长.
@@ -61,4 +62,12 @@ public sealed class DashMediaInformation(
     /// 仅可试看时可播放的地址列表.
     /// </summary>
     public IList<string>? PreviewUrls { get; } = previewUrls;
+
+    /// <summary>
+    /// 服务端接受的清晰度列表（accept_quality 原文）.
+    /// </summary>
+    /// <remarks>
+    /// 不做 VIP 或登录推断；试看响应也可能列出会员清晰度，不能当作权益判据.
+    /// </remarks>
+    public IList<int>? AcceptedQualities { get; } = acceptedQualities;
 }

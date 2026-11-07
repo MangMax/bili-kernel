@@ -19,6 +19,7 @@ using System.IO.Compression;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 
 namespace Richasy.BiliKernel.Services.Media.Core;
@@ -26,6 +27,8 @@ namespace Richasy.BiliKernel.Services.Media.Core;
 internal sealed class PlayerClient
 {
     private const int TripleCoinCount = 2;
+
+    private const string PreviewPlayCheck = "PLAY_PREVIEW";
 
     private readonly BiliHttpClient _httpClient;
     private readonly BiliAuthenticator _authenticator;
@@ -746,7 +749,8 @@ internal sealed class PlayerClient
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
         {
-            LogPgcPlayRequest(request, null, ex.Message);
+            // 不记录异常原文，避免请求 URI 中的 access_key 进入日志.
+            LogPgcPlayRequest(request, null, ex is HttpRequestException { StatusCode: { } status } ? status.ToString() : ex.GetType().Name);
             throw new KernelException(ex.Message, ex);
         }
 
@@ -757,24 +761,9 @@ internal sealed class PlayerClient
 
     private static PgcPlayContent ParsePgcPlayResponse(HttpRequestMessage request, string responseText)
     {
-        PgcPlayUrlResponse? responseObj;
-        try
-        {
-            responseObj = JsonSerializer.Deserialize(responseText, SourceGenerationContext.Default.PgcPlayUrlResponse);
-        }
-        catch (JsonException ex)
-        {
-            LogPgcPlayRequest(request, null, ex.Message);
-            throw new KernelException("解析PGC播放详情失败", ex);
-        }
-
-        var playCheck = responseObj?.PlayCheck?.PlayDetail;
-        LogPgcPlayRequest(request, responseObj?.Code, responseObj?.Message, playCheck);
-
-        if (responseObj is null)
-        {
-            throw new KernelException("解析PGC播放详情失败");
-        }
+        var responseObj = DeserializePgcResponse(request, responseText, SourceGenerationContext.Default.PgcPlayUrlResponse);
+        var playCheck = responseObj.PlayCheck?.PlayDetail;
+        LogPgcPlayRequest(request, responseObj.Code, responseObj.Message, playCheck);
 
         if (!responseObj.IsSuccess())
         {
@@ -784,12 +773,12 @@ internal sealed class PlayerClient
         var information = responseObj.Content;
         if (information is null)
         {
-            return playCheck == "PLAY_PREVIEW"
+            return playCheck == PreviewPlayCheck
                 ? new PgcPlayContent(new PlayerInformation(), playCheck, true)
                 : throw CreateUnavailableForMissingPlayback(responseObj);
         }
 
-        if (playCheck == "PLAY_PREVIEW" || information.IsPreview == 1)
+        if (playCheck == PreviewPlayCheck || information.IsPreview == 1)
         {
             return new PgcPlayContent(information, playCheck, true);
         }
@@ -804,28 +793,13 @@ internal sealed class PlayerClient
             throw CreateUnavailableForMissingPlayback(responseObj);
         }
 
-        return new PgcPlayContent(information, playCheck, information.IsPreview == 1);
+        return new PgcPlayContent(information, playCheck, false);
     }
 
     private static PgcPlayContent ParsePgcLegacyPlayResponse(HttpRequestMessage request, string responseText)
     {
-        BiliResultResponse<PlayerInformation>? responseObj;
-        try
-        {
-            responseObj = JsonSerializer.Deserialize(responseText, SourceGenerationContext.Default.BiliResultResponsePlayerInformation);
-        }
-        catch (JsonException ex)
-        {
-            LogPgcPlayRequest(request, null, ex.Message);
-            throw new KernelException("解析PGC播放详情失败", ex);
-        }
-
-        LogPgcPlayRequest(request, responseObj?.Code, responseObj?.Message);
-
-        if (responseObj is null)
-        {
-            throw new KernelException("解析PGC播放详情失败");
-        }
+        var responseObj = DeserializePgcResponse(request, responseText, SourceGenerationContext.Default.BiliResultResponsePlayerInformation);
+        LogPgcPlayRequest(request, responseObj.Code, responseObj.Message);
 
         if (!responseObj.IsSuccess())
         {
@@ -836,6 +810,20 @@ internal sealed class PlayerClient
         return information?.VideoInformation != null
             ? new PgcPlayContent(information, null, false)
             : throw new KernelException("解析PGC播放详情失败");
+    }
+
+    private static T DeserializePgcResponse<T>(HttpRequestMessage request, string responseText, JsonTypeInfo<T> typeInfo)
+        where T : BiliResponse
+    {
+        try
+        {
+            return JsonSerializer.Deserialize(responseText, typeInfo) ?? throw new JsonException();
+        }
+        catch (JsonException ex)
+        {
+            LogPgcPlayRequest(request, null, ex.Message);
+            throw new KernelException("解析PGC播放详情失败", ex);
+        }
     }
 
     private static PgcPlaybackUnavailableException CreateUnavailableForMissingPlayback(PgcPlayUrlResponse response)

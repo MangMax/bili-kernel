@@ -21,7 +21,7 @@ public sealed class PgcPlayUrlTests
     private const string LegacyResponse = @"{""code"":0,""result"":{""accept_quality"":[64],""dash"":{""video"":[],""audio"":[]}}}";
 
     // 服务端在缺少账号身份时返回的试看响应：code 0，只有 durl，没有 dash。
-    private const string PreviewResponse = @"{""code"":0,""data"":{""video_info"":{""durl"":[{""url"":""https://media.invalid/preview.flv""}]}}}";
+    private const string PreviewResponse = @"{""code"":0,""data"":{""play_check"":{""play_detail"":""PLAY_PREVIEW""},""video_info"":{""is_preview"":1,""durl"":[{""url"":""https://media.invalid/preview.flv""}]}}}";
     private const string LiveDetailResponse = @"{""code"":0,""data"":{""room_info"":{""room_id"":1234,""uid"":42,""title"":""Live title"",""cover"":""https://example.com/cover.jpg"",""area_name"":""Games""},""anchor_info"":{""base_info"":{""uname"":""Host"",""face"":""https://example.com/face.jpg""}}}}";
 
     [Fact]
@@ -74,6 +74,7 @@ public sealed class PgcPlayUrlTests
         var format = Assert.Single(dash.Formats!);
         Assert.Equal(64, format.Quality);
         Assert.Equal(1381, dash.Duration);
+        Assert.Equal([64, 32], dash.AcceptedQualities);
         Assert.Null(dash.Videos);
         Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
     }
@@ -83,8 +84,7 @@ public sealed class PgcPlayUrlTests
     {
         const string preview = """
             {"code":0,"result":{"play_check":{"play_detail":"PLAY_PREVIEW"},
-             "video_info":{"timelength":60000,"is_preview":1,
-              "support_formats":[{"quality":64,"new_description":"高清"}]}}}
+             "video_info":{"timelength":60000,"is_preview":1,"accept_quality":[64]}}}
             """;
         var handler = CreateHandler(preview, LegacyResponse);
 
@@ -94,6 +94,8 @@ public sealed class PgcPlayUrlTests
         Assert.Equal("PLAY_PREVIEW", dash.PlayCheck);
         Assert.Null(dash.PreviewUrls);
         Assert.Null(dash.Videos);
+        Assert.Empty(dash.Formats!);
+        Assert.Equal([64], dash.AcceptedQualities);
         Assert.Equal(60, dash.Duration);
         Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
     }
@@ -103,7 +105,7 @@ public sealed class PgcPlayUrlTests
     {
         const string whole = """
             {"code":0,"result":{"play_check":{"play_detail":"PLAY_WHOLE"},
-             "video_info":{"timelength":120000,"support_formats":[{"quality":64,"new_description":"高清"}],
+             "video_info":{"timelength":120000,"accept_quality":[64,32],"support_formats":[{"quality":64,"new_description":"高清"}],
               "dash":{"video":[{"id":64,"base_url":"https://media.invalid/64.m4s","segment_base":{"initialization":"0-100","index_range":"101-200"}}],"audio":[]}}}}
             """;
         var handler = CreateHandler(whole, LegacyResponse);
@@ -116,6 +118,7 @@ public sealed class PgcPlayUrlTests
         Assert.Equal("https://media.invalid/64.m4s", Assert.Single(dash.Videos!).BaseUrl);
         var format = Assert.Single(dash.Formats!);
         Assert.Equal(64, format.Quality);
+        Assert.Equal([64, 32], dash.AcceptedQualities);
         Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
     }
 
@@ -200,9 +203,10 @@ public sealed class PgcPlayUrlTests
     }
 
     [Theory]
-    [InlineData(false, null)]
-    [InlineData(true, "expired")]
-    public async Task AppTokenRestoresDashWhenCookieIsMissingOrExpired(bool hasCookie, string? sessData)
+    [InlineData(false, null, true)]
+    [InlineData(true, "expired", true)]
+    [InlineData(true, "expired", false)]
+    public async Task AppTokenRestoresDashWhenCookieIsMissingOrExpired(bool hasCookie, string? sessData, bool hasToken)
     {
         // 模拟服务端：有 access_key 时返回完整 DASH，否则静默降级为试看响应。
         var handler = new RecordingHttpMessageHandler(request => request.Query.ContainsKey("access_key")
@@ -210,12 +214,14 @@ public sealed class PgcPlayUrlTests
             : RecordingHttpMessageHandler.Json(PreviewResponse))
             .With("/x/web-interface/nav", NavResponse);
 
-        var dash = await CreateService(handler, hasCookie, hasToken: true, sessData).GetPgcPlayDetailAsync("123", "456", "1");
+        var dash = await CreateService(handler, hasCookie, hasToken, sessData).GetPgcPlayDetailAsync("123", "456", "1");
 
-        Assert.Equal(1381, dash.Duration);
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
         AssertPlaybackQuery(request, "1");
+        Assert.Equal(hasToken, request.Query.ContainsKey("access_key"));
         Assert.Equal(hasCookie, request.Cookie?.Contains("SESSDATA=", StringComparison.Ordinal) == true);
+        Assert.Equal(!hasToken, dash.IsPreview);
+        Assert.Equal(hasToken ? 1381 : 0, dash.Duration);
     }
 
     [Theory]

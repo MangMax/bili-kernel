@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Bilibili.App.Playurl.V1;
@@ -595,6 +595,8 @@ internal static class VideoAdapter
             }
         }
 
+        var acceptedQualities = information.AcceptQualities is { Count: > 0 } ? information.AcceptQualities : default;
+
         if (dash == null)
         {
             if (!isPreview)
@@ -606,8 +608,9 @@ internal static class VideoAdapter
                 .Where(p => !string.IsNullOrEmpty(p.Url))
                 .Select(p => p.Url)
                 .ToList();
+            previewUrls = previewUrls?.Count > 0 ? previewUrls : default;
 
-            return new DashMediaInformation(default, default, formats, information.Duration / 1000, playCheck: playCheck, isPreview: true, previewUrls: previewUrls);
+            return new DashMediaInformation(default, default, formats, information.Duration / 1000, playCheck: playCheck, isPreview: true, previewUrls: previewUrls, acceptedQualities: acceptedQualities);
         }
 
         if (dash.Video?.Count > 0)
@@ -663,6 +666,6 @@ internal static class VideoAdapter
         }
 
         // Web playurl 的 timelength 单位是毫秒，对外统一为秒.
-        return new DashMediaInformation(videos, audios, formats, information.Duration / 1000, playCheck: playCheck, isPreview: isPreview);
+        return new DashMediaInformation(videos, audios, formats, information.Duration / 1000, playCheck: playCheck, isPreview: isPreview, acceptedQualities: acceptedQualities);
     }
 }
