@@ -513,6 +513,7 @@ internal sealed class MyClient
         var parameters = new Dictionary<string, string>
         {
             { "mid", userId },
+            { "photo", "true" },
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Account.UserCard));

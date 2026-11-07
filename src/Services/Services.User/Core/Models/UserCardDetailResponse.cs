@@ -7,6 +7,9 @@ namespace Richasy.BiliKernel.Services.User.Core;
 
 internal sealed class UserCardDetailResponse
 {
+    [JsonPropertyName("space")]
+    public UserSpaceImages? Space { get; set; }
+
     [JsonPropertyName("card")]
     public UserCardDetail Card { get; set; }
 
@@ -54,4 +57,10 @@ internal sealed class UserLevelInfo
 {
     [JsonPropertyName("current_level")]
     public int CurrentLevel { get; set; }
+}
+
+internal sealed class UserSpaceImages
+{
+    [JsonPropertyName("l_img")]
+    public string? Banner { get; set; }
 }
