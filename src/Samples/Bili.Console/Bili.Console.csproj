@@ -5,6 +5,7 @@
     <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
 	<PublishAot>true</PublishAot>
 	<TrimmerSingleWarn>false</TrimmerSingleWarn>
 	  <NoWarn>$(NoWarn);IL2067</NoWarn>
