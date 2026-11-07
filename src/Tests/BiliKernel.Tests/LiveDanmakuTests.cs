@@ -3,7 +3,10 @@
 
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Http;
+using Richasy.BiliKernel.Models.Authorization;
 using Richasy.BiliKernel.Services.Media;
+using System.Buffers.Binary;
+using System.Net.WebSockets;
 using Xunit;
 
 namespace Richasy.BiliKernel.Tests;
@@ -45,5 +48,36 @@ public sealed class LiveDanmakuTests
         Assert.True(danmaku.Query.ContainsKey("w_rid"));
         Assert.True(danmaku.Query.ContainsKey("wts"));
         Assert.Contains("buvid3=B3", danmaku.Cookie, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EnterRoomPacketHeaderUsesBigEndianFields()
+    {
+        var handler = new RecordingHttpMessageHandler()
+            .With("/x/web-interface/nav", NavResponse)
+            .With("/x/frontend/finger/spi", SpiResponse)
+            .With("/xlive/web-room/v1/index/getDanmuInfo", """{"code":0,"data":{"token":"chat-key","host_list":[{"host":"chat.example.test"}]}}""");
+        var cookies = new FakeCookiesResolver();
+        var buvid = new BuvidManager(cookies, new InMemoryBuvidStore("B3", "B4"), handler);
+        var http = new BiliHttpClient(handler, buvid);
+        var tokens = new FakeTokenResolver { Token = new BiliToken { AccessToken = "app-token" } };
+        var service = new PlayerService(http, new BiliAuthenticator(cookies, tokens, buvid, http), tokens);
+
+        byte[]? packet = null;
+        service.ConnectLiveSocket = (_, authentication, _) =>
+        {
+            packet = authentication;
+            return Task.FromResult(new ClientWebSocket());
+        };
+
+        using var socket = await service.EnterLiveRoomAsync("1234", CancellationToken.None);
+
+        Assert.NotNull(packet);
+        // The live protocol is big-endian; a LINQ Reverse binding would leave every field byte-swapped.
+        Assert.Equal(packet!.Length, BinaryPrimitives.ReadInt32BigEndian(packet.AsSpan(0, 4)));
+        Assert.Equal(16, BinaryPrimitives.ReadInt16BigEndian(packet.AsSpan(4, 2)));
+        Assert.Equal(0, BinaryPrimitives.ReadInt16BigEndian(packet.AsSpan(6, 2)));
+        Assert.Equal(7, BinaryPrimitives.ReadInt32BigEndian(packet.AsSpan(8, 4)));
+        Assert.Equal(1, BinaryPrimitives.ReadInt32BigEndian(packet.AsSpan(12, 4)));
     }
 }

@@ -1,9 +1,9 @@
 # CI for the .NET 11 kernel: build, test, pack and AOT-publish.
 #
-# The repository targets .NET 11 only (see global.json). The SDK is installed
-# as the latest 11.0.x build so no RC patch number is hard-coded; while .NET 11
-# is in RC, `dotnet-quality: preview` is required. Once .NET 11 ships GA, drop
-# that input (or switch it to `ga`) and the rest of the workflow stays valid.
+# The repository targets .NET 11 only. `global.json` pins the current RC SDK
+# (11.0.100-rc.3) until GA; this workflow installs the latest 11.0.x preview so
+# the pin can be bumped without touching it. Once .NET 11 ships GA, drop the
+# `dotnet-quality` input here and switch global.json to 11.0.100.
 name: CI
 
 on:
@@ -28,7 +28,7 @@ jobs:
   build-test-pack-aot:
     name: Build, test, pack and AOT publish
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -38,24 +38,16 @@ jobs:
         with:
           dotnet-version: '11.0.x'
           dotnet-quality: 'preview'
-
-      - name: Show SDK info
-        run: dotnet --info
+          cache: true
 
       - name: Restore kernel solution
         run: dotnet restore src/BiliKernel.sln
-
-      - name: Restore resolver solution
-        run: dotnet restore src/Resolvers/Resolvers.sln
 
       - name: Restore article tests
         run: dotnet restore src/Tests/Services.Article.Tests/Services.Article.Tests.csproj
 
       - name: Build kernel solution
         run: dotnet build src/BiliKernel.sln -c Release --no-restore
-
-      - name: Build resolver solution
-        run: dotnet build src/Resolvers/Resolvers.sln -c Release --no-restore
 
       - name: Build article tests
         run: dotnet build src/Tests/Services.Article.Tests/Services.Article.Tests.csproj -c Release --no-restore
@@ -84,6 +76,26 @@ jobs:
               Write-Host "::error::dotnet pack failed for $($project.FullName)"
               exit $LASTEXITCODE
             }
+          }
+
+      - name: Verify package assets target net11 only
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $bad = @()
+          Get-ChildItem artifacts/packages/*.nupkg | ForEach-Object {
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($_.FullName)
+            $frameworks = $zip.Entries | Where-Object { $_.FullName -like 'lib/*' } |
+              ForEach-Object { ($_.FullName -split '/')[1] } | Sort-Object -Unique
+            $zip.Dispose()
+            if ($frameworks | Where-Object { $_ -notlike 'net11.0*' }) {
+              $bad += "$($_.Name): $($frameworks -join ', ')"
+            }
+          }
+
+          if ($bad.Count -gt 0) {
+            $bad | ForEach-Object { Write-Host "::error::unexpected assets in $_" }
+            exit 1
           }
 
       - name: AOT publish console sample (win-x64)

@@ -76,7 +76,6 @@ internal sealed class VideoPartitionModule : IFeatureModule
     {
         var table = new Table();
         table.Border = TableBorder.Rounded;
-        table.LeftAligned();
         table.AddColumn("ID");
         table.AddColumn("标题");
 
@@ -85,7 +84,7 @@ internal sealed class VideoPartitionModule : IFeatureModule
             table.AddRow(item.Key, item.Value);
         }
 
-        AnsiConsole.Write(table);
+        AnsiConsole.Write(new Align(table, HorizontalAlignment.Left));
 
         if (AnsiConsole.Confirm("是否返回？"))
         {

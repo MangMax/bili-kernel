@@ -3,7 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Richasy.BiliKernel.Abstractions</AssemblyName>
     <RootNamespace>Richasy.BiliKernel</RootNamespace>
-    <TargetFrameworks>net11.0</TargetFrameworks>
+    <TargetFramework>net11.0</TargetFramework>
     <DebugType>none</DebugType>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>

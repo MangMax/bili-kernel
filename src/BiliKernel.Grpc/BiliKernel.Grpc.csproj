@@ -3,7 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Richasy.BiliKernel.Grpc</AssemblyName>
     <RootNamespace>Richasy.BiliKernel</RootNamespace>
-    <TargetFrameworks>net11.0</TargetFrameworks>
+    <TargetFramework>net11.0</TargetFramework>
     <IsAotCompatible>true</IsAotCompatible>
     <NoWarn>$(NoWarn);CS1570;CS1587</NoWarn>
   </PropertyGroup>

@@ -6,15 +6,11 @@ using Richasy.BiliKernel.Adapters;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Media;
 using Richasy.BiliKernel.Services.User.Core.Models;
-using System.Text.RegularExpressions;
 
 namespace Richasy.BiliKernel.Services.User.Core;
 
-internal static partial class VideoAdapter
+internal static class VideoAdapter
 {
-    [GeneratedRegex(@"ep(\d+)")]
-    private static partial Regex EpisodeRegex();
-
     public static VideoInformation ToVideoInformation(this CursorItem cursorItem)
     {
         var video = cursorItem.CardUgc;
@@ -84,7 +80,7 @@ internal static partial class VideoAdapter
         var isPgc = !string.IsNullOrEmpty(video.PgcLabel) && (video.RedirectUrl?.Contains("ep") ?? false);
         if (isPgc)
         {
-            var episodeId = EpisodeRegex().Match(video.RedirectUrl).Groups[1].Value;
+            var episodeId = EpisodeLink.GetEpisodeId(video.RedirectUrl);
             info.AddExtensionIfNotNull(VideoExtensionDataId.EpisodeId, episodeId);
         }
 
