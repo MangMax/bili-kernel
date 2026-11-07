@@ -60,8 +60,7 @@ public interface IPlayerService
     /// <param name="cancellationToken">取消令牌.</param>
     /// <returns>播放信息.</returns>
     /// <remarks>
-    /// 仅可试看时返回带 <see cref="DashMediaInformation.IsPreview"/> 与 <see cref="DashMediaInformation.PreviewUrls"/> 的结果，不抛出异常；
-    /// 不可播放时抛出 <see cref="PgcPlaybackUnavailableException"/> 说明原因；取消与网络错误照常传播.
+    /// 仅可试看时返回带 <see cref="DashMediaInformation.IsPreview"/> 与 <see cref="DashMediaInformation.PreviewUrls"/> 的结果，不抛出异常；取消与网络错误照常传播.
     /// </remarks>
     /// <exception cref="PgcPlaybackUnavailableException">番剧播放不可用，原因见 <see cref="PgcPlaybackUnavailableException.Reason"/>.</exception>
     Task<DashMediaInformation> GetPgcPlayDetailAsync(string cid, string episodeId, string seasonType, CancellationToken cancellationToken = default);

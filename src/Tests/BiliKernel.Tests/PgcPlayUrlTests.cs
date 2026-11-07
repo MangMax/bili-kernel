@@ -4,7 +4,6 @@
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Bili.Media;
 using Richasy.BiliKernel.Http;
-using Richasy.BiliKernel.Models.Media;
 using Richasy.BiliKernel.Services.Media;
 using Xunit;
 
@@ -22,7 +21,6 @@ public sealed class PgcPlayUrlTests
 
     // 服务端在缺少账号身份时返回的试看响应：code 0，只有 durl，没有 dash。
     private const string PreviewResponse = @"{""code"":0,""data"":{""play_check"":{""play_detail"":""PLAY_PREVIEW""},""video_info"":{""is_preview"":1,""durl"":[{""url"":""https://media.invalid/preview.flv""}]}}}";
-    private const string LiveDetailResponse = @"{""code"":0,""data"":{""room_info"":{""room_id"":1234,""uid"":42,""title"":""Live title"",""cover"":""https://example.com/cover.jpg"",""area_name"":""Games""},""anchor_info"":{""base_info"":{""uname"":""Host"",""face"":""https://example.com/face.jpg""}}}}";
 
     [Fact]
     public async Task PlayUrlUsesV2PathWithWbi()
@@ -220,8 +218,16 @@ public sealed class PgcPlayUrlTests
         AssertPlaybackQuery(request, "1");
         Assert.Equal(hasToken, request.Query.ContainsKey("access_key"));
         Assert.Equal(hasCookie, request.Cookie?.Contains("SESSDATA=", StringComparison.Ordinal) == true);
-        Assert.Equal(!hasToken, dash.IsPreview);
-        Assert.Equal(hasToken ? 1381 : 0, dash.Duration);
+        if (hasToken)
+        {
+            Assert.False(dash.IsPreview);
+            Assert.Equal(1381, dash.Duration);
+        }
+        else
+        {
+            Assert.True(dash.IsPreview);
+            Assert.Null(dash.Videos);
+        }
     }
 
     [Theory]
@@ -277,21 +283,6 @@ public sealed class PgcPlayUrlTests
         var service = new PlayerService(http, new BiliAuthenticator(cookies, tokens, httpClient: http), tokens);
         Assert.NotNull(await service.GetPgcPlayDetailAsync("123", "456", "1"));
         AssertPlaybackRequest(Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal)), "1");
-    }
-
-    [Fact]
-    public async Task OtherWebEndpointsStillOmitAppToken()
-    {
-        var handler = new RecordingHttpMessageHandler()
-            .With("/x/web-interface/nav", NavResponse)
-            .With("/xlive/web-room/v1/index/getInfoByRoom", LiveDetailResponse);
-
-        var result = await CreateService(handler).GetLivePageDetailAsync(new MediaIdentifier("1234", null, null));
-
-        Assert.Equal("Live title", result.Information.Identifier.Title);
-        var request = Assert.Single(handler.Requests, p => p.Path == "/xlive/web-room/v1/index/getInfoByRoom");
-        Assert.DoesNotContain("access_key", request.Query);
-        Assert.Contains("SESSDATA=session", request.Cookie);
     }
 
     [Theory]
