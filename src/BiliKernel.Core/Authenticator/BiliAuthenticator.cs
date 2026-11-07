@@ -15,8 +15,8 @@ namespace Richasy.BiliKernel.Authenticator;
 /// </summary>
 public sealed partial class BiliAuthenticator
 {
-    private readonly Func<DateTimeOffset> _utcNow;
-    private readonly object _wbiGate = new();
+    private readonly TimeProvider _timeProvider;
+    private readonly Lock _wbiGate = new();
     private Task? _wbiRefresh;
 
     /// <summary>
@@ -27,7 +27,7 @@ public sealed partial class BiliAuthenticator
         IBiliTokenResolver? localTokenResolver,
         BuvidManager? buvidManager = null,
         BiliHttpClient? httpClient = null)
-        : this(localCookiesResolver, localTokenResolver, buvidManager, httpClient, () => DateTimeOffset.UtcNow)
+        : this(localCookiesResolver, localTokenResolver, buvidManager, httpClient, TimeProvider.System)
     {
     }
 
@@ -38,8 +38,19 @@ public sealed partial class BiliAuthenticator
         BuvidManager? buvidManager,
         BiliHttpClient? httpClient,
         Func<DateTimeOffset> utcNow)
+        : this(localCookiesResolver, localTokenResolver, buvidManager, httpClient, new DelegateTimeProvider(utcNow))
     {
-        _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
+    }
+
+    /// <summary>创建使用指定时间源的授权器，缓存作用域为该实例。</summary>
+    public BiliAuthenticator(
+        IBiliCookiesResolver? localCookiesResolver,
+        IBiliTokenResolver? localTokenResolver,
+        BuvidManager? buvidManager,
+        BiliHttpClient? httpClient,
+        TimeProvider timeProvider)
+    {
+        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         _cookieResolver = localCookiesResolver;
         _tokenResolver = localTokenResolver;
         _buvidManager = buvidManager;
@@ -195,7 +206,7 @@ public sealed partial class BiliAuthenticator
         var ownsRefresh = false;
         lock (_wbiGate)
         {
-            if (_wbiCache != null && _utcNow() < _wbiCache.Item2)
+            if (_wbiCache != null && _timeProvider.GetUtcNow() < _wbiCache.Item2)
             {
                 return;
             }
@@ -229,7 +240,7 @@ public sealed partial class BiliAuthenticator
 
     private async Task RefreshWbiAsync(CancellationToken cancellationToken)
     {
-        if (_wbiCache != null && _utcNow() < _wbiCache.Item2)
+        if (_wbiCache != null && _timeProvider.GetUtcNow() < _wbiCache.Item2)
         {
             return;
         }
@@ -273,7 +284,7 @@ public sealed partial class BiliAuthenticator
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        _wbiCache = Tuple.Create(GenerateWbi(key), _utcNow().AddHours(24));
+        _wbiCache = Tuple.Create(GenerateWbi(key), _timeProvider.GetUtcNow().AddHours(24));
 
         string GenerateWbi(string key)
         {

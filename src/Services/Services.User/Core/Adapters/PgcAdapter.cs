@@ -9,9 +9,10 @@ using System.Text.RegularExpressions;
 
 namespace Richasy.BiliKernel.Services.User.Core;
 
-internal static class PgcAdapter
+internal static partial class PgcAdapter
 {
-    private static readonly Regex _episodeRegex = new Regex(@"ep(\d+)");
+    [GeneratedRegex(@"ep(\d+)")]
+    private static partial Regex EpisodeRegex();
 
     public static EpisodeInformation ToEpisodeInformation(this CursorItem item)
     {
@@ -19,7 +20,7 @@ internal static class PgcAdapter
         var title = item.Title;
         var viewTime = DateTimeOffset.FromUnixTimeSeconds(item.ViewAt).ToLocalTime();
         var seasonId = item.Kid.ToString();
-        var episodeId = item.Uri.Contains("ep") ? _episodeRegex.Match(item.Uri).Groups[1].Value : string.Empty;
+        var episodeId = item.Uri.Contains("ep") ? EpisodeRegex().Match(item.Uri).Groups[1].Value : string.Empty;
         var aid = item.Oid.ToString();
         var subtitle = episode.Subtitle;
         var cover = episode.Cover.ToVideoCover();

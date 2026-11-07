@@ -10,9 +10,10 @@ using System.Text.RegularExpressions;
 
 namespace Richasy.BiliKernel.Services.User.Core;
 
-internal static class VideoAdapter
+internal static partial class VideoAdapter
 {
-    private static readonly Regex _episodeRegex = new Regex(@"ep(\d+)");
+    [GeneratedRegex(@"ep(\d+)")]
+    private static partial Regex EpisodeRegex();
 
     public static VideoInformation ToVideoInformation(this CursorItem cursorItem)
     {
@@ -83,7 +84,7 @@ internal static class VideoAdapter
         var isPgc = !string.IsNullOrEmpty(video.PgcLabel) && (video.RedirectUrl?.Contains("ep") ?? false);
         if (isPgc)
         {
-            var episodeId = _episodeRegex.Match(video.RedirectUrl).Groups[1].Value;
+            var episodeId = EpisodeRegex().Match(video.RedirectUrl).Groups[1].Value;
             info.AddExtensionIfNotNull(VideoExtensionDataId.EpisodeId, episodeId);
         }
 

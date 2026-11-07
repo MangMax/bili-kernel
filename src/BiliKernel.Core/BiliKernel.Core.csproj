@@ -6,8 +6,7 @@
     <RootNamespace>Richasy.BiliKernel</RootNamespace>
     <TargetFrameworks>net11.0</TargetFrameworks>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <NoWarn>$(NoWarn);SKEXP0001</NoWarn>
-    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <Import Project="$(RepoRoot)/src/nuget-package.props" />

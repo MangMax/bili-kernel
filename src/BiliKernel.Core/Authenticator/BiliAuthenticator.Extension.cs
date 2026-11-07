@@ -149,7 +149,7 @@ public sealed partial class BiliAuthenticator
     private string GenerateRID(Dictionary<string, string> parameters)
     {
         var cache = _wbiCache;
-        if (cache == null || _utcNow() >= cache.Item2)
+        if (cache == null || _timeProvider.GetUtcNow() >= cache.Item2)
         {
             throw new InvalidOperationException("WBI key is unavailable or expired. Call InitializeWbiAsync first.");
         }
