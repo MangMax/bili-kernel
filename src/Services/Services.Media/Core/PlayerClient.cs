@@ -731,7 +731,7 @@ internal sealed class PlayerClient
         await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var parameters = CreatePgcPlayParameters(cid, episodeId, seasonType);
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needRID: true));
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieAndToken(needRID: true));
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         if (isV2)
         {
