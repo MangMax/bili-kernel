@@ -38,7 +38,6 @@ jobs:
         with:
           dotnet-version: '11.0.x'
           dotnet-quality: 'preview'
-          cache: true
 
       - name: Restore kernel solution
         run: dotnet restore src/BiliKernel.sln
