@@ -45,6 +45,18 @@ public interface IPlayerService
     Task<LiveMediaInformation> GetLivePlayDetailAsync(MediaIdentifier live, int quality = 400, bool audioOnly = false, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 获取直播间最近的弹幕，用于进房补屏。
+    /// </summary>
+    /// <param name="live">直播间标识，支持短号.</param>
+    /// <param name="cancellationToken">取消令牌.</param>
+    /// <returns>最近约 20 条弹幕，按"房主/管理"在前、"普通观众"在后排列；服务端无数据时返回空集合.</returns>
+    /// <remarks>
+    /// 数据来自网页端的历史弹幕接口，只覆盖进房前的最近一小段时间，不代表完整历史；
+    /// 直播间的醒目留言没有可靠的历史列表，因此本方法不返回醒目留言.
+    /// </remarks>
+    Task<IReadOnlyList<LiveDanmakuInformation>> GetRecentLiveDanmakuAsync(MediaIdentifier live, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 获取 PGC 页面详情.
     /// </summary>
     Task<PgcPlayerView> GetPgcPageDetailAsync(string? seasonId = default, string? episodeId = default, CancellationToken cancellationToken = default);
