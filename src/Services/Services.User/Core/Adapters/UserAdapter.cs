@@ -190,6 +190,9 @@ internal static class UserAdapter
             _ => UserRelationStatus.Unknown,
         };
         var communityInfo = new UserCommunityInformation(response.Card.Mid, response.Card.Attention, response.Card.Fans, likeCount: response.LikeCount, relation: relation);
-        return new UserCard(detailProfile, communityInfo);
+        return new UserCard(detailProfile, communityInfo)
+        {
+            Banner = string.IsNullOrWhiteSpace(response.Space?.Banner) ? null : response.Space.Banner.ToImage(),
+        };
     }
 }

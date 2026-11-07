@@ -22,6 +22,34 @@ public sealed class SpaceTests
     private const string ArticlesResponse = @"{""code"":0,""data"":{""articles"":[{""id"":1,""title"":""a"",""summary"":""s"",""image_urls"":[""https://i0.hdslb.com/b.jpg""],""publish_time"":1600000000}]}}";
 
     [Theory]
+    [InlineData("https://i0.hdslb.com/banner.png")]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task UserCardRequestsPhotosAndPreservesOptionalBanner(string? banner)
+    {
+        var (handler, service) = CreateService();
+        var response = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            code = 0,
+            data = new
+            {
+                card = new { mid = "1", name = "up", face = "https://i0.hdslb.com/avatar.jpg", sign = "intro", fans = 12, attention = 3 },
+                like_num = 42,
+                space = new { l_img = banner },
+            },
+        });
+        handler.With("/x/web-interface/card", response);
+
+        var card = await service.GetUserInformationAsync("1");
+
+        var request = Assert.Single(handler.Requests, p => p.Path == "/x/web-interface/card");
+        Assert.Equal("true", request.Query["photo"]);
+        Assert.Equal("https://i0.hdslb.com/avatar.jpg", card.Profile?.User.Avatar?.SourceUri.AbsoluteUri);
+        Assert.Equal(string.IsNullOrEmpty(banner) ? null : banner, card.Banner?.SourceUri.AbsoluteUri);
+        Assert.Equal(42, card.Community?.LikeCount);
+    }
+
+    [Theory]
     [InlineData(true, true)]
     [InlineData(false, true)]
     [InlineData(true, false)]

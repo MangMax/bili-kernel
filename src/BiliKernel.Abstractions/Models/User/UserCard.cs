@@ -1,6 +1,8 @@
 ﻿// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
+using Richasy.BiliKernel.Models.Appearance;
+
 namespace Richasy.BiliKernel.Models.User;
 
 /// <summary>
@@ -29,6 +31,11 @@ public sealed class UserCard
     /// 社区数据.
     /// </summary>
     public UserCommunityInformation? Community { get; set; }
+
+    /// <summary>
+    /// 用户空间背景图.
+    /// </summary>
+    public BiliImage? Banner { get; set; }
 
     /// <inheritdoc/>
     public override bool Equals(object? obj) => obj is UserCard card && EqualityComparer<UserDetailProfile>.Default.Equals(Profile, card.Profile);
