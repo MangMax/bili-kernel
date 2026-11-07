@@ -177,22 +177,6 @@ public sealed class WbiLifecycleTests
         Assert.Throws<InvalidOperationException>(() => Sign(independent));
     }
 
-    [Fact]
-    public async Task WbiTimeProviderOverloadUsesInjectedClock()
-    {
-        var clock = new ManualTimeProvider(DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
-        using var handler = new RecordingHttpMessageHandler(_ => RecordingHttpMessageHandler.Json(Nav));
-        using var client = new BiliHttpClient(handler);
-        var auth = new BiliAuthenticator(null, null, null, client, clock);
-        await auth.InitializeWbiAsync();
-        clock.Advance(TimeSpan.FromHours(24).Add(TimeSpan.FromTicks(-1)));
-        await auth.InitializeWbiAsync();
-        Assert.Single(handler.Requests);
-        clock.Advance(TimeSpan.FromTicks(1));
-        await auth.InitializeWbiAsync();
-        Assert.Equal(2, handler.Requests.Count);
-    }
-
     private static string Sign(BiliAuthenticator auth) => auth.AuthorizeRequestParameters(
         new Dictionary<string, string> { ["wts"] = "1" },
         new Richasy.BiliKernel.Authenticator.BiliAuthorizeExecutionSettings

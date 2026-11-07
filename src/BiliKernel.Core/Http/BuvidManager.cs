@@ -25,7 +25,7 @@ public sealed class BuvidManager : IDisposable
     private string? _buvid4;
     private bool _activated;
     private DateTimeOffset _retryAfter;
-    private readonly TimeProvider _timeProvider;
+    private readonly Func<DateTimeOffset> _utcNow;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BuvidManager"/> class.
@@ -37,7 +37,7 @@ public sealed class BuvidManager : IDisposable
         IBiliCookiesResolver? cookiesResolver = null,
         IBuvidStore? store = null,
         HttpMessageHandler? messageHandler = null)
-        : this(cookiesResolver, store, messageHandler, TimeProvider.System)
+        : this(cookiesResolver, store, messageHandler, () => DateTimeOffset.UtcNow)
     {
     }
 
@@ -47,18 +47,8 @@ public sealed class BuvidManager : IDisposable
         IBuvidStore? store,
         HttpMessageHandler? messageHandler,
         Func<DateTimeOffset> utcNow)
-        : this(cookiesResolver, store, messageHandler, new DelegateTimeProvider(utcNow))
     {
-    }
-
-    /// <summary>创建使用指定时间源的设备管理器。</summary>
-    public BuvidManager(
-        IBiliCookiesResolver? cookiesResolver,
-        IBuvidStore? store,
-        HttpMessageHandler? messageHandler,
-        TimeProvider timeProvider)
-    {
-        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
         _cookiesResolver = cookiesResolver;
         _store = store ?? new FileBuvidStore();
         _disposeClient = messageHandler == null;
@@ -104,7 +94,7 @@ public sealed class BuvidManager : IDisposable
                 _retryAfter = default;
             }
 
-            if (_activated || _timeProvider.GetUtcNow() < _retryAfter)
+            if (_activated || _utcNow() < _retryAfter)
             {
                 return;
             }
@@ -129,7 +119,7 @@ public sealed class BuvidManager : IDisposable
         }
         catch (Exception)
         {
-            _retryAfter = _timeProvider.GetUtcNow().AddMinutes(1);
+            _retryAfter = _utcNow().AddMinutes(1);
             Debug.WriteLine("设备初始化失败；一分钟后允许显式调用重试。");
         }
         finally
