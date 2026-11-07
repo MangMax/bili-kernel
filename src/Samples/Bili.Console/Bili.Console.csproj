@@ -7,6 +7,8 @@
     <Nullable>enable</Nullable>
 	<PublishAot>true</PublishAot>
 	<TrimmerSingleWarn>false</TrimmerSingleWarn>
+	<!-- SDK 11 把默认 DocumentationFile 放在 obj，而 publish 的 FinalDocFile 指向 bin；示例自身不需要发布文档文件。 -->
+	<PublishDocumentationFile>false</PublishDocumentationFile>
 	  <NoWarn>$(NoWarn);IL2067</NoWarn>
   </PropertyGroup>
 
