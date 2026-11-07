@@ -108,7 +108,7 @@ internal sealed class LoopbackHttpsServer : IDisposable
         var serverAuthentication = new Oid("1.3.6.1.5.5.7.3.1", "Server Authentication");
         request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new OidCollection { serverAuthentication }, critical: false));
         using var selfSigned = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(7));
-        return new X509Certificate2(selfSigned.Export(X509ContentType.Pfx));
+        return X509CertificateLoader.LoadPkcs12(selfSigned.Export(X509ContentType.Pfx), password: null);
     }
 
     private async Task AcceptLoopAsync()

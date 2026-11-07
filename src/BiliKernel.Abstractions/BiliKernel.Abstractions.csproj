@@ -3,9 +3,11 @@
   <PropertyGroup>
     <AssemblyName>Richasy.BiliKernel.Abstractions</AssemblyName>
     <RootNamespace>Richasy.BiliKernel</RootNamespace>
-    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>net11.0</TargetFrameworks>
     <DebugType>none</DebugType>
     <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
+    <!-- System.Text.Json is part of the net11 shared framework; the explicit reference is removed in #59. -->
+    <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>
   
   <Import Project="$(RepoRoot)/src/nuget-package.props" />
