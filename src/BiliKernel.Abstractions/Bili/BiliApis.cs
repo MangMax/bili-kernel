@@ -513,19 +513,8 @@ public static class BiliApis
         public const string SendMessage = _liveBase + "/api/sendmsg";
 
         /// <summary>
-        /// 二级分区房间列表（App）.
+        /// 分区详情.
         /// </summary>
-        public const string AppAreaRooms = _liveBase + "/xlive/app-interface/v2/second/getList";
-
-        /// <summary>
-        /// 二级分区房间列表（Web）.
-        /// </summary>
-        public const string WebAreaRooms = _liveBase + "/xlive/web-interface/v1/second/getList";
-
-        /// <summary>
-        /// 分区详情（旧版接口，缺省排序会让部分父分区返回空列表）.
-        /// </summary>
-        [Obsolete(DeprecatedEndpointMessage)]
         public const string AreaDetail = _liveBase + "/room/v3/Area/getRoomList";
 
         /// <summary>

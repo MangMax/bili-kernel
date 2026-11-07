@@ -123,22 +123,7 @@ internal static class LiveAdapter
         return new Partition(id, name, logo, parentId: area.ParentId.ToString());
     }
 
-    public static LiveInformation ToLiveInformation(this LiveSecondListRoom room)
-    {
-        var title = room.Title;
-        var roomId = room.EffectiveRoomId.ToString();
-        var user = UserAdapterBase.CreateUserProfile(room.UserId ?? 0, room.UserName, room.UserAvatar, 48d);
-        var viewerCount = System.Convert.ToDouble(room.EffectiveViewerCount);
-        var cover = room.EffectiveCover.ToVideoCover();
-        var subtitle = room.EffectiveAreaName;
-        var identifier = new MediaIdentifier(roomId, title, cover);
-        var info = new LiveInformation(identifier, user);
-        info.AddExtensionIfNotNull(LiveExtensionDataId.ViewerCount, viewerCount);
-        info.AddExtensionIfNotNull(LiveExtensionDataId.Subtitle, subtitle);
-        return info;
-    }
-
-    public static LiveTag ToLiveTag(this LiveSecondListTag tag)
+    public static LiveTag ToLiveTag(this LiveAreaDetailTag tag)
     {
         var id = tag.Id.ToString();
         var name = tag.Name;

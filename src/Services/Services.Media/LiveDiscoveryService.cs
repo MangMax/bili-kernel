@@ -25,10 +25,9 @@ public sealed class LiveDiscoveryService : ILiveDiscoveryService
     public LiveDiscoveryService(
         BiliHttpClient httpClient,
         BiliAuthenticator authenticator,
-        IBiliTokenResolver tokenResolver,
-        IBiliCookiesResolver? cookiesResolver = null)
+        IBiliTokenResolver tokenResolver)
     {
-        _client = new LiveDiscoveryClient(httpClient, authenticator, tokenResolver, cookiesResolver);
+        _client = new LiveDiscoveryClient(httpClient, authenticator, tokenResolver);
     }
 
     /// <inheritdoc/>
