@@ -7,6 +7,8 @@ using Bilibili.App.View.V1;
 using Richasy.BiliKernel.Authenticator;
 using Richasy.BiliKernel.Bili;
 using Richasy.BiliKernel.Bili.Authorization;
+using Richasy.BiliKernel.Bili.Media;
+using Richasy.BiliKernel.Content;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Media;
@@ -17,6 +19,7 @@ using System.IO.Compression;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 
 namespace Richasy.BiliKernel.Services.Media.Core;
@@ -24,6 +27,8 @@ namespace Richasy.BiliKernel.Services.Media.Core;
 internal sealed class PlayerClient
 {
     private const int TripleCoinCount = 2;
+
+    private const string PreviewPlayCheck = "PLAY_PREVIEW";
 
     private readonly BiliHttpClient _httpClient;
     private readonly BiliAuthenticator _authenticator;
@@ -236,14 +241,14 @@ internal sealed class PlayerClient
         await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var information = await RequestPgcPlayInformationAsync(BiliApis.Pgc.PlayInformation(), true, cid, episodeId, seasonType, cancellationToken).ConfigureAwait(false);
-            return information.ToDashMediaInformation();
+            var content = await RequestPgcPlayInformationAsync(BiliApis.Pgc.PlayInformation(), true, cid, episodeId, seasonType, cancellationToken).ConfigureAwait(false);
+            return content.Information.ToDashMediaInformation(content.PlayCheck, content.IsPreview);
         }
         catch (KernelException ex) when (ex.InnerException is HttpRequestException { StatusCode: System.Net.HttpStatusCode.NotFound } or InvalidDataException)
         {
             // 仅路由缺失或明确的非 DASH 格式回退；不掩盖登录、权限或内容错误。
-            var information = await RequestPgcPlayInformationAsync(BiliApis.Pgc.PlayInformationLegacy(), false, cid, episodeId, seasonType, cancellationToken).ConfigureAwait(false);
-            return information.ToDashMediaInformation();
+            var content = await RequestPgcPlayInformationAsync(BiliApis.Pgc.PlayInformationLegacy(), false, cid, episodeId, seasonType, cancellationToken).ConfigureAwait(false);
+            return content.Information.ToDashMediaInformation(content.PlayCheck, content.IsPreview);
         }
     }
 
@@ -726,27 +731,134 @@ internal sealed class PlayerClient
             { "web_location", "1315873" },
         };
 
-    private async Task<PlayerInformation> RequestPgcPlayInformationAsync(string url, bool isV2, string? cid, string? episodeId, string seasonType, CancellationToken cancellationToken)
+    private async Task<PgcPlayContent> RequestPgcPlayInformationAsync(string url, bool isV2, string? cid, string? episodeId, string seasonType, CancellationToken cancellationToken)
     {
         await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var parameters = CreatePgcPlayParameters(cid, episodeId, seasonType);
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needRID: true));
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        if (isV2)
-        {
-            var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.PgcPlayUrlResponse).ConfigureAwait(false);
-            var information = responseObj?.Content ?? throw new KernelException("解析PGC播放详情失败");
-            if (information.VideoInformation == null && information.FlvInformation?.Count > 0)
-            {
-                throw new KernelException("PGC 返回非 DASH 格式", new InvalidDataException());
-            }
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieAndToken(needRID: true));
 
-            return information.VideoInformation != null ? information : throw new KernelException("PGC 未返回 DASH 播放信息");
+        string responseText;
+        try
+        {
+            responseText = await _httpClient.GetStringAsync(request, cancellationToken, ensureSuccess: true).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
+        {
+            // 不记录异常原文，避免请求 URI 中的 access_key 进入日志.
+            LogPgcPlayRequest(request, null, ex is HttpRequestException { StatusCode: { } status } ? status.ToString() : ex.GetType().Name);
+            throw new KernelException(ex.Message, ex);
         }
 
-        var legacyObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliResultResponsePlayerInformation).ConfigureAwait(false);
-        return legacyObj?.Result?.VideoInformation != null ? legacyObj.Result : throw new KernelException("解析PGC播放详情失败");
+        return isV2
+            ? ParsePgcPlayResponse(request, responseText)
+            : ParsePgcLegacyPlayResponse(request, responseText);
+    }
+
+    private static PgcPlayContent ParsePgcPlayResponse(HttpRequestMessage request, string responseText)
+    {
+        var responseObj = DeserializePgcResponse(request, responseText, SourceGenerationContext.Default.PgcPlayUrlResponse);
+        var playCheck = responseObj.PlayCheck?.PlayDetail;
+        LogPgcPlayRequest(request, responseObj.Code, responseObj.Message, playCheck);
+
+        if (!responseObj.IsSuccess())
+        {
+            throw CreateUnavailableException(responseObj);
+        }
+
+        var information = responseObj.Content;
+        if (information is null)
+        {
+            return playCheck == PreviewPlayCheck
+                ? new PgcPlayContent(new PlayerInformation(), playCheck, true)
+                : throw CreateUnavailableForMissingPlayback(responseObj);
+        }
+
+        if (playCheck == PreviewPlayCheck || information.IsPreview == 1)
+        {
+            return new PgcPlayContent(information, playCheck, true);
+        }
+
+        if (information.VideoInformation == null && information.FlvInformation?.Count > 0)
+        {
+            throw new KernelException("PGC 返回非 DASH 格式", new InvalidDataException());
+        }
+
+        if (information.VideoInformation == null)
+        {
+            throw CreateUnavailableForMissingPlayback(responseObj);
+        }
+
+        return new PgcPlayContent(information, playCheck, false);
+    }
+
+    private static PgcPlayContent ParsePgcLegacyPlayResponse(HttpRequestMessage request, string responseText)
+    {
+        var responseObj = DeserializePgcResponse(request, responseText, SourceGenerationContext.Default.BiliResultResponsePlayerInformation);
+        LogPgcPlayRequest(request, responseObj.Code, responseObj.Message);
+
+        if (!responseObj.IsSuccess())
+        {
+            throw CreateUnavailableException(responseObj);
+        }
+
+        var information = responseObj.Result;
+        return information?.VideoInformation != null
+            ? new PgcPlayContent(information, null, false)
+            : throw new KernelException("解析PGC播放详情失败");
+    }
+
+    private static T DeserializePgcResponse<T>(HttpRequestMessage request, string responseText, JsonTypeInfo<T> typeInfo)
+        where T : BiliResponse
+    {
+        try
+        {
+            return JsonSerializer.Deserialize(responseText, typeInfo) ?? throw new JsonException();
+        }
+        catch (JsonException ex)
+        {
+            LogPgcPlayRequest(request, null, ex.Message);
+            throw new KernelException("解析PGC播放详情失败", ex);
+        }
+    }
+
+    private static PgcPlaybackUnavailableException CreateUnavailableForMissingPlayback(PgcPlayUrlResponse response)
+        => response.ViewInfo?.Dialog?.Type == "pay"
+            ? new PgcPlaybackUnavailableException(PgcPlaybackUnavailableReason.NotEntitled, response.Code, response.Message)
+            : new PgcPlaybackUnavailableException(PgcPlaybackUnavailableReason.ContentUnavailable, response.Code, response.Message);
+
+    private static PgcPlaybackUnavailableException CreateUnavailableException(BiliResponse response)
+    {
+        var reason = response.Code switch
+        {
+            -101 => PgcPlaybackUnavailableReason.LoginRequired,
+            -403 => PgcPlaybackUnavailableReason.NotEntitled,
+            -404 => PgcPlaybackUnavailableReason.ContentUnavailable,
+            -10403 => PgcPlaybackUnavailableReason.RegionRestricted,
+            _ => throw new KernelException($"PGC 播放请求失败：code={response.Code}，message={response.Message}"),
+        };
+
+        return new PgcPlaybackUnavailableException(reason, response.Code, response.Message);
+    }
+
+    private static void LogPgcPlayRequest(HttpRequestMessage request, int? code, string? message, string? playCheck = null)
+    {
+        var hasCookie = request.Headers.Contains("Cookie");
+        var hasAppToken = request.RequestUri?.Query.IndexOf("access_key=", StringComparison.Ordinal) >= 0;
+        Debug.WriteLine($"[PGC] {request.RequestUri?.AbsolutePath} cookie={hasCookie} app_token={hasAppToken} play_check={playCheck ?? "-"} code={code?.ToString() ?? "-"} message={message ?? "-"}");
+    }
+
+    private readonly struct PgcPlayContent(PlayerInformation information, string? playCheck, bool isPreview)
+    {
+        public PlayerInformation Information { get; } = information;
+
+        public string? PlayCheck { get; } = playCheck;
+
+        public bool IsPreview { get; } = isPreview;
     }
 
     private async Task<PlayerProgress?> GetWebVideoProgressAsync(string aid, string cid, CancellationToken cancellationToken)

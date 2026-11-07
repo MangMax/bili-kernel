@@ -30,7 +30,21 @@ internal sealed class PgcPlayUrlResponse : BiliResponse
     /// <summary>
     /// 实际播放信息.
     /// </summary>
-    public PlayerInformation? Content => Data?.VideoInfo ?? Result?.VideoInfo ?? Data?.VideoInfoDirect ?? Result?.VideoInfoDirect;
+    public PlayerInformation? Content => Container?.VideoInfo ?? Container?.VideoInfoDirect;
+
+    /// <summary>
+    /// 播放校验标记，与 <see cref="Content"/> 来自同一外层包装.
+    /// </summary>
+    public PgcPlayCheck? PlayCheck => Container?.PlayCheck;
+
+    /// <summary>
+    /// 观看权益信息，与 <see cref="Content"/> 来自同一外层包装.
+    /// </summary>
+    public PgcPlayViewInfo? ViewInfo => Container?.ViewInfo;
+
+    private PgcPlayUrlContainer? Container => Data?.VideoInfo != null || Data?.Dash != null || Data?.PlayCheck != null || Data?.ViewInfo != null
+        ? Data
+        : Result;
 }
 
 /// <summary>
@@ -56,4 +70,52 @@ internal sealed class PgcPlayUrlContainer
     public PlayerInformation? VideoInfoDirect => Dash == null
         ? null
         : new PlayerInformation { VideoInformation = Dash };
+
+    /// <summary>
+    /// 播放校验标记.
+    /// </summary>
+    [JsonPropertyName("play_check")]
+    public PgcPlayCheck? PlayCheck { get; set; }
+
+    /// <summary>
+    /// 观看权益信息.
+    /// </summary>
+    [JsonPropertyName("view_info")]
+    public PgcPlayViewInfo? ViewInfo { get; set; }
+}
+
+/// <summary>
+/// 播放校验标记.
+/// </summary>
+internal sealed class PgcPlayCheck
+{
+    /// <summary>
+    /// 校验结果，如 PLAY_WHOLE / PLAY_PREVIEW.
+    /// </summary>
+    [JsonPropertyName("play_detail")]
+    public string? PlayDetail { get; set; }
+}
+
+/// <summary>
+/// 观看权益信息.
+/// </summary>
+internal sealed class PgcPlayViewInfo
+{
+    /// <summary>
+    /// 权益提示弹窗.
+    /// </summary>
+    [JsonPropertyName("dialog")]
+    public PgcPlayDialog? Dialog { get; set; }
+}
+
+/// <summary>
+/// 权益提示弹窗.
+/// </summary>
+internal sealed class PgcPlayDialog
+{
+    /// <summary>
+    /// 弹窗类型，pay 表示需要购买或开通大会员.
+    /// </summary>
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
 }

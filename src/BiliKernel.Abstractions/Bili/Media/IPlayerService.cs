@@ -54,6 +54,15 @@ public interface IPlayerService
     /// <summary>
     /// 获取 PGC 播放信息.
     /// </summary>
+    /// <param name="cid">视频分 P 的 cid.</param>
+    /// <param name="episodeId">剧集标识.</param>
+    /// <param name="seasonType">剧集类型.</param>
+    /// <param name="cancellationToken">取消令牌.</param>
+    /// <returns>播放信息.</returns>
+    /// <remarks>
+    /// 仅可试看时返回带 <see cref="DashMediaInformation.IsPreview"/> 与 <see cref="DashMediaInformation.PreviewUrls"/> 的结果，不抛出异常；取消与网络错误照常传播.
+    /// </remarks>
+    /// <exception cref="PgcPlaybackUnavailableException">番剧播放不可用，原因见 <see cref="PgcPlaybackUnavailableException.Reason"/>.</exception>
     Task<DashMediaInformation> GetPgcPlayDetailAsync(string cid, string episodeId, string seasonType, CancellationToken cancellationToken = default);
 
     /// <summary>

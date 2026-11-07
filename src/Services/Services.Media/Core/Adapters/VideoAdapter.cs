@@ -573,17 +573,45 @@ internal static class VideoAdapter
         return new DashMediaInformation(videos, audios, formats);
     }
 
-    public static DashMediaInformation ToDashMediaInformation(this PlayerInformation information)
+    public static DashMediaInformation ToDashMediaInformation(this PlayerInformation information, string? playCheck = null, bool isPreview = false)
     {
         var dash = information.VideoInformation;
-        if (dash == null)
-        {
-            return default;
-        }
 
         var videos = new List<DashSegmentInformation>();
         var audios = new List<DashSegmentInformation>();
         var formats = new List<PlayerFormatInformation>();
+
+        if (information.SupportFormats?.Count > 0)
+        {
+            foreach (var format in information.SupportFormats)
+            {
+                var playerFormat = new PlayerFormatInformation(
+                    format.Quality,
+                    format.Description,
+                    needVip: format.Quality >= 112,
+                    needLogin: format.Quality >= 80);
+
+                formats.Add(playerFormat);
+            }
+        }
+
+        var acceptedQualities = information.AcceptQualities is { Count: > 0 } ? information.AcceptQualities : default;
+
+        if (dash == null)
+        {
+            if (!isPreview)
+            {
+                return default;
+            }
+
+            var previewUrls = information.FlvInformation?
+                .Where(p => !string.IsNullOrEmpty(p.Url))
+                .Select(p => p.Url)
+                .ToList();
+            previewUrls = previewUrls?.Count > 0 ? previewUrls : default;
+
+            return new DashMediaInformation(default, default, formats, information.Duration / 1000, playCheck: playCheck, isPreview: true, previewUrls: previewUrls, acceptedQualities: acceptedQualities);
+        }
 
         if (dash.Video?.Count > 0)
         {
@@ -627,20 +655,6 @@ internal static class VideoAdapter
             }
         }
 
-        if (information.SupportFormats?.Count > 0)
-        {
-            foreach (var format in information.SupportFormats)
-            {
-                var playerFormat = new PlayerFormatInformation(
-                    format.Quality,
-                    format.Description,
-                    needVip: format.Quality >= 112,
-                    needLogin: format.Quality >= 80);
-
-                formats.Add(playerFormat);
-            }
-        }
-
         if (videos.Count == 0)
         {
             videos = default;
@@ -652,6 +666,6 @@ internal static class VideoAdapter
         }
 
         // Web playurl 的 timelength 单位是毫秒，对外统一为秒.
-        return new DashMediaInformation(videos, audios, formats, information.Duration / 1000);
+        return new DashMediaInformation(videos, audios, formats, information.Duration / 1000, playCheck: playCheck, isPreview: isPreview, acceptedQualities: acceptedQualities);
     }
 }

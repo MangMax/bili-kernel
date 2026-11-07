@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
+using Richasy.BiliKernel.Bili.Media;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Services.Media;
 using Xunit;
@@ -18,6 +19,9 @@ public sealed class PgcPlayUrlTests
     private const string V2Response = @"{""code"":0,""data"":{""video_info"":{""timelength"":1381396,""accept_quality"":[64,32],""dash"":{""video"":[],""audio"":[]}}}}";
     private const string LegacyResponse = @"{""code"":0,""result"":{""accept_quality"":[64],""dash"":{""video"":[],""audio"":[]}}}";
 
+    // 服务端在缺少账号身份时返回的试看响应：code 0，只有 durl，没有 dash。
+    private const string PreviewResponse = @"{""code"":0,""data"":{""play_check"":{""play_detail"":""PLAY_PREVIEW""},""video_info"":{""is_preview"":1,""durl"":[{""url"":""https://media.invalid/preview.flv""}]}}}";
+
     [Fact]
     public async Task PlayUrlUsesV2PathWithWbi()
     {
@@ -29,11 +33,7 @@ public sealed class PgcPlayUrlTests
         Assert.Equal(1381, dash.Duration);
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
         Assert.Equal("/pgc/player/web/v2/playurl", request.Path);
-        Assert.True(request.Query.ContainsKey("w_rid"));
-        Assert.True(request.Query.ContainsKey("wts"));
-        Assert.Equal("456", request.Query["ep_id"]);
-        Assert.DoesNotContain("access_key", request.Query);
-        Assert.Contains("SESSDATA=session", request.Cookie);
+        AssertPlaybackRequest(request, "1");
     }
 
     [Fact]
@@ -50,8 +50,74 @@ public sealed class PgcPlayUrlTests
         Assert.Equal(2, requests.Count);
         Assert.Equal("/pgc/player/web/v2/playurl", requests[0].Path);
         Assert.Equal("/pgc/player/web/playurl", requests[1].Path);
-        Assert.True(requests[0].Query.ContainsKey("w_rid"));
-        Assert.True(requests[1].Query.ContainsKey("w_rid"));
+        Assert.All(requests, request => AssertPlaybackRequest(request, "1"));
+    }
+
+    [Fact]
+    public async Task PreviewResponseReturnsPlayableUrlsWithoutFallback()
+    {
+        const string preview = """
+            {"code":0,"result":{"play_check":{"play_detail":"PLAY_PREVIEW"},
+             "video_info":{"is_preview":1,"timelength":1381396,"accept_quality":[64,32],
+              "support_formats":[{"quality":64,"new_description":"高清"}],
+              "durl":[{"url":"https://media.invalid/preview.flv"}]}}}
+            """;
+        var handler = CreateHandler(preview, LegacyResponse);
+
+        var dash = await CreateService(handler).GetPgcPlayDetailAsync("123", "456", "1");
+
+        Assert.True(dash.IsPreview);
+        Assert.Equal("PLAY_PREVIEW", dash.PlayCheck);
+        Assert.Equal(["https://media.invalid/preview.flv"], dash.PreviewUrls);
+        var format = Assert.Single(dash.Formats!);
+        Assert.Equal(64, format.Quality);
+        Assert.Equal(1381, dash.Duration);
+        Assert.Equal([64, 32], dash.AcceptedQualities);
+        Assert.Null(dash.Videos);
+        Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task PreviewWithoutPlayableUrlsStillReportsPreview()
+    {
+        const string preview = """
+            {"code":0,"result":{"play_check":{"play_detail":"PLAY_PREVIEW"},
+             "video_info":{"timelength":60000,"is_preview":1,"accept_quality":[64]}}}
+            """;
+        var handler = CreateHandler(preview, LegacyResponse);
+
+        var dash = await CreateService(handler).GetPgcPlayDetailAsync("123", "456", "1");
+
+        Assert.True(dash.IsPreview);
+        Assert.Equal("PLAY_PREVIEW", dash.PlayCheck);
+        Assert.Null(dash.PreviewUrls);
+        Assert.Null(dash.Videos);
+        Assert.Empty(dash.Formats!);
+        Assert.Equal([64], dash.AcceptedQualities);
+        Assert.Equal(60, dash.Duration);
+        Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task WholeEpisodeReturnsDashWithPlayCheck()
+    {
+        const string whole = """
+            {"code":0,"result":{"play_check":{"play_detail":"PLAY_WHOLE"},
+             "video_info":{"timelength":120000,"accept_quality":[64,32],"support_formats":[{"quality":64,"new_description":"高清"}],
+              "dash":{"video":[{"id":64,"base_url":"https://media.invalid/64.m4s","segment_base":{"initialization":"0-100","index_range":"101-200"}}],"audio":[]}}}}
+            """;
+        var handler = CreateHandler(whole, LegacyResponse);
+
+        var dash = await CreateService(handler).GetPgcPlayDetailAsync("123", "456", "1");
+
+        Assert.False(dash.IsPreview);
+        Assert.Equal("PLAY_WHOLE", dash.PlayCheck);
+        Assert.Null(dash.PreviewUrls);
+        Assert.Equal("https://media.invalid/64.m4s", Assert.Single(dash.Videos!).BaseUrl);
+        var format = Assert.Single(dash.Formats!);
+        Assert.Equal(64, format.Quality);
+        Assert.Equal([64, 32], dash.AcceptedQualities);
+        Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
     }
 
     private static RecordingHttpMessageHandler CreateHandler(string v2Json, string legacyJson)
@@ -62,15 +128,18 @@ public sealed class PgcPlayUrlTests
             .With("/pgc/player/web/playurl", legacyJson);
 
     [Theory]
-    [InlineData(-101)]
-    [InlineData(-403)]
-    [InlineData(-404)]
-    [InlineData(-10403)]
-    public async Task PrimaryRejectionCannotBeHiddenBySuccessfulLegacy(int code)
+    [InlineData(-101, PgcPlaybackUnavailableReason.LoginRequired)]
+    [InlineData(-403, PgcPlaybackUnavailableReason.NotEntitled)]
+    [InlineData(-404, PgcPlaybackUnavailableReason.ContentUnavailable)]
+    [InlineData(-10403, PgcPlaybackUnavailableReason.RegionRestricted)]
+    public async Task PrimaryRejectionCannotBeHiddenBySuccessfulLegacy(int code, PgcPlaybackUnavailableReason reason)
     {
         var handler = CreateHandler($"{{\"code\":{code},\"message\":\"primary denied\"}}", LegacyResponse);
-        var error = await Assert.ThrowsAsync<RichasyKernel.KernelException>(() => CreateService(handler).GetPgcPlayDetailAsync("123", "456", "1"));
+        var error = await Assert.ThrowsAsync<PgcPlaybackUnavailableException>(() => CreateService(handler).GetPgcPlayDetailAsync("123", "456", "1"));
+        Assert.Equal(reason, error.Reason);
+        Assert.Equal(code, error.Code);
         Assert.Contains("primary denied", error.Message);
+        Assert.Contains(code.ToString(), error.Message);
         Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
     }
 
@@ -121,13 +190,44 @@ public sealed class PgcPlayUrlTests
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
+    [InlineData(true, true)]
     public async Task OptionalCredentialsAllowPublicPlayback(bool hasCookie, bool hasToken)
     {
         var handler = CreateHandler(V2Response, LegacyResponse);
         Assert.NotNull(await CreateService(handler, hasCookie, hasToken).GetPgcPlayDetailAsync("123", "456", "1"));
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
-        Assert.DoesNotContain("access_key", request.Query);
+        Assert.Equal(hasToken, request.Query.ContainsKey("access_key"));
         Assert.Equal(hasCookie, request.Cookie?.Contains("SESSDATA=session", StringComparison.Ordinal) == true);
+    }
+
+    [Theory]
+    [InlineData(false, null, true)]
+    [InlineData(true, "expired", true)]
+    [InlineData(true, "expired", false)]
+    public async Task AppTokenRestoresDashWhenCookieIsMissingOrExpired(bool hasCookie, string? sessData, bool hasToken)
+    {
+        // 模拟服务端：有 access_key 时返回完整 DASH，否则静默降级为试看响应。
+        var handler = new RecordingHttpMessageHandler(request => request.Query.ContainsKey("access_key")
+            ? RecordingHttpMessageHandler.Json(request.Path.EndsWith("/v2/playurl", StringComparison.Ordinal) ? V2Response : LegacyResponse)
+            : RecordingHttpMessageHandler.Json(PreviewResponse))
+            .With("/x/web-interface/nav", NavResponse);
+
+        var dash = await CreateService(handler, hasCookie, hasToken, sessData).GetPgcPlayDetailAsync("123", "456", "1");
+
+        var request = Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
+        AssertPlaybackQuery(request, "1");
+        Assert.Equal(hasToken, request.Query.ContainsKey("access_key"));
+        Assert.Equal(hasCookie, request.Cookie?.Contains("SESSDATA=", StringComparison.Ordinal) == true);
+        if (hasToken)
+        {
+            Assert.False(dash.IsPreview);
+            Assert.Equal(1381, dash.Duration);
+        }
+        else
+        {
+            Assert.True(dash.IsPreview);
+            Assert.Null(dash.Videos);
+        }
     }
 
     [Theory]
@@ -136,24 +236,27 @@ public sealed class PgcPlayUrlTests
     public async Task MissingOrExpiredCookieDoesNotUseLegacySuccess(bool expired)
     {
         var handler = CreateHandler("{\"code\":-101,\"message\":\"login required\"}", LegacyResponse);
-        var error = await Assert.ThrowsAsync<RichasyKernel.KernelException>(() => CreateService(handler, hasCookie: expired).GetPgcPlayDetailAsync("123", "456", "1"));
+        var error = await Assert.ThrowsAsync<PgcPlaybackUnavailableException>(() => CreateService(handler, hasCookie: expired).GetPgcPlayDetailAsync("123", "456", "1"));
+        Assert.Equal(PgcPlaybackUnavailableReason.LoginRequired, error.Reason);
         Assert.Contains("login required", error.Message);
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
-        Assert.DoesNotContain("access_key", request.Query);
+        Assert.Equal("app-token", request.Query["access_key"]);
         Assert.Equal(expired, request.Cookie?.Contains("SESSDATA=session", StringComparison.Ordinal) == true);
     }
 
     [Theory]
-    [InlineData(-101)]
-    [InlineData(-10403)]
-    [InlineData(-404)]
-    public async Task LegacyRejectionIsNotReportedAsPlayback(int code)
+    [InlineData(-101, PgcPlaybackUnavailableReason.LoginRequired)]
+    [InlineData(-10403, PgcPlaybackUnavailableReason.RegionRestricted)]
+    [InlineData(-404, PgcPlaybackUnavailableReason.ContentUnavailable)]
+    public async Task LegacyRejectionIsNotReportedAsPlayback(int code, PgcPlaybackUnavailableReason reason)
     {
         var handler = new RecordingHttpMessageHandler(request => request.Path.EndsWith("/v2/playurl", StringComparison.Ordinal)
             ? RecordingHttpMessageHandler.Json("{}", System.Net.HttpStatusCode.NotFound)
             : RecordingHttpMessageHandler.Json($"{{\"code\":{code},\"message\":\"legacy denied\"}}"))
             .With("/x/web-interface/nav", NavResponse);
-        var error = await Assert.ThrowsAsync<RichasyKernel.KernelException>(() => CreateService(handler).GetPgcPlayDetailAsync("123", "456", "1"));
+        var error = await Assert.ThrowsAsync<PgcPlaybackUnavailableException>(() => CreateService(handler).GetPgcPlayDetailAsync("123", "456", "1"));
+        Assert.Equal(reason, error.Reason);
+        Assert.Equal(code, error.Code);
         Assert.Contains("legacy denied", error.Message);
         var requests = handler.Requests.Where(p => p.Path.Contains("playurl", StringComparison.Ordinal)).ToList();
         Assert.Equal(2, requests.Count);
@@ -161,40 +264,22 @@ public sealed class PgcPlayUrlTests
     }
 
     [Fact]
-    public async Task MissingPlaybackPayloadDoesNotMasqueradeAsFormatFallback()
+    public async Task PayDialogReportsNotEntitledWithoutFallback()
     {
         var handler = CreateHandler("{\"code\":0,\"result\":{\"view_info\":{\"dialog\":{\"type\":\"pay\"}}}}", LegacyResponse);
-        await Assert.ThrowsAsync<RichasyKernel.KernelException>(() => CreateService(handler).GetPgcPlayDetailAsync("123", "456", "1"));
+        var error = await Assert.ThrowsAsync<PgcPlaybackUnavailableException>(() => CreateService(handler).GetPgcPlayDetailAsync("123", "456", "1"));
+        Assert.Equal(PgcPlaybackUnavailableReason.NotEntitled, error.Reason);
         Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
     }
 
-    private static void AssertPlaybackRequest(RecordedRequest request, string seasonType)
-    {
-        Assert.DoesNotContain("access_key", request.Query);
-        Assert.Contains("SESSDATA=session", request.Cookie);
-        Assert.Equal("123", request.Query["cid"]);
-        Assert.Equal("456", request.Query["ep_id"]);
-        Assert.Equal(seasonType, request.Query["season_type"]);
-        Assert.Equal("64", request.Query["qn"]);
-        Assert.Equal("4048", request.Query["fnval"]);
-        Assert.Equal("1", request.Query["fourk"]);
-        Assert.Equal("1", request.Query["try_look"]);
-        Assert.DoesNotContain("csrf", request.Query);
-        Assert.DoesNotContain("sign", request.Query);
-        Assert.True(long.TryParse(request.Query["wts"], out _));
-        var signedQuery = string.Join("&", request.Query.Where(p => p.Key != "w_rid").OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
-        var expected = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(signedQuery + "ea1db124af3c7062474693fa704f4ff8"))).ToLowerInvariant();
-        Assert.Equal(expected, request.Query["w_rid"]);
-    }
-
     [Fact]
-    public async Task CookiePlaybackNeverConsultsUnrelatedAppToken()
+    public async Task PgcPlaybackConsultsAppTokenAlongsideCookie()
     {
         var handler = CreateHandler(V2Response, LegacyResponse);
         var cookies = new FakeCookiesResolver();
         cookies.SaveCookies(new Dictionary<string, string> { ["SESSDATA"] = "session" });
         var http = new BiliHttpClient(handler);
-        var tokens = new UnavailableTokenResolver();
+        var tokens = new FakeTokenResolver { Token = new() { AccessToken = "app-token" } };
         var service = new PlayerService(http, new BiliAuthenticator(cookies, tokens, httpClient: http), tokens);
         Assert.NotNull(await service.GetPgcPlayDetailAsync("123", "456", "1"));
         AssertPlaybackRequest(Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal)), "1");
@@ -216,17 +301,34 @@ public sealed class PgcPlayUrlTests
         Assert.Single(handler.Requests, p => p.Path.Contains("playurl", StringComparison.Ordinal));
     }
 
-    private sealed class UnavailableTokenResolver : Richasy.BiliKernel.Bili.Authorization.IBiliTokenResolver
+    private static void AssertPlaybackRequest(RecordedRequest request, string seasonType)
     {
-        public Richasy.BiliKernel.Models.Authorization.BiliToken? GetToken() => throw new InvalidOperationException("Unrelated App token unavailable");
-        public void SaveToken(Richasy.BiliKernel.Models.Authorization.BiliToken token) => throw new NotSupportedException();
-        public void RemoveToken() => throw new NotSupportedException();
+        Assert.Equal("app-token", request.Query["access_key"]);
+        Assert.Contains("SESSDATA=session", request.Cookie);
+        AssertPlaybackQuery(request, seasonType);
     }
 
-    private static PlayerService CreateService(RecordingHttpMessageHandler handler, bool hasCookie = true, bool hasToken = true)
+    private static void AssertPlaybackQuery(RecordedRequest request, string seasonType)
+    {
+        Assert.Equal("123", request.Query["cid"]);
+        Assert.Equal("456", request.Query["ep_id"]);
+        Assert.Equal(seasonType, request.Query["season_type"]);
+        Assert.Equal("64", request.Query["qn"]);
+        Assert.Equal("4048", request.Query["fnval"]);
+        Assert.Equal("1", request.Query["fourk"]);
+        Assert.Equal("1", request.Query["try_look"]);
+        Assert.DoesNotContain("csrf", request.Query);
+        Assert.DoesNotContain("sign", request.Query);
+        Assert.True(long.TryParse(request.Query["wts"], out _));
+        var signedQuery = string.Join("&", request.Query.Where(p => p.Key != "w_rid").OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
+        var expected = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(signedQuery + "ea1db124af3c7062474693fa704f4ff8"))).ToLowerInvariant();
+        Assert.Equal(expected, request.Query["w_rid"]);
+    }
+
+    private static PlayerService CreateService(RecordingHttpMessageHandler handler, bool hasCookie = true, bool hasToken = true, string sessData = "session")
     {
         var cookies = new FakeCookiesResolver();
-        if (hasCookie) cookies.SaveCookies(new Dictionary<string, string> { ["SESSDATA"] = "session" });
+        if (hasCookie) cookies.SaveCookies(new Dictionary<string, string> { ["SESSDATA"] = sessData });
         var buvid = new BuvidManager(cookies, new InMemoryBuvidStore("B3", "B4"), handler);
         var http = new BiliHttpClient(handler, buvid);
         var tokens = new FakeTokenResolver { Token = hasToken ? new() { AccessToken = "app-token" } : null };

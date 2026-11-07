@@ -11,7 +11,11 @@ public sealed class DashMediaInformation(
     IList<DashSegmentInformation>? audioSegments,
     IList<PlayerFormatInformation>? formats,
     int duration = 0,
-    IList<VideoChapter>? chapters = null)
+    IList<VideoChapter>? chapters = null,
+    string? playCheck = null,
+    bool isPreview = false,
+    IList<string>? previewUrls = null,
+    IList<int>? acceptedQualities = null)
 {
     /// <summary>
     /// 视频时长.
@@ -40,4 +44,30 @@ public sealed class DashMediaInformation(
     /// 对应哔哩哔哩播放器中的“章节”功能，由 UP 主在视频中标记，可能为空.
     /// </remarks>
     public IList<VideoChapter>? Chapters { get; } = chapters;
+
+    /// <summary>
+    /// 服务端返回的播放校验标记.
+    /// </summary>
+    /// <remarks>
+    /// 例如 PLAY_WHOLE 表示可完整播放，PLAY_PREVIEW 表示仅可试看；不支持该标记的播放路径为 null.
+    /// </remarks>
+    public string? PlayCheck { get; } = playCheck;
+
+    /// <summary>
+    /// 是否为仅可试看的播放结果.
+    /// </summary>
+    public bool IsPreview { get; } = isPreview;
+
+    /// <summary>
+    /// 仅可试看时可播放的地址列表.
+    /// </summary>
+    public IList<string>? PreviewUrls { get; } = previewUrls;
+
+    /// <summary>
+    /// 服务端接受的清晰度列表（accept_quality 原文）.
+    /// </summary>
+    /// <remarks>
+    /// 不做 VIP 或登录推断；试看响应也可能列出会员清晰度，不能当作权益判据.
+    /// </remarks>
+    public IList<int>? AcceptedQualities { get; } = acceptedQualities;
 }

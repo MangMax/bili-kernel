@@ -44,6 +44,16 @@ public class BiliAuthorizeExecutionSettings
         => new(apiType: apiType, forceNoToken: true, useCookie: true, needRID: needRID, needCSRF: needCSRF);
 
     /// <summary>
+    /// 创建同时使用 Cookie 与 App 令牌的凭据策略：两者按可用性附加，缺失时不阻止匿名或试看请求。
+    /// 仅用于明确声明需要账号权益的端点；其他网页端点继续使用 <see cref="CookieOnly"/>。
+    /// </summary>
+    public static BiliAuthorizeExecutionSettings CookieAndToken(
+        BiliApiType apiType = BiliApiType.Web,
+        bool needRID = false,
+        bool needCSRF = false)
+        => new(apiType: apiType, useCookie: true, needRID: needRID, needCSRF: needCSRF);
+
+    /// <summary>
     /// 设备类型.
     /// </summary>
     public BiliApiType ApiType { get; set; }

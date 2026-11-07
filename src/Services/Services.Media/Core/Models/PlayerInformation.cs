@@ -63,6 +63,12 @@ internal sealed class PlayerInformation
     /// </summary>
     [JsonPropertyName("support_formats")]
     public List<VideoFormat> SupportFormats { get; set; }
+
+    /// <summary>
+    /// 是否为仅可试看.
+    /// </summary>
+    [JsonPropertyName("is_preview")]
+    public int IsPreview { get; set; }
 }
 
 /// <summary>
