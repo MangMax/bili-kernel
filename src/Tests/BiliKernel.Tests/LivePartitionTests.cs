@@ -24,6 +24,14 @@ public sealed class LivePartitionTests
         {"code":0,"data":{"count":0,"new_tags":[{"id":2221,"name":"热门","sort_type":"sort_type_2221"}],"list":[]}}
         """;
 
+    private const string NullListResponse = """
+        {"code":0,"data":{"count":0,"new_tags":[{"id":4289,"name":"综合","sort_type":""}],"list":null}}
+        """;
+
+    private const string NullTagsResponse = """
+        {"code":0,"data":{"count":1,"new_tags":null,"list":[{"roomid":123,"uid":9,"uname":"主播","face":"","cover":"","title":"直播间","area_name":"英雄联盟","watched_show":{"num":5}}]}}
+        """;
+
     [Fact]
     public async Task PartitionWithoutTagRequestsOnlineSort()
     {
@@ -91,6 +99,30 @@ public sealed class LivePartitionTests
 
         Assert.Empty(lives);
         Assert.NotNull(tags);
+    }
+
+    [Fact]
+    public async Task NullRoomListReturnsEmptyCollection()
+    {
+        var handler = new RecordingHttpMessageHandler().With("/room/v3/Area/getRoomList", NullListResponse);
+        var service = CreateService(handler);
+
+        var (lives, tags, _) = await service.GetPartitionLiveListAsync(new Partition("0", "全部网游", parentId: "2"));
+
+        Assert.Empty(lives);
+        Assert.Single(tags!);
+    }
+
+    [Fact]
+    public async Task NullTagListReturnsEmptyCollection()
+    {
+        var handler = new RecordingHttpMessageHandler().With("/room/v3/Area/getRoomList", NullTagsResponse);
+        var service = CreateService(handler);
+
+        var (lives, tags, _) = await service.GetPartitionLiveListAsync(new Partition("0", "全部网游", parentId: "2"));
+
+        Assert.Single(lives);
+        Assert.Empty(tags!);
     }
 
     private static LiveDiscoveryService CreateService(RecordingHttpMessageHandler handler)

@@ -69,8 +69,9 @@ internal sealed class LiveDiscoveryClient
         _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false, ApiType = BiliApiType.App });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveAreaDetailResponse).ConfigureAwait(false);
-        var lives = responseObj.Data.List.Select(p => p.ToLiveInformation()).ToList().AsReadOnly();
-        var tags = responseObj.Data.Tags.Select(p => p.ToLiveTag()).ToList().AsReadOnly();
+        // 服务端偶发返回 "list": null / "new_tags": null，按空集合处理而不是 NRE（#68）.
+        var lives = (responseObj.Data.List ?? []).Select(p => p.ToLiveInformation()).ToList().AsReadOnly();
+        var tags = (responseObj.Data.Tags ?? []).Select(p => p.ToLiveTag()).ToList().AsReadOnly();
         return (lives, tags);
     }
 
