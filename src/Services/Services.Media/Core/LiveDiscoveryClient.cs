@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
@@ -40,6 +40,21 @@ internal sealed class LiveDiscoveryClient
 
     public async Task<(IReadOnlyList<LiveInformation> Lives, IReadOnlyList<LiveTag>? Tags, int NextPageNumber)> GetPartitionDetailAsync(Partition partition, LiveTag? tag = default, int pageNumber = 0, CancellationToken cancellationToken = default)
     {
+        // 服务端不传或用空 sort_type 时会返回空列表（#63），无标签与空标签一律回落到 online.
+        var sortType = string.IsNullOrEmpty(tag?.SortType) ? "online" : tag.SortType;
+        var (lives, tags) = await RequestAreaDetailAsync(partition, sortType, pageNumber, cancellationToken).ConfigureAwait(false);
+        if (lives.Count == 0 && sortType != "online")
+        {
+            // 个别标签的 sort_type 服务端没有对应数据（如「热门」的 sort_type_2221 恒为 0 条），
+            // 回退一次 online 再试；仍为空则按空列表返回，交给界面显示空状态.
+            (lives, tags) = await RequestAreaDetailAsync(partition, "online", pageNumber, cancellationToken).ConfigureAwait(false);
+        }
+
+        return (lives, tags, pageNumber);
+    }
+
+    private async Task<(IReadOnlyList<LiveInformation> Lives, IReadOnlyList<LiveTag> Tags)> RequestAreaDetailAsync(Partition partition, string sortType, int pageNumber, CancellationToken cancellationToken)
+    {
         var parameters = new Dictionary<string, string>
         {
             { "page", pageNumber.ToString() },
@@ -47,12 +62,8 @@ internal sealed class LiveDiscoveryClient
             { "area_id", partition.Id },
             { "parent_area_id", partition.ParentId },
             { "device", "phone" },
+            { "sort_type", sortType },
         };
-
-        if (tag != null)
-        {
-            parameters.Add("sort_type", tag.SortType);
-        }
 
         var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(BiliApis.Live.AreaDetail));
         _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false, ApiType = BiliApiType.App });
@@ -60,12 +71,7 @@ internal sealed class LiveDiscoveryClient
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveAreaDetailResponse).ConfigureAwait(false);
         var lives = responseObj.Data.List.Select(p => p.ToLiveInformation()).ToList().AsReadOnly();
         var tags = responseObj.Data.Tags.Select(p => p.ToLiveTag()).ToList().AsReadOnly();
-        if (lives.Count == 0)
-        {
-            throw new KernelException("无法获取到有效的直播间列表，请稍后再试");
-        }
-
-        return (lives, tags, pageNumber);
+        return (lives, tags);
     }
 
     public async Task<(IReadOnlyList<LiveInformation>? Follow, IReadOnlyList<LiveInformation>? Recommend, int NextPageNumber)> GetFeedAsync(int pageNumber, CancellationToken cancellationToken)
