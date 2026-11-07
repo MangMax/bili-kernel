@@ -122,7 +122,8 @@ internal sealed class MyClient
         {
             cancellationToken.ThrowIfCancellationRequested();
             var chunk = new ArraySegment<string>(ids, offset, Math.Min(40, ids.Length - offset));
-            var fids = string.Join(",", chunk);
+            // ArraySegment also matches the ReadOnlySpan overload; pick the enumerable overload explicitly.
+            var fids = string.Join(",", chunk.AsEnumerable());
             var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Account.Relations));
             _authenticator.AuthorizeRestRequest(request, new() { ["fids"] = fids },
                 new BiliAuthorizeExecutionSettings { ForceNoToken = true, ApiType = BiliApiType.Web, RequireCookie = true });

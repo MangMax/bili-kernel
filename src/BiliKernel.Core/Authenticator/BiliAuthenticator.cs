@@ -16,7 +16,7 @@ namespace Richasy.BiliKernel.Authenticator;
 public sealed partial class BiliAuthenticator
 {
     private readonly Func<DateTimeOffset> _utcNow;
-    private readonly object _wbiGate = new();
+    private readonly Lock _wbiGate = new();
     private Task? _wbiRefresh;
 
     /// <summary>

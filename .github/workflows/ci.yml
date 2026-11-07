@@ -1,0 +1,101 @@
+# CI for the .NET 11 kernel: build, test, pack and AOT-publish.
+#
+# The repository targets .NET 11 only. `global.json` pins the current RC SDK
+# (11.0.100-rc.3) until GA; this workflow installs the latest 11.0.x preview so
+# the pin can be bumped without touching it. Once .NET 11 ships GA, drop the
+# `dotnet-quality` input here and switch global.json to 11.0.100.
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+# A newer run on the same branch/PR cancels the previous one.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-test-pack-aot:
+    name: Build, test, pack and AOT publish
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up .NET 11 SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Restore kernel solution
+        run: dotnet restore src/BiliKernel.sln
+
+      - name: Restore article tests
+        run: dotnet restore src/Tests/Services.Article.Tests/Services.Article.Tests.csproj
+
+      - name: Build kernel solution
+        run: dotnet build src/BiliKernel.sln -c Release --no-restore
+
+      - name: Build article tests
+        run: dotnet build src/Tests/Services.Article.Tests/Services.Article.Tests.csproj -c Release --no-restore
+
+      - name: Test BiliKernel.Tests
+        run: dotnet test src/Tests/BiliKernel.Tests/BiliKernel.Tests.csproj -c Release --no-build --no-restore
+
+      - name: Test Services.Article.Tests
+        run: dotnet test src/Tests/Services.Article.Tests/Services.Article.Tests.csproj -c Release --no-build --no-restore
+
+      - name: Pack libraries to artifacts/packages
+        shell: pwsh
+        run: |
+          $output = Join-Path (Get-Location) 'artifacts/packages'
+          New-Item -ItemType Directory -Path $output -Force | Out-Null
+
+          # Samples and tests are not distributable; every other project is a
+          # library that ships to NuGet.
+          $projects = Get-ChildItem src -Recurse -Filter *.csproj |
+            Where-Object { $_.FullName -notmatch '\\(Samples|Tests)\\' }
+
+          foreach ($project in $projects) {
+            Write-Host "Packing $($project.FullName)"
+            dotnet pack $project.FullName -c Release --no-build --no-restore -o $output
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error::dotnet pack failed for $($project.FullName)"
+              exit $LASTEXITCODE
+            }
+          }
+
+      - name: Verify package assets target net11 only
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $bad = @()
+          Get-ChildItem artifacts/packages/*.nupkg | ForEach-Object {
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($_.FullName)
+            $frameworks = $zip.Entries | Where-Object { $_.FullName -like 'lib/*' } |
+              ForEach-Object { ($_.FullName -split '/')[1] } | Sort-Object -Unique
+            $zip.Dispose()
+            if ($frameworks | Where-Object { $_ -notlike 'net11.0*' }) {
+              $bad += "$($_.Name): $($frameworks -join ', ')"
+            }
+          }
+
+          if ($bad.Count -gt 0) {
+            $bad | ForEach-Object { Write-Host "::error::unexpected assets in $_" }
+            exit 1
+          }
+
+      - name: AOT publish console sample (win-x64)
+        run: dotnet publish src/Samples/Bili.Console/Bili.Console.csproj -c Release -r win-x64

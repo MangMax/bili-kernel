@@ -5,21 +5,18 @@ using Bilibili.App.Interfaces.V1;
 using Richasy.BiliKernel.Adapters;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Media;
-using System.Text.RegularExpressions;
 
 namespace Richasy.BiliKernel.Services.User.Core;
 
 internal static class PgcAdapter
 {
-    private static readonly Regex _episodeRegex = new Regex(@"ep(\d+)");
-
     public static EpisodeInformation ToEpisodeInformation(this CursorItem item)
     {
         var episode = item.CardOgv;
         var title = item.Title;
         var viewTime = DateTimeOffset.FromUnixTimeSeconds(item.ViewAt).ToLocalTime();
         var seasonId = item.Kid.ToString();
-        var episodeId = item.Uri.Contains("ep") ? _episodeRegex.Match(item.Uri).Groups[1].Value : string.Empty;
+        var episodeId = item.Uri.Contains("ep") ? EpisodeLink.GetEpisodeId(item.Uri) : string.Empty;
         var aid = item.Oid.ToString();
         var subtitle = episode.Subtitle;
         var cover = episode.Cover.ToVideoCover();
