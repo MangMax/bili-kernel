@@ -5,8 +5,7 @@
     <AssemblyName>Richasy.BiliKernel.Resolvers.NativeToken</AssemblyName>
     <RootNamespace>$(AssemblyName)</RootNamespace>
     <TargetFrameworks>net11.0</TargetFrameworks>
-    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
-    <NoWarn>NU1507</NoWarn>
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <Import Project="$(RepoRoot)/src/nuget-package.props" />

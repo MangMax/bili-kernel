@@ -5,9 +5,7 @@
     <RootNamespace>Richasy.BiliKernel</RootNamespace>
     <TargetFrameworks>net11.0</TargetFrameworks>
     <DebugType>none</DebugType>
-    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
-    <!-- System.Text.Json is part of the net11 shared framework; the explicit reference is removed in #59. -->
-    <NoWarn>$(NoWarn);NU1510</NoWarn>
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   
   <Import Project="$(RepoRoot)/src/nuget-package.props" />
@@ -23,9 +21,6 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
-    <PackageReference Include="Microsoft.Bcl.HashCode" />
     <PackageReference Include="RichasyKernel.Abstractions" />
-    <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 </Project>

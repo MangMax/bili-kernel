@@ -3,7 +3,6 @@
   <PropertyGroup>
     <LangVersion>preview</LangVersion>
     <Nullable>enable</Nullable>
-	<NoWarn>$(NoWarn);</NoWarn>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
@@ -11,7 +10,6 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 	<EditorConfigFilePath>$(MSBuildThisFileDirectory).editorconfig</EditorConfigFilePath>
   </PropertyGroup>
