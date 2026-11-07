@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Adapters;
@@ -60,19 +60,26 @@ internal static class PgcAdapter
         var seasonId = episode.Report?.SeasonId ?? season.SeasonId.ToString(CultureInfo.InvariantCulture);
         var aid = episode.Aid;
         var cid = episode.PartId;
-        var index = episode.Index;
+        // Web 端点只给分集序号文本（title），没有 ep_index；缺失时按文本解析，避免整列显示 0.
+        var index = episode.Index > 0
+            ? episode.Index
+            : int.TryParse(episode.Title, NumberStyles.Integer, CultureInfo.InvariantCulture, out var indexFromTitle) ? indexFromTitle : (int?)null;
         var badge = episode.BadgeText ?? string.Empty;
         var isPv = badge.Contains("预告", StringComparison.Ordinal);
         var isVip = badge.Contains("会员", StringComparison.Ordinal);
         var publishTime = DateTimeOffset.FromUnixTimeSeconds(episode.PublishTime).ToLocalTime().DateTime;
-        var communityInfo = new VideoCommunityInformation(
-            epid,
-            episode.Stat?.PlayCount ?? 0,
-            episode.Stat?.DanmakuCount ?? 0,
-            episode.Stat?.LikeCount ?? 0,
-            default,
-            episode.Stat?.CoinCount ?? 0,
-            episode.Stat?.ReplyCount ?? 0);
+
+        // 正片不返回 stat，只有花絮/预告才带；没有数据时保持为 null，让界面隐藏统计而不是显示 0.
+        var communityInfo = episode.Stat is null
+            ? null
+            : new VideoCommunityInformation(
+                epid,
+                episode.Stat.PlayCount,
+                episode.Stat.DanmakuCount,
+                episode.Stat.LikeCount,
+                default,
+                episode.Stat.CoinCount,
+                episode.Stat.ReplyCount);
         var seasonType = string.IsNullOrEmpty(episode.Report?.SeasonType)
             ? season.Type.ToString(CultureInfo.InvariantCulture)
             : episode.Report.SeasonType;
