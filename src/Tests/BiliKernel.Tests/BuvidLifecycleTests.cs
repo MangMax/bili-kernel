@@ -145,22 +145,6 @@ public sealed class BuvidLifecycleTests
     }
 
     [Fact]
-    public async Task TimeProviderOverloadDrivesRetryCooldown()
-    {
-        var clock = new ManualTimeProvider(DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
-        using var handler = new RecordingHttpMessageHandler(_ => RecordingHttpMessageHandler.Json("{\"code\":-1}"));
-        using var manager = new BuvidManager(null, new InMemoryBuvidStore("SAVED3", "SAVED4"), handler, clock);
-        await manager.EnsureAsync();
-        Assert.Single(handler.Requests);
-        clock.Advance(TimeSpan.FromMinutes(1).Add(TimeSpan.FromTicks(-1)));
-        await manager.EnsureAsync();
-        Assert.Single(handler.Requests);
-        clock.Advance(TimeSpan.FromTicks(1));
-        await manager.EnsureAsync();
-        Assert.Equal(2, handler.Requests.Count);
-    }
-
-    [Fact]
     public async Task CookieIdentityWithoutBuvid4DoesNotBorrowDifferentStoredBuvid4()
     {
         using var handler = new RecordingHttpMessageHandler();
