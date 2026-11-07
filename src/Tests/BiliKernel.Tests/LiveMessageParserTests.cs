@@ -35,6 +35,31 @@ public sealed class LiveMessageParserTests
         Assert.Equal("Medal", danmaku.MedalName);
         Assert.Equal("5", danmaku.MedalLevel);
         Assert.Equal("Title", danmaku.UserTitle);
+        Assert.Equal(0, danmaku.GuardLevel);
+    }
+
+    [Fact]
+    public void GuardLevelIsParsedFromSeventhInfoEntry()
+    {
+        const string Json = """{"cmd":"DANMU_MSG","info":[[0,1,25,16777215],"hello",[7,"Alice",0,0,0],[],[],["Title"],[],3]}""";
+
+        var kind = Parse(Json, out var liveEvent);
+
+        Assert.Equal(LiveMessageParseKind.Event, kind);
+        var danmaku = Assert.IsType<LiveDanmakuReceivedEvent>(liveEvent).Danmaku;
+        Assert.Equal(3, danmaku.GuardLevel);
+    }
+
+    [Theory]
+    [InlineData("""{"cmd":"DANMU_MSG","info":[[0,1,25,16777215],"hello",[7,"Alice",0,0,0],[],[],["Title"]]}""")]
+    [InlineData("""{"cmd":"DANMU_MSG","info":[[0,1,25,16777215],"hello",[7,"Alice",0,0,0],[],[],["Title"],[],"3"]}""")]
+    [InlineData("""{"cmd":"DANMU_MSG","info":[[0,1,25,16777215],"hello",[7,"Alice",0,0,0],[],[],["Title"],[],[3]]}""")]
+    public void GuardLevelIsZeroWhenMissingOrNotNumber(string json)
+    {
+        var kind = Parse(json, out var liveEvent);
+
+        Assert.Equal(LiveMessageParseKind.Event, kind);
+        Assert.Equal(0, Assert.IsType<LiveDanmakuReceivedEvent>(liveEvent).Danmaku.GuardLevel);
     }
 
     [Fact]

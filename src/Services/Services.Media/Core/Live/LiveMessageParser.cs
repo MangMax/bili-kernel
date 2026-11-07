@@ -221,6 +221,11 @@ internal static class LiveMessageParser
         var userTitle = info.GetArrayLength() > 5 && info[5].ValueKind == JsonValueKind.Array && info[5].GetArrayLength() > 0
             ? ElementString(info[5][0])
             : null;
+        var guardLevel = info.GetArrayLength() > 7
+            && info[7].ValueKind == JsonValueKind.Number
+            && info[7].TryGetInt32(out var guard)
+                ? guard
+                : 0;
 
         var danmaku = new LiveDanmakuInformation(text, textColor, userName, userLevel, levelColor, isAdmin)
         {
@@ -229,6 +234,7 @@ internal static class LiveMessageParser
             MedalLevel = medalLevel,
             IsVip = isVip,
             UserTitle = userTitle,
+            GuardLevel = guardLevel,
         };
         return new LiveDanmakuReceivedEvent(danmaku, command, receivedAt);
     }
