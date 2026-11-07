@@ -4,10 +4,9 @@
     <!-- THIS PROPERTY GROUP MUST COME FIRST -->
     <AssemblyName>Richasy.BiliKernel.Services.Comment</AssemblyName>
     <RootNamespace>$(AssemblyName)</RootNamespace>
-    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
-    <NoWarn>NU1507</NoWarn>
+    <TargetFramework>net11.0</TargetFramework>
     <Platforms>AnyCPU</Platforms>
-    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <Import Project="$(RepoRoot)/src/nuget-package.props" />

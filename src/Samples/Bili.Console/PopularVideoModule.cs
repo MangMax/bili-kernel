@@ -122,7 +122,6 @@ internal sealed class PopularVideoModule : IFeatureModule
     {
         var table = new Table();
         table.Border = TableBorder.Rounded;
-        table.LeftAligned();
         table.AddColumn("ID");
         table.AddColumn("标题");
 
@@ -131,7 +130,7 @@ internal sealed class PopularVideoModule : IFeatureModule
             table.AddRow(item.Key.EscapeMarkup(), item.Value.EscapeMarkup());
         }
 
-        AnsiConsole.Write(table);
+        AnsiConsole.Write(new Align(table, HorizontalAlignment.Left));
 
         if (AnsiConsole.Confirm("是否返回？"))
         {

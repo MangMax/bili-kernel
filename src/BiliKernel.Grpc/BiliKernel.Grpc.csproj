@@ -3,9 +3,9 @@
   <PropertyGroup>
     <AssemblyName>Richasy.BiliKernel.Grpc</AssemblyName>
     <RootNamespace>Richasy.BiliKernel</RootNamespace>
-    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
-    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
-    <NoWarn>$(NoWarn);SKEXP0001;CS1570;CS1587</NoWarn>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsAotCompatible>true</IsAotCompatible>
+    <NoWarn>$(NoWarn);CS1570;CS1587</NoWarn>
   </PropertyGroup>
 
   <Import Project="$(RepoRoot)/src/nuget-package.props" />

@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Resolvers.WinUICookies", "R
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Resolvers.WinUIToken", "Resolvers.WinUIToken\Resolvers.WinUIToken.csproj", "{BBB11E5F-B98A-498D-BE36-72C868BB5286}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Resolvers.WinUIQRCode", "Resolvers.WinUIQRCode\Resolvers.WinUIQRCode.csproj", "{FC4A5E75-34DD-C237-099E-6F9449B816FD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{BBB11E5F-B98A-498D-BE36-72C868BB5286}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BBB11E5F-B98A-498D-BE36-72C868BB5286}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BBB11E5F-B98A-498D-BE36-72C868BB5286}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FC4A5E75-34DD-C237-099E-6F9449B816FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC4A5E75-34DD-C237-099E-6F9449B816FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC4A5E75-34DD-C237-099E-6F9449B816FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC4A5E75-34DD-C237-099E-6F9449B816FD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
