@@ -5,6 +5,11 @@
     <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- The sample exposes no public API, so its XML doc file is empty and must not
+         ship. Publishing it also breaks `dotnet publish -r win-x64` on this SDK with
+         MSB3030: the doc is compiled into the RID intermediate folder, but publish
+         expects it next to the RID build output. -->
+    <PublishDocumentationFile>false</PublishDocumentationFile>
 	<PublishAot>true</PublishAot>
 	<TrimmerSingleWarn>false</TrimmerSingleWarn>
 	  <NoWarn>$(NoWarn);IL2067</NoWarn>
