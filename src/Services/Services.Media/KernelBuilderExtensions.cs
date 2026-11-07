@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Microsoft.Extensions.DependencyInjection;
@@ -46,6 +46,15 @@ public static class KernelBuilderExtensions
     public static IKernelBuilder AddPlayerService(this IKernelBuilder builder)
     {
         builder.Services.AddSingleton<IPlayerService, PlayerService>();
+        return builder;
+    }
+
+    /// <summary>
+    /// 添加直播弹幕服务.
+    /// </summary>
+    public static IKernelBuilder AddLiveDanmakuService(this IKernelBuilder builder)
+    {
+        builder.Services.AddSingleton<ILiveDanmakuService, LiveDanmakuService>();
         return builder;
     }
 

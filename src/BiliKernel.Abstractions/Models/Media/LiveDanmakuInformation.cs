@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 namespace Richasy.BiliKernel.Models.Media;
@@ -62,4 +62,29 @@ public sealed class LiveDanmakuInformation
     /// 是否为管理员.
     /// </summary>
     public bool IsAdmin { get; }
+
+    /// <summary>
+    /// 用户标识.
+    /// </summary>
+    public long UserId { get; init; }
+
+    /// <summary>
+    /// 勋章名称.
+    /// </summary>
+    public string? MedalName { get; init; }
+
+    /// <summary>
+    /// 勋章等级.
+    /// </summary>
+    public string? MedalLevel { get; init; }
+
+    /// <summary>
+    /// 是否为老爷或年费老爷.
+    /// </summary>
+    public bool IsVip { get; init; }
+
+    /// <summary>
+    /// 用户头衔.
+    /// </summary>
+    public string? UserTitle { get; init; }
 }
