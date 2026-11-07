@@ -203,6 +203,30 @@ internal sealed class PlayerClient
         return responseObj.Data.ToLiveMediaInformation();
     }
 
+    public async Task<IReadOnlyList<LiveDanmakuInformation>> GetRecentLiveDanmakuAsync(MediaIdentifier live, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(live.Id))
+        {
+            throw new ArgumentException("直播间标识不能为空", nameof(live));
+        }
+
+        var parameters = new Dictionary<string, string>
+        {
+            { "roomid", live.Id },
+        };
+
+        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.HistoryDanmaku));
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly());
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveHistoryDanmakuResponse).ConfigureAwait(false);
+        if (responseObj is null || !responseObj.IsSuccess())
+        {
+            throw new KernelException($"获取直播历史弹幕失败：code={responseObj?.Code}，message={responseObj?.Message}");
+        }
+
+        return responseObj.Data.ToRecentLiveDanmaku();
+    }
+
     public async Task<PgcPlayerView> GetPgcPageDetailAsync(string? seasonId, string? episodeId, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>

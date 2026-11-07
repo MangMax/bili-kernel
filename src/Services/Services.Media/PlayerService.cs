@@ -70,6 +70,10 @@ public sealed class PlayerService : IPlayerService
         => _client.GetLivePlayDetailAsync(live, quality, audioOnly, cancellationToken);
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<LiveDanmakuInformation>> GetRecentLiveDanmakuAsync(MediaIdentifier live, CancellationToken cancellationToken = default)
+        => _client.GetRecentLiveDanmakuAsync(live, cancellationToken);
+
+    /// <inheritdoc/>
     public Task<PgcPlayerView> GetPgcPageDetailAsync(string? seasonId = null, string? episodeId = null, CancellationToken cancellationToken = default)
         => _client.GetPgcPageDetailAsync(seasonId, episodeId, cancellationToken);
 

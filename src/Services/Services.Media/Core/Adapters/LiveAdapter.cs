@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Adapters;
@@ -106,6 +106,51 @@ internal static class LiveAdapter
 
         return new LiveMediaInformation(id, formats, lines);
     }
+
+    public static IReadOnlyList<LiveDanmakuInformation> ToRecentLiveDanmaku(this LiveHistoryDanmakuResponse response)
+    {
+        if (response is null)
+        {
+            return [];
+        }
+
+        var result = new List<LiveDanmakuInformation>();
+        AppendHistoryItems(result, response.Admin);
+        AppendHistoryItems(result, response.Room);
+        return result;
+    }
+
+    private static void AppendHistoryItems(List<LiveDanmakuInformation> result, List<LiveHistoryDanmakuItem>? items)
+    {
+        if (items is null || items.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var item in items)
+        {
+            if (item is null || string.IsNullOrWhiteSpace(item.Text))
+            {
+                continue;
+            }
+
+            var danmaku = new LiveDanmakuInformation(
+                item.Text,
+                ToHexColor(item.Color),
+                item.NickName ?? string.Empty,
+                item.UserLevel > 0 ? "UL" + item.UserLevel.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty,
+                string.Empty,
+                item.IsAdmin == 1)
+            {
+                UserId = item.UserId,
+                GuardLevel = item.GuardLevel,
+            };
+            result.Add(danmaku);
+        }
+    }
+
+    private static string ToHexColor(int color)
+        => color <= 0 ? "#FFFFFF" : "#" + (color & 0xFFFFFF).ToString("X6", System.Globalization.CultureInfo.InvariantCulture);
 
     public static Partition ToPartition(this LiveAreaGroup group)
     {

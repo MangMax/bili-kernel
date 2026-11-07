@@ -537,6 +537,11 @@ public static class BiliApis
         /// 网页上的弹幕信息.
         /// </summary>
         public const string WebDanmakuInformation = _liveBase + "/xlive/web-room/v1/index/getDanmuInfo";
+
+        /// <summary>
+        /// 直播间最近的历史弹幕（进房补屏）.
+        /// </summary>
+        public const string HistoryDanmaku = _liveBase + "/xlive/web-room/v1/dM/gethistory";
     }
 
     public static class Article
