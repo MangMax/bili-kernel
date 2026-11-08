@@ -83,11 +83,38 @@ internal static class LiveAdapter
 
         var id = information.RoomId.ToString();
         var playInfo = information.PlayUrlInfo.PlayUrl;
-        var formats = new List<PlayerFormatInformation>();
-        foreach (var item in playInfo.Descriptions)
+        // g_qn_desc 是平台完整清晰度表，不等于本房间真正可用的清晰度；
+        // 只保留各编码 accept_qn / current_qn 里实际出现的 qn，避免直播里冒出 4K/杜比。
+        var availableQualities = new HashSet<int>();
+        foreach (var stream in playInfo.StreamList ?? [])
         {
-            var desc = item.Description;
-            formats.Add(new PlayerFormatInformation(item.Quality, desc, false, false));
+            foreach (var format in stream.FormatList ?? [])
+            {
+                foreach (var codec in format.CodecList ?? [])
+                {
+                    if (codec.AcceptQualities is { Count: > 0 })
+                    {
+                        foreach (var quality in codec.AcceptQualities)
+                        {
+                            availableQualities.Add(quality);
+                        }
+                    }
+
+                    if (codec.CurrentQuality > 0)
+                    {
+                        availableQualities.Add(codec.CurrentQuality);
+                    }
+                }
+            }
+        }
+
+        var descriptions = playInfo.Descriptions ?? [];
+        var formats = new List<PlayerFormatInformation>();
+        foreach (var item in descriptions
+            .Where(item => availableQualities.Count == 0 || availableQualities.Contains(item.Quality))
+            .OrderByDescending(item => item.Quality))
+        {
+            formats.Add(new PlayerFormatInformation(item.Quality, item.Description, false, false));
         }
 
         var lines = new List<LiveLineInformation>();
