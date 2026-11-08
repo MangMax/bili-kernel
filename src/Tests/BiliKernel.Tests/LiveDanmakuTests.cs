@@ -32,7 +32,7 @@ public sealed class LiveDanmakuTests
         Assert.Equal(42, endpoint.UserId);
         Assert.Equal("B3", endpoint.Buvid);
         Assert.Equal(2, endpoint.Hosts.Count);
-        Assert.Equal(new LiveHost("chat.example.test", 2245), endpoint.Hosts[0]);
+        Assert.Equal(new LiveHost("chat.example.test", 443), endpoint.Hosts[0]);
         Assert.Equal(new LiveHost("chat2.example.test", 443), endpoint.Hosts[1]);
 
         var roomInit = Assert.Single(handler.Requests, r => r.Path.EndsWith("/room/v1/Room/room_init", StringComparison.Ordinal));

@@ -534,6 +534,11 @@ public static class BiliApis
         public const string WebPlayInformation = _liveBase + "/xlive/web-room/v2/index/getRoomPlayInfo";
 
         /// <summary>
+        /// 游客（未登录）使用的旧播放信息接口，只返回 FLV 地址.
+        /// </summary>
+        public const string OldPlayInformation = _liveBase + "/room/v1/Room/playUrl";
+
+        /// <summary>
         /// 网页上的弹幕信息.
         /// </summary>
         public const string WebDanmakuInformation = _liveBase + "/xlive/web-room/v1/index/getDanmuInfo";

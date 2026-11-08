@@ -12,6 +12,7 @@ using Richasy.BiliKernel.Content;
 using Richasy.BiliKernel.Http;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Media;
+using Richasy.BiliKernel.Services.Media.Core.Live;
 using Richasy.BiliKernel.Services.Media.Core.Models;
 using RichasyKernel;
 using System.Diagnostics;
@@ -180,6 +181,16 @@ internal sealed class PlayerClient
 
     public async Task<LiveMediaInformation> GetLivePlayDetailAsync(MediaIdentifier live, int quality, bool audioOnly, CancellationToken cancellationToken)
     {
+        if (_tokenResolver.GetToken() is null)
+        {
+            // 未登录先走游客旧接口：部分直播间的新接口对游客返回空线路.
+            var guest = await GetGuestLivePlayDetailAsync(live, quality, cancellationToken).ConfigureAwait(false);
+            if (guest is not null)
+            {
+                return guest;
+            }
+        }
+
         var parameters = new Dictionary<string, string>
         {
             { "room_id", live.Id },
@@ -201,6 +212,44 @@ internal sealed class PlayerClient
             ?? throw new KernelException("解析直播播放详情失败");
 
         return responseObj.Data.ToLiveMediaInformation();
+    }
+
+    private async Task<LiveMediaInformation?> GetGuestLivePlayDetailAsync(MediaIdentifier live, int quality, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var parameters = new Dictionary<string, string>
+            {
+                { "cid", live.Id },
+                { "qn", quality.ToString() },
+                { "platform", "web" },
+            };
+
+            var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.OldPlayInformation));
+            _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly());
+            var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveOldPlayResponse).ConfigureAwait(false);
+            var urls = responseObj?.Data?.Durl?.Select(p => p.Url) ?? [];
+            var line = LivePlayUrlMapper.CreateOldLine(urls, quality);
+            if (line is null)
+            {
+                return null;
+            }
+
+            return new LiveMediaInformation(
+                live.Id,
+                [new PlayerFormatInformation(quality, "高清", false, false)],
+                [line]);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // 旧接口不可用时回落到新接口，不把游客卡在失败状态.
+            return null;
+        }
     }
 
     public async Task<IReadOnlyList<LiveDanmakuInformation>> GetRecentLiveDanmakuAsync(MediaIdentifier live, CancellationToken cancellationToken)
