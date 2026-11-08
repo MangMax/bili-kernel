@@ -142,10 +142,11 @@ public sealed class LiveConnectionPolicyTests
     }
 
     [Fact]
-    public void HostBuildsWebSocketUriWithWssPort()
+    public void HostBuildsWebSocketUriOnDefaultPort()
     {
+        // host_list 的 wss_port（如 2245）是普通 ws 端口，wss 必须走默认 443.
         var uri = new LiveHost("chat.example.test", 2245).ToUri();
 
-        Assert.Equal("wss://chat.example.test:2245/sub", uri.AbsoluteUri);
+        Assert.Equal("wss://chat.example.test/sub", uri.AbsoluteUri);
     }
 }

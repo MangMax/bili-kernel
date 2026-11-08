@@ -16,8 +16,9 @@ internal sealed record LiveHost(string HostName, int WssPort)
     /// <returns>WebSocket 地址.</returns>
     public Uri ToUri()
     {
-        var port = WssPort > 0 ? WssPort : 443;
-        return new Uri($"wss://{HostName}:{port}/sub");
+        // 弹幕服务器只在默认 443 上提供 wss；host_list 里的 wss_port（如 2245）是普通 ws 端口，
+        // 拼进 wss 地址会被服务端直接关闭连接.
+        return new Uri($"wss://{HostName}/sub");
     }
 }
 
@@ -71,7 +72,7 @@ internal sealed class LiveHostPool
                 continue;
             }
 
-            var key = $"{host.HostName}:{host.WssPort}";
+            var key = host.HostName;
             if (seen.Add(key))
             {
                 _hosts.Add(host);

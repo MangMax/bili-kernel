@@ -129,6 +129,7 @@ namespace Richasy.BiliKernel;
 [JsonSerializable(typeof(PgcPlayUrlResponse))]
 [JsonSerializable(typeof(BiliDataResponse<LiveRoomDetailResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<LiveAppPlayResponse>))]
+[JsonSerializable(typeof(BiliDataResponse<LiveOldPlayResponse>))]
 [JsonSerializable(typeof(BiliDataResponse<PgcDetailResponse>))]
 [JsonSerializable(typeof(PgcDetailEnvelope))]
 [JsonSerializable(typeof(PgcTimeLineEnvelope))]

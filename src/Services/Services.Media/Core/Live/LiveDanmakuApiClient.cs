@@ -57,8 +57,8 @@ internal sealed class LiveDanmakuApiClient
                 continue;
             }
 
-            var port = host.WssPort > 0 ? host.WssPort : host.Port > 0 ? host.Port : 443;
-            hosts.Add(new LiveHost(host.Host, port));
+            // wss 走默认 443；接口给的 wss_port 是普通 ws 端口，不能用于 wss.
+            hosts.Add(new LiveHost(host.Host, 443));
         }
 
         if (hosts.Count == 0)
@@ -66,11 +66,10 @@ internal sealed class LiveDanmakuApiClient
             throw new KernelException("无法获取直播弹幕服务器地址");
         }
 
-        var buvid = _buvidManager.Buvid3;
-        if (string.IsNullOrEmpty(buvid))
-        {
-            buvid = await GetBuvidAsync(cancellationToken).ConfigureAwait(false);
-        }
+        // buvid 优先取 Cookie；缺失时由 BuvidManager 走 finger/spi 回退并持久化，
+        // 否则游客换设备后每次都要重新拿标识.
+        await _buvidManager.EnsureAsync(cancellationToken).ConfigureAwait(false);
+        var buvid = _buvidManager.Buvid3 ?? string.Empty;
 
         return new LiveDanmakuEndpoint
         {
@@ -112,12 +111,4 @@ internal sealed class LiveDanmakuApiClient
         return roomId;
     }
 
-    private async Task<string> GetBuvidAsync(CancellationToken cancellationToken)
-    {
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Account.Buvid));
-        _authenticator.AuthorizeRestRequest(request, default, new BiliAuthorizeExecutionSettings { RequireCookie = true });
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseBuvidResponse).ConfigureAwait(false);
-        return responseObj?.Data?.B3 ?? string.Empty;
-    }
 }
