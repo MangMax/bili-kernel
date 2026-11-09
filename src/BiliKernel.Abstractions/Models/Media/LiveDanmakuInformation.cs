@@ -109,6 +109,26 @@ public sealed class LiveDanmakuInformation
     public string? MedalColor { get; init; }
 
     /// <summary>
+    /// Gets 舰长船锚图标地址（勋章左侧）.
+    /// </summary>
+    public string? MedalGuardIcon { get; init; }
+
+    /// <summary>
+    /// Gets 勋章渐变色起点.
+    /// </summary>
+    public string? MedalColorStart { get; init; }
+
+    /// <summary>
+    /// Gets 勋章渐变色终点.
+    /// </summary>
+    public string? MedalColorEnd { get; init; }
+
+    /// <summary>
+    /// Gets 勋章文字颜色.
+    /// </summary>
+    public string? MedalTextColor { get; init; }
+
+    /// <summary>
     /// 粉丝勋章所属主播昵称.
     /// </summary>
     public string? MedalAnchorName { get; init; }

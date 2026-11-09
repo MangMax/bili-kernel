@@ -221,6 +221,7 @@ internal static class LiveMessageParser
             ? ElementString(info[3][2])
             : null;
         var (userFace, nameColor) = ParseUserDecoration(info);
+        var medalDecoration = ParseMedalDecoration(info);
         var emotes = ParseEmotes(info);
 
         var userLevelNumber = info.GetArrayLength() > 4 && info[4].ValueKind == JsonValueKind.Array && info[4].GetArrayLength() > 0
@@ -269,11 +270,44 @@ internal static class LiveMessageParser
             UserLevelNumber = userLevelNumber,
             MedalColor = medalColor,
             MedalAnchorName = medalAnchorName,
+            MedalGuardIcon = medalDecoration.GuardIcon,
+            MedalColorStart = medalDecoration.ColorStart,
+            MedalColorEnd = medalDecoration.ColorEnd,
+            MedalTextColor = medalDecoration.TextColor,
             NameColor = nameColor,
             UserFace = userFace,
             Emotes = emotes,
         };
         return new LiveDanmakuReceivedEvent(danmaku, command, receivedAt);
+    }
+
+    private static (string? GuardIcon, string? ColorStart, string? ColorEnd, string? TextColor) ParseMedalDecoration(JsonElement info)
+    {
+        if (info.ValueKind != JsonValueKind.Array || info.GetArrayLength() < 1
+            || info[0].ValueKind != JsonValueKind.Array)
+        {
+            return (null, null, null, null);
+        }
+
+        for (var i = info[0].GetArrayLength() - 1; i >= 12; i--)
+        {
+            if (info[0][i].ValueKind != JsonValueKind.Object
+                || !info[0][i].TryGetProperty("user", out var user)
+                || user.ValueKind != JsonValueKind.Object
+                || !user.TryGetProperty("medal", out var medal)
+                || medal.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            return (
+                GetOptionalString(medal, "guard_icon"),
+                GetOptionalString(medal, "v2_medal_color_start") ?? GetOptionalString(medal, "v2_medal_color"),
+                GetOptionalString(medal, "v2_medal_color_end") ?? GetOptionalString(medal, "v2_medal_color"),
+                GetOptionalString(medal, "v2_medal_color_text"));
+        }
+
+        return (null, null, null, null);
     }
 
     private static (string? Face, string? NameColor) ParseUserDecoration(JsonElement info)
