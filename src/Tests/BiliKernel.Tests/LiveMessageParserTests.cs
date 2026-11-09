@@ -117,6 +117,39 @@ public sealed class LiveMessageParserTests
     }
 
     [Fact]
+    public void EnterRoomIsParsed()
+    {
+        const string Json = """{"cmd":"INTERACT_WORD","data":{"uid":5,"uname":"Eve","msg_type":1,"fans_medal":{"medal_name":"Fan","medal_level":12,"guard_level":3,"medal_color":16711680}}}""";
+
+        var kind = Parse(Json, out var liveEvent);
+
+        Assert.Equal(LiveMessageParseKind.Event, kind);
+        var user = Assert.IsType<LiveUserEnteredEvent>(liveEvent).User;
+        Assert.Equal(5, user.UserId);
+        Assert.Equal("Eve", user.UserName);
+        Assert.Equal(3, user.GuardLevel);
+        Assert.Equal("Fan", user.MedalName);
+        Assert.Equal("12", user.MedalLevel);
+        Assert.Equal("#FF0000", user.MedalColor);
+    }
+
+    [Fact]
+    public void DanmakuCarriesEmotesAndDecoration()
+    {
+        const string Json = """{"cmd":"DANMU_MSG","info":[[0,1,25,16777215,0,0,0,0,0,0,0,0,0,{"微笑":"https://example.com/smile.png"},{"user":{"base":{"face":"https://example.com/face.jpg","name_color":"#FF00FF"}}}],"hi [微笑]",[7,"Alice",0,0,0],[5,"Fan","",0,16711680],[12,0,"#00AAFF"]]}""";
+
+        var kind = Parse(Json, out var liveEvent);
+
+        Assert.Equal(LiveMessageParseKind.Event, kind);
+        var danmaku = Assert.IsType<LiveDanmakuReceivedEvent>(liveEvent).Danmaku;
+        Assert.NotNull(danmaku.Emotes);
+        Assert.Equal("https://example.com/smile.png", danmaku.Emotes["微笑"].Url);
+        Assert.Equal("https://example.com/face.jpg", danmaku.UserFace);
+        Assert.Equal("#FF00FF", danmaku.NameColor);
+        Assert.Equal("#FF0000", danmaku.MedalColor);
+    }
+
+    [Fact]
     public void HeartbeatReplyProducesPopularity()
     {
         var payload = new byte[4];

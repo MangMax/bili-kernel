@@ -92,4 +92,37 @@ public sealed class LiveDanmakuInformation
     /// 舰长等级：0 无，1 总督，2 提督，3 舰长.
     /// </summary>
     public int GuardLevel { get; init; }
+
+    /// <summary>
+    /// 粉丝勋章颜色（Hex）.
+    /// </summary>
+    public string? MedalColor { get; init; }
+
+    /// <summary>
+    /// 粉丝勋章所属主播昵称.
+    /// </summary>
+    public string? MedalAnchorName { get; init; }
+
+    /// <summary>
+    /// 昵称颜色（装扮）；为空时使用默认颜色.
+    /// </summary>
+    public string? NameColor { get; init; }
+
+    /// <summary>
+    /// 用户头像地址.
+    /// </summary>
+    public string? UserFace { get; init; }
+
+    /// <summary>
+    /// 本条弹幕携带的表情包索引；键为文本里的 [名称]，值为图片信息.
+    /// </summary>
+    public IReadOnlyDictionary<string, LiveDanmakuEmote>? Emotes { get; init; }
 }
+
+/// <summary>
+/// 直播弹幕里的一个表情包.
+/// </summary>
+/// <param name="Url">图片地址.</param>
+/// <param name="Width">原始宽度.</param>
+/// <param name="Height">原始高度.</param>
+public sealed record LiveDanmakuEmote(string Url, int Width, int Height);
