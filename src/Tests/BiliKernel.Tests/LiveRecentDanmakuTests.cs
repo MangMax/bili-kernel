@@ -67,6 +67,26 @@ public sealed class LiveRecentDanmakuTests
     }
 
     [Fact]
+    public async Task NestedUserStructureCarriesNameMedalAndEmotes()
+    {
+        var (_, service) = Create("""{"code":0,"data":{"room":[{"text":"hi [doge]","user":{"uid":77,"base":{"name":"Nested","face":"https://example.com/f.jpg"},"medal":{"name":"Fan","level":9,"is_light":1,"v2_medal_color_start":"#FF6699"},"guard":{"level":3}},"emots":{"[doge]":{"url":"https://example.com/doge.png","width":20,"height":20}},"user_level":21,"timeline":"2026-11-08 12:00:00","color":16777215}]}}""");
+
+        var messages = await service.GetRecentLiveDanmakuAsync(new MediaIdentifier("1234", null, null));
+
+        var message = Assert.Single(messages);
+        Assert.Equal("Nested", message.UserName);
+        Assert.Equal(77, message.UserId);
+        Assert.Equal("https://example.com/f.jpg", message.UserFace);
+        Assert.Equal("Fan", message.MedalName);
+        Assert.Equal("9", message.MedalLevel);
+        Assert.Equal("#FF6699", message.MedalColor);
+        Assert.Equal(3, message.GuardLevel);
+        Assert.Equal(21, message.UserLevelNumber);
+        Assert.NotNull(message.Emotes);
+        Assert.Equal("https://example.com/doge.png", message.Emotes["doge"].Url);
+    }
+
+    [Fact]
     public async Task MissingNicknameFallsBackToUnameThenUid()
     {
         var (_, service) = Create("""{"code":0,"data":{"room":[{"text":"has uname","uid":11,"uname":"U11","isadmin":0,"guard_level":0,"user_level":5,"timeline":"2026-11-08 12:00:00","color":16777215},{"text":"uid only","uid":22,"isadmin":0,"guard_level":0,"user_level":5,"timeline":"2026-11-08 12:00:01","color":16777215}]}}""");

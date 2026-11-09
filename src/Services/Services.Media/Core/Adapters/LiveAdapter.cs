@@ -166,28 +166,98 @@ internal static class LiveAdapter
                 continue;
             }
 
-            // gethistory 在部分账号/房间下只回 uid，不回 nickname；
-            // 昵称缺失时退回 uname，再退回可读的“用户+uid”，避免聊天首屏出现无发言人。
-            var userName = !string.IsNullOrWhiteSpace(item.NickName)
-                ? item.NickName
-                : !string.IsNullOrWhiteSpace(item.UserName)
-                    ? item.UserName
-                    : item.UserId > 0
-                        ? $"用户{item.UserId}"
-                        : "匿名用户";
+            // gethistory 有两套结构：旧版平铺 nickname/user_level，新版嵌在 user.base / user.medal 里。
+            // 按新版优先解析，再回退旧版，最后才用可读占位，避免首屏出现无发言人。
+            var userId = item.User?.Uid > 0 ? item.User.Uid : item.UserId;
+            var userName = item.User?.Base?.Name;
+            if (string.IsNullOrWhiteSpace(userName))
+            {
+                userName = item.NickName;
+            }
+
+            if (string.IsNullOrWhiteSpace(userName))
+            {
+                userName = item.UserName;
+            }
+
+            if (string.IsNullOrWhiteSpace(userName))
+            {
+                userName = userId > 0 ? $"用户{userId}" : "匿名用户";
+            }
+
+            var level = item.UserLevel;
+            var medalName = item.User?.Medal is { } medal
+                ? (!string.IsNullOrEmpty(medal.Name) ? medal.Name : medal.LegacyName)
+                : null;
+            var medalLevel = item.User?.Medal is { } medalInfo
+                ? (medalInfo.Level > 0 ? medalInfo.Level : medalInfo.LegacyLevel)
+                : 0;
+            var medalColor = item.User?.Medal is { } medalValue
+                ? ToHexColor(ParseMedalColor(medalValue.StartColor) ?? ParseMedalColor(medalValue.LegacyColor) ?? 0)
+                : null;
+            var guardLevel = item.User?.Guard?.Level ?? item.GuardLevel;
+            var emotes = BuildHistoryEmotes(item);
             var danmaku = new LiveDanmakuInformation(
                 item.Text,
                 ToHexColor(item.Color),
                 userName,
-                item.UserLevel > 0 ? "UL" + item.UserLevel.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty,
+                level > 0 ? "UL" + level.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty,
                 string.Empty,
                 item.IsAdmin == 1)
             {
-                UserId = item.UserId,
-                GuardLevel = item.GuardLevel,
+                UserId = userId,
+                GuardLevel = guardLevel,
+                UserLevelNumber = level,
+                UserFace = item.User?.Base?.Face,
+                MedalName = string.IsNullOrEmpty(medalName) ? null : medalName,
+                MedalLevel = medalLevel > 0 ? medalLevel.ToString(System.Globalization.CultureInfo.InvariantCulture) : null,
+                MedalColor = string.IsNullOrEmpty(medalName) ? null : medalColor,
+                Emotes = emotes,
             };
             result.Add(danmaku);
         }
+    }
+
+    private static int? ParseMedalColor(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        if (raw.StartsWith('#'))
+        {
+            return int.TryParse(raw[1..], System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var hex)
+                ? hex
+                : null;
+        }
+
+        return int.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+    }
+
+    private static IReadOnlyDictionary<string, LiveDanmakuEmote>? BuildHistoryEmotes(LiveHistoryDanmakuItem item)
+    {
+        var result = new Dictionary<string, LiveDanmakuEmote>(StringComparer.Ordinal);
+        if (item.Emots is { Count: > 0 })
+        {
+            foreach (var pair in item.Emots)
+            {
+                if (!string.IsNullOrEmpty(pair.Value?.Url))
+                {
+                    result[pair.Key.Trim('[', ']')] = new LiveDanmakuEmote(pair.Value.Url, pair.Value.Width, pair.Value.Height);
+                }
+            }
+        }
+
+        if (!string.IsNullOrEmpty(item.Emoticon?.Url))
+        {
+            // 旧字段只给一个表情，通常就是整条正文；用正文本身作为键。
+            result[item.Text.Trim('[', ']')] = new LiveDanmakuEmote(item.Emoticon.Url, item.Emoticon.Width, item.Emoticon.Height);
+        }
+
+        return result.Count == 0 ? null : result;
     }
 
     private static string ToHexColor(int color)
