@@ -223,6 +223,7 @@ internal static class LiveMessageParser
         var (userFace, nameColor) = ParseUserDecoration(info);
         var medalDecoration = ParseMedalDecoration(info);
         var wealth = ParseWealth(info);
+        var userDebugJson = wealth.Level is null ? GetUserDebugJson(info) : null;
         var emotes = ParseEmotes(info);
 
         var userLevelNumber = info.GetArrayLength() > 4 && info[4].ValueKind == JsonValueKind.Array && info[4].GetArrayLength() > 0
@@ -271,6 +272,7 @@ internal static class LiveMessageParser
             UserLevelNumber = userLevelNumber,
             MedalColor = medalColor,
             MedalAnchorName = medalAnchorName,
+            UserDebugJson = userDebugJson,
             WealthLevel = wealth.Level,
             WealthIconKey = wealth.IconKey,
             MedalGuardIcon = medalDecoration.GuardIcon,
@@ -282,6 +284,29 @@ internal static class LiveMessageParser
             Emotes = emotes,
         };
         return new LiveDanmakuReceivedEvent(danmaku, command, receivedAt);
+    }
+
+    private static int _userDebugBudget = 5;
+
+    private static string? GetUserDebugJson(JsonElement info)
+    {
+        if (Volatile.Read(ref _userDebugBudget) <= 0)
+        {
+            return null;
+        }
+
+        for (var i = info[0].GetArrayLength() - 1; i >= 12; i--)
+        {
+            if (info[0][i].ValueKind == JsonValueKind.Object
+                && info[0][i].TryGetProperty("user", out var user)
+                && user.ValueKind == JsonValueKind.Object)
+            {
+                Interlocked.Decrement(ref _userDebugBudget);
+                return user.GetRawText();
+            }
+        }
+
+        return null;
     }
 
     private static (int? Level, string? IconKey) ParseWealth(JsonElement info)

@@ -109,6 +109,11 @@ public sealed class LiveDanmakuInformation
     public string? MedalColor { get; init; }
 
     /// <summary>
+    /// Gets 调试用的用户原始 JSON（仅在排查字段缺失时填充）.
+    /// </summary>
+    public string? UserDebugJson { get; init; }
+
+    /// <summary>
     /// Gets 荣耀等级（财富等级）.
     /// </summary>
     public int? WealthLevel { get; init; }
