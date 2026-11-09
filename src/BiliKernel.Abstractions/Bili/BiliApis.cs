@@ -539,6 +539,11 @@ public static class BiliApis
         public const string OldPlayInformation = _liveBase + "/room/v1/Room/playUrl";
 
         /// <summary>
+        /// 直播表情包（需要登录）.
+        /// </summary>
+        public const string Emoticons = _liveBase + "/xlive/web-ucenter/v2/emoticon/GetEmoticons";
+
+        /// <summary>
         /// 网页上的弹幕信息.
         /// </summary>
         public const string WebDanmakuInformation = _liveBase + "/xlive/web-room/v1/index/getDanmuInfo";

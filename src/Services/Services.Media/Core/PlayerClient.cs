@@ -278,6 +278,93 @@ internal sealed class PlayerClient
         return responseObj.Data.ToRecentLiveDanmaku();
     }
 
+    private static string? GetOptionalString(JsonElement element, string name)
+        => element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+
+    private static int GetOptionalInt32(JsonElement element, string name)
+        => element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var number)
+                ? number
+                : 0;
+
+    public async Task<IReadOnlyList<LiveEmoticonItem>> GetLiveEmoticonsAsync(string roomId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var parameters = new Dictionary<string, string>
+            {
+                { "platform", "pc" },
+                { "room_id", roomId },
+            };
+
+            var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.Emoticons));
+            _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly());
+            var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("data", out var data)
+                || data.ValueKind != JsonValueKind.Object
+                || !data.TryGetProperty("data", out var packages)
+                || packages.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            var result = new List<LiveEmoticonItem>();
+            foreach (var package in packages.EnumerateArray())
+            {
+                if (package.ValueKind != JsonValueKind.Object
+                    || !package.TryGetProperty("emoticons", out var emoticons)
+                    || emoticons.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var emote in emoticons.EnumerateArray())
+                {
+                    if (emote.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
+
+                    var text = GetOptionalString(emote, "emoji");
+                    var unique = GetOptionalString(emote, "emoticon_unique");
+                    var url = GetOptionalString(emote, "url");
+                    if (string.IsNullOrEmpty(url) || (string.IsNullOrEmpty(text) && string.IsNullOrEmpty(unique)))
+                    {
+                        continue;
+                    }
+
+                    result.Add(new LiveEmoticonItem(
+                        text ?? string.Empty,
+                        unique ?? string.Empty,
+                        url,
+                        GetOptionalInt32(emote, "width"),
+                        GetOptionalInt32(emote, "height")));
+                }
+            }
+
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // 表情只是展示增强：接口失败不影响聊天与播放。
+            return [];
+        }
+    }
+
     public async Task<PgcPlayerView> GetPgcPageDetailAsync(string? seasonId, string? episodeId, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>

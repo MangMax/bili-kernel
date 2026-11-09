@@ -57,6 +57,14 @@ public interface IPlayerService
     Task<IReadOnlyList<LiveDanmakuInformation>> GetRecentLiveDanmakuAsync(MediaIdentifier live, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 获取直播间可用的表情包，用于把正文里的 [名称] 渲染成图片。
+    /// </summary>
+    /// <param name="roomId">直播间标识.</param>
+    /// <param name="cancellationToken">取消令牌.</param>
+    /// <returns>表情列表；未登录或接口失败时返回空集合.</returns>
+    Task<IReadOnlyList<LiveEmoticonItem>> GetLiveEmoticonsAsync(string roomId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 获取 PGC 页面详情.
     /// </summary>
     Task<PgcPlayerView> GetPgcPageDetailAsync(string? seasonId = default, string? episodeId = default, CancellationToken cancellationToken = default);
