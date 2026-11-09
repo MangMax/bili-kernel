@@ -239,9 +239,19 @@ internal static class LiveMessageParser
                 ? guard
                 : 0;
 
+        // 头衔只有 CSS 标识（title-233-1），图标要靠 user_title/TitleList 映射。
+        var userTitleId = info[0].ValueKind == JsonValueKind.Array
+            && info[0].GetArrayLength() > 15
+            && info[0][15].ValueKind == JsonValueKind.Object
+            && info[0][15].TryGetProperty("title", out var titleElement)
+            && titleElement.ValueKind == JsonValueKind.Object
+                ? (GetOptionalString(titleElement, "title_css_id") ?? GetOptionalString(titleElement, "old_title_css_id"))
+                : null;
+
         var danmaku = new LiveDanmakuInformation(text, textColor, userName, userLevel, levelColor, isAdmin)
         {
             UserId = userId,
+            UserTitleId = userTitleId,
             MedalName = medalName,
             MedalLevel = medalLevel,
             IsVip = isVip,

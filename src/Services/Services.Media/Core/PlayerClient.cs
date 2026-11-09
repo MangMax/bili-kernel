@@ -278,6 +278,77 @@ internal sealed class PlayerClient
         return responseObj.Data.ToRecentLiveDanmaku();
     }
 
+    public async Task<IReadOnlyList<LiveTitleItem>> GetLiveTitlesAsync(CancellationToken cancellationToken)
+    {
+        var result = new List<LiveTitleItem>();
+        try
+        {
+            const int PageSize = 20;
+            const int MaxPages = 80;
+            for (var page = 1; page <= MaxPages; page++)
+            {
+                var parameters = new Dictionary<string, string>
+                {
+                    { "normal", "0" },
+                    { "special", "0" },
+                    { "keyword", string.Empty },
+                    { "had", "0" },
+                    { "page", page.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+                    { "page_size", PageSize.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+                };
+
+                var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.Titles));
+                _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly());
+                var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                using var document = JsonDocument.Parse(json);
+                var root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object
+                    || !root.TryGetProperty("data", out var data)
+                    || data.ValueKind != JsonValueKind.Object
+                    || !data.TryGetProperty("list", out var list)
+                    || list.ValueKind != JsonValueKind.Array)
+                {
+                    break;
+                }
+
+                var count = 0;
+                foreach (var item in list.EnumerateArray())
+                {
+                    count++;
+                    var id = GetOptionalString(item, "identification") ?? GetOptionalString(item, "old_identification");
+                    var url = GetOptionalString(item, "web_pic_url") ?? GetOptionalString(item, "url");
+                    if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(url))
+                    {
+                        continue;
+                    }
+
+                    result.Add(new LiveTitleItem(
+                        id,
+                        GetOptionalString(item, "name") ?? string.Empty,
+                        url,
+                        GetOptionalInt32(item, "width"),
+                        GetOptionalInt32(item, "height")));
+                }
+
+                if (count < PageSize)
+                {
+                    break;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // 头衔只是展示增强：接口失败不影响聊天与播放。
+        }
+
+        return result;
+    }
+
     private static string? GetOptionalString(JsonElement element, string name)
         => element.ValueKind == JsonValueKind.Object
             && element.TryGetProperty(name, out var value)

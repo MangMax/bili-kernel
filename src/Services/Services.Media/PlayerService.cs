@@ -78,6 +78,10 @@ public sealed class PlayerService : IPlayerService
         => _client.GetLiveEmoticonsAsync(roomId, cancellationToken);
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<LiveTitleItem>> GetLiveTitlesAsync(CancellationToken cancellationToken = default)
+        => _client.GetLiveTitlesAsync(cancellationToken);
+
+    /// <inheritdoc/>
     public Task<PgcPlayerView> GetPgcPageDetailAsync(string? seasonId = null, string? episodeId = null, CancellationToken cancellationToken = default)
         => _client.GetPgcPageDetailAsync(seasonId, episodeId, cancellationToken);
 

@@ -94,6 +94,11 @@ public sealed class LiveDanmakuInformation
     public string? UserTitle { get; init; }
 
     /// <summary>
+    /// Gets 直播头衔标识，形如 title-233-1；图标需用 user_title/TitleList 映射.
+    /// </summary>
+    public string? UserTitleId { get; init; }
+
+    /// <summary>
     /// 舰长等级：0 无，1 总督，2 提督，3 舰长.
     /// </summary>
     public int GuardLevel { get; init; }

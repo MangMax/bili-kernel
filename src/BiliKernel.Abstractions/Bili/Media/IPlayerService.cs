@@ -65,6 +65,13 @@ public interface IPlayerService
     Task<IReadOnlyList<LiveEmoticonItem>> GetLiveEmoticonsAsync(string roomId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 获取直播头衔列表，用于把弹幕里的 title-233-1 映射成图标。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌.</param>
+    /// <returns>头衔列表；未登录时为空集合.</returns>
+    Task<IReadOnlyList<LiveTitleItem>> GetLiveTitlesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 获取 PGC 页面详情.
     /// </summary>
     Task<PgcPlayerView> GetPgcPageDetailAsync(string? seasonId = default, string? episodeId = default, CancellationToken cancellationToken = default);
