@@ -223,9 +223,10 @@ internal static class LiveMessageParser
         var (userFace, nameColor) = ParseUserDecoration(info);
         var emotes = ParseEmotes(info);
 
-        var userLevel = info.GetArrayLength() > 4 && info[4].ValueKind == JsonValueKind.Array && info[4].GetArrayLength() > 0
-            ? "UL" + ElementString(info[4][0])
-            : string.Empty;
+        var userLevelNumber = info.GetArrayLength() > 4 && info[4].ValueKind == JsonValueKind.Array && info[4].GetArrayLength() > 0
+            ? (int)ElementLong(info[4][0])
+            : 0;
+        var userLevel = userLevelNumber > 0 ? "UL" + userLevelNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
         var levelColor = info.GetArrayLength() > 4 && info[4].ValueKind == JsonValueKind.Array && info[4].GetArrayLength() > 2
             ? ElementString(info[4][2]) ?? string.Empty
             : string.Empty;
@@ -246,6 +247,7 @@ internal static class LiveMessageParser
             IsVip = isVip,
             UserTitle = userTitle,
             GuardLevel = guardLevel,
+            UserLevelNumber = userLevelNumber,
             MedalColor = medalColor,
             MedalAnchorName = medalAnchorName,
             NameColor = nameColor,

@@ -54,6 +54,11 @@ public sealed class LiveDanmakuInformation
     public string UserLevel { get; }
 
     /// <summary>
+    /// 用户等级数值（用于网页同款等级图）.
+    /// </summary>
+    public int UserLevelNumber { get; init; }
+
+    /// <summary>
     /// 等级颜色.
     /// </summary>
     public string UserLevelColor { get; }
