@@ -308,9 +308,6 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
             platform = "web",
             type = 2,
             clientver = "1.4.3",
-            scene = "room",
-            support_ack = true,
-            queue_uuid = Guid.NewGuid().ToString("N")[..8],
         };
         var body = JsonSerializer.SerializeToUtf8Bytes(message, SourceGenerationContext.Default.EnterRoomMessage);
         await socket.SendAsync(LivePacketCodec.Encode(7, 1, body), cancellationToken).ConfigureAwait(false);

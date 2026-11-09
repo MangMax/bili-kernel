@@ -14,18 +14,4 @@ internal sealed class EnterRoomMessage
     public int type { get; set; } = 2;
     public string clientver { get; set; } = "1.4.3";
 
-    /// <summary>
-    /// 连接场景；网页聊天使用 room，带上它服务端才会下发完整用户字段.
-    /// </summary>
-    public string scene { get; set; } = "room";
-
-    /// <summary>
-    /// 是否要求回执.
-    /// </summary>
-    public bool support_ack { get; set; } = true;
-
-    /// <summary>
-    /// 会话标识；网页每次连接随机生成.
-    /// </summary>
-    public string queue_uuid { get; set; } = string.Empty;
 }

@@ -95,6 +95,6 @@ public sealed class LiveDanmakuTests
         var buvid = new BuvidManager(cookies, new InMemoryBuvidStore("B3", "B4"), handler);
         var http = new BiliHttpClient(handler, buvid);
         var authenticator = new BiliAuthenticator(cookies, tokens, buvid, http);
-        return (handler, new LiveDanmakuApiClient(http, authenticator, tokens, buvid), tokens);
+        return (handler, new LiveDanmakuApiClient(http, authenticator, tokens, cookies, buvid), tokens);
     }
 }

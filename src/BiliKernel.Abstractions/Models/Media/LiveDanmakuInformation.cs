@@ -109,21 +109,6 @@ public sealed class LiveDanmakuInformation
     public string? MedalColor { get; init; }
 
     /// <summary>
-    /// Gets 调试用的用户原始 JSON（仅在排查字段缺失时填充）.
-    /// </summary>
-    public string? UserDebugJson { get; init; }
-
-    /// <summary>
-    /// Gets 荣耀等级（财富等级）.
-    /// </summary>
-    public int? WealthLevel { get; init; }
-
-    /// <summary>
-    /// Gets 荣耀等级图标标识，形如 ChronosWealth_4.png；需要资源表换地址.
-    /// </summary>
-    public string? WealthIconKey { get; init; }
-
-    /// <summary>
     /// Gets 舰长船锚图标地址（勋章左侧）.
     /// </summary>
     public string? MedalGuardIcon { get; init; }

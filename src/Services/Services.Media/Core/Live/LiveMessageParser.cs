@@ -222,8 +222,6 @@ internal static class LiveMessageParser
             : null;
         var (userFace, nameColor) = ParseUserDecoration(info);
         var medalDecoration = ParseMedalDecoration(info);
-        var wealth = ParseWealth(info);
-        var userDebugJson = wealth.Level is null ? GetUserDebugJson(info) : null;
         var emotes = ParseEmotes(info);
 
         var userLevelNumber = info.GetArrayLength() > 4 && info[4].ValueKind == JsonValueKind.Array && info[4].GetArrayLength() > 0
@@ -272,9 +270,6 @@ internal static class LiveMessageParser
             UserLevelNumber = userLevelNumber,
             MedalColor = medalColor,
             MedalAnchorName = medalAnchorName,
-            UserDebugJson = userDebugJson,
-            WealthLevel = wealth.Level,
-            WealthIconKey = wealth.IconKey,
             MedalGuardIcon = medalDecoration.GuardIcon,
             MedalColorStart = medalDecoration.ColorStart,
             MedalColorEnd = medalDecoration.ColorEnd,
@@ -284,55 +279,6 @@ internal static class LiveMessageParser
             Emotes = emotes,
         };
         return new LiveDanmakuReceivedEvent(danmaku, command, receivedAt);
-    }
-
-    private static int _userDebugBudget = 50;
-
-    private static string? GetUserDebugJson(JsonElement info)
-    {
-        if (Volatile.Read(ref _userDebugBudget) <= 0)
-        {
-            return null;
-        }
-
-        for (var i = info[0].GetArrayLength() - 1; i >= 12; i--)
-        {
-            if (info[0][i].ValueKind == JsonValueKind.Object
-                && info[0][i].TryGetProperty("user", out var user)
-                && user.ValueKind == JsonValueKind.Object)
-            {
-                Interlocked.Decrement(ref _userDebugBudget);
-                return user.GetRawText();
-            }
-        }
-
-        return null;
-    }
-
-    private static (int? Level, string? IconKey) ParseWealth(JsonElement info)
-    {
-        if (info.ValueKind != JsonValueKind.Array || info.GetArrayLength() < 1
-            || info[0].ValueKind != JsonValueKind.Array)
-        {
-            return (null, null);
-        }
-
-        for (var i = info[0].GetArrayLength() - 1; i >= 12; i--)
-        {
-            if (info[0][i].ValueKind != JsonValueKind.Object
-                || !info[0][i].TryGetProperty("user", out var user)
-                || user.ValueKind != JsonValueKind.Object
-                || !user.TryGetProperty("wealth", out var wealth)
-                || wealth.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
-
-            var level = GetOptionalInt32(wealth, "level");
-            return (level > 0 ? level : null, GetOptionalString(wealth, "dm_icon_key"));
-        }
-
-        return (null, null);
     }
 
     private static (string? GuardIcon, string? ColorStart, string? ColorEnd, string? TextColor) ParseMedalDecoration(JsonElement info)
