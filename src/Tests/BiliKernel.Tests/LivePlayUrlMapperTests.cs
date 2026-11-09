@@ -1,6 +1,7 @@
 // Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
+using Richasy.BiliKernel.Models.Media;
 using Richasy.BiliKernel.Services.Media.Core.Live;
 using Xunit;
 
@@ -22,6 +23,14 @@ public class LivePlayUrlMapperTests
         Assert.Equal("/live/a.flv", url.Route);
         Assert.Equal("?expires=1&sign=x", url.Query);
         Assert.Equal("https://cn.example.com/live/a.flv?expires=1&sign=x", url.ToString());
+    }
+
+    [Fact]
+    public void ComposesSingleQueryWhenRouteAndQueryBothStartWithQuestionMark()
+    {
+        var url = new LivePlayUrl("http_hls", "https://cdn.example.com", "/live/a.m3u8?", "?expires=1&sign=x");
+
+        Assert.Equal("https://cdn.example.com/live/a.m3u8?expires=1&sign=x", url.ToString());
     }
 
     [Fact]
