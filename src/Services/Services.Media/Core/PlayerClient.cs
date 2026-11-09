@@ -206,7 +206,9 @@ internal sealed class PlayerClient
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.WebPlayInformation));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { NeedCSRF = true, ForceNoToken = true, RequireCookie = true });
+        // 这是 web-room 端点：必须按 Web 身份签名。默认的 App 身份会附加 mobi_app/platform=ios，
+        // 取回的地址带 pt=ios，部分 CDN 节点对这类签名直接返回 403（AllLive 用 platform=web 从不触发）。
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveAppPlayResponse).ConfigureAwait(false)
             ?? throw new KernelException("解析直播播放详情失败");
