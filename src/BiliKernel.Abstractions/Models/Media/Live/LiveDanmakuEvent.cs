@@ -386,4 +386,9 @@ public enum LiveOnlineCountSource
     /// WATCHED_CHANGE 中的看过人数.
     /// </summary>
     Watched,
+
+    /// <summary>
+    /// ONLINE_RANK_COUNT 中的在线观看人数.
+    /// </summary>
+    Viewers,
 }

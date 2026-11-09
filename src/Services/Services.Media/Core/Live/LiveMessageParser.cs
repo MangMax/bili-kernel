@@ -163,6 +163,9 @@ internal static class LiveMessageParser
             case "WATCHED_CHANGE":
                 liveEvent = ParseWatchedChange(command, root, receivedAt);
                 return liveEvent is null ? LiveMessageParseKind.Malformed : LiveMessageParseKind.Event;
+            case "ONLINE_RANK_COUNT":
+                liveEvent = ParseOnlineRankCount(command, root, receivedAt);
+                return liveEvent is null ? LiveMessageParseKind.Ignored : LiveMessageParseKind.Event;
             case "ROOM_CHANGE":
                 liveEvent = ParseRoomChange(command, root, receivedAt);
                 return liveEvent is null ? LiveMessageParseKind.Malformed : LiveMessageParseKind.Event;
@@ -530,6 +533,19 @@ internal static class LiveMessageParser
         var count = GetOptionalInt32(data, "num");
         var text = GetOptionalString(data, "text_large") ?? GetOptionalString(data, "text_small");
         return new LiveOnlineCountChangedEvent(count, LiveOnlineCountSource.Watched, text, command, receivedAt);
+    }
+
+    private static LiveOnlineCountChangedEvent? ParseOnlineRankCount(string command, JsonElement root, DateTimeOffset receivedAt)
+    {
+        if (!root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var count = GetOptionalInt32(data, "count");
+        return count < 0
+            ? null
+            : new LiveOnlineCountChangedEvent(count, LiveOnlineCountSource.Viewers, GetOptionalString(data, "count_text"), command, receivedAt);
     }
 
     private static LiveRoomTitleChangedEvent? ParseRoomChange(string command, JsonElement root, DateTimeOffset receivedAt)
