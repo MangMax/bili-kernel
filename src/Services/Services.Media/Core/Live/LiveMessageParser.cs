@@ -286,7 +286,7 @@ internal static class LiveMessageParser
         return new LiveDanmakuReceivedEvent(danmaku, command, receivedAt);
     }
 
-    private static int _userDebugBudget = 5;
+    private static int _userDebugBudget = 50;
 
     private static string? GetUserDebugJson(JsonElement info)
     {
