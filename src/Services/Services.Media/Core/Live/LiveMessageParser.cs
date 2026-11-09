@@ -240,13 +240,22 @@ internal static class LiveMessageParser
                 : 0;
 
         // 头衔只有 CSS 标识（title-233-1），图标要靠 user_title/TitleList 映射。
-        var userTitleId = info[0].ValueKind == JsonValueKind.Array
+        // 头衔在 info[0][15].user.title 下，不在 info[0][15] 本身。
+        string? userTitleId = null;
+        if (info[0].ValueKind == JsonValueKind.Array
             && info[0].GetArrayLength() > 15
             && info[0][15].ValueKind == JsonValueKind.Object
-            && info[0][15].TryGetProperty("title", out var titleElement)
-            && titleElement.ValueKind == JsonValueKind.Object
-                ? (GetOptionalString(titleElement, "title_css_id") ?? GetOptionalString(titleElement, "old_title_css_id"))
-                : null;
+            && info[0][15].TryGetProperty("user", out var titleUser)
+            && titleUser.ValueKind == JsonValueKind.Object
+            && titleUser.TryGetProperty("title", out var titleElement)
+            && titleElement.ValueKind == JsonValueKind.Object)
+        {
+            userTitleId = GetOptionalString(titleElement, "title_css_id");
+            if (string.IsNullOrEmpty(userTitleId))
+            {
+                userTitleId = GetOptionalString(titleElement, "old_title_css_id");
+            }
+        }
 
         var danmaku = new LiveDanmakuInformation(text, textColor, userName, userLevel, levelColor, isAdmin)
         {
