@@ -67,6 +67,18 @@ public sealed class LiveRecentDanmakuTests
     }
 
     [Fact]
+    public async Task UserLevelAsArrayDoesNotFailBackfill()
+    {
+        var (_, service) = Create("""{"code":0,"data":{"room":[{"text":"array level","uid":1001,"nickname":"viewer","isadmin":0,"guard_level":0,"user_level":[12],"timeline":"2026-11-08 12:00:00","color":16777215}]}}""");
+
+        var messages = await service.GetRecentLiveDanmakuAsync(new MediaIdentifier("1234", null, null));
+
+        var message = Assert.Single(messages);
+        Assert.Equal("array level", message.Text);
+        Assert.Equal("UL12", message.UserLevel);
+    }
+
+    [Fact]
     public async Task RejectionPropagatesAsKernelException()
     {
         var (_, service) = Create("""{"code":-400,"message":"room not found"}""");

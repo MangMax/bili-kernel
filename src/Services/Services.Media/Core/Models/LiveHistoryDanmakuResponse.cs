@@ -62,6 +62,7 @@ internal sealed class LiveHistoryDanmakuItem
     /// 用户等级.
     /// </summary>
     [JsonPropertyName("user_level")]
+    [JsonConverter(typeof(FlexibleInt32Converter))]
     public int UserLevel { get; set; }
 
     /// <summary>
