@@ -117,6 +117,21 @@ public sealed class LiveMessageParserTests
     }
 
     [Fact]
+    public void EmotesAreReadFromExtraPayload()
+    {
+        const string Json = """{"cmd":"DANMU_MSG","info":[[0,1,25,16777215,0,0,0,0,0,0,0,0,0,{},0,{"user":{"base":{"name":"A"}},"extra":"{\"emots\":{\"[doge]\":{\"url\":\"https://e/doge.png\",\"width\":20,\"height\":20,\"emoticon_unique\":\"title-xx-xz\"}}}"}],"hi [doge]",[7,"A",0,0,0]]}""";
+
+        var kind = Parse(Json, out var liveEvent);
+
+        Assert.Equal(LiveMessageParseKind.Event, kind);
+        var danmaku = Assert.IsType<LiveDanmakuReceivedEvent>(liveEvent).Danmaku;
+        Assert.NotNull(danmaku.Emotes);
+        Assert.Equal("https://e/doge.png", danmaku.Emotes["doge"].Url);
+        // 部分弹幕用 emoticon_unique 作为文本标记。
+        Assert.Equal("https://e/doge.png", danmaku.Emotes["title-xx-xz"].Url);
+    }
+
+    [Fact]
     public void EnterRoomIsParsed()
     {
         const string Json = """{"cmd":"INTERACT_WORD","data":{"uid":5,"uname":"Eve","msg_type":1,"fans_medal":{"medal_name":"Fan","medal_level":12,"guard_level":3,"medal_color":16711680}}}""";

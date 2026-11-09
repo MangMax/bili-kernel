@@ -298,18 +298,61 @@ internal static class LiveMessageParser
 
     private static IReadOnlyDictionary<string, LiveDanmakuEmote>? ParseEmotes(JsonElement info)
     {
-        if (info.ValueKind != JsonValueKind.Array || info.GetArrayLength() < 1
-            || info[0].ValueKind != JsonValueKind.Array || info[0].GetArrayLength() <= 13
-            || info[0][13].ValueKind != JsonValueKind.Object)
+        if (info.ValueKind != JsonValueKind.Array || info.GetArrayLength() < 1 || info[0].ValueKind != JsonValueKind.Array)
         {
             return null;
         }
 
         var result = new Dictionary<string, LiveDanmakuEmote>(StringComparer.Ordinal);
-        foreach (var property in info[0][13].EnumerateObject())
+        var meta = info[0];
+
+        // 新版：表情在 info[0][15].extra（JSON 字符串）的 emots 里；
+        // 旧版：info[0][13] 直接是名称→地址/对象的字典。
+        if (meta.GetArrayLength() > 15 && meta[15].ValueKind == JsonValueKind.Object
+            && meta[15].TryGetProperty("extra", out var extraElement)
+            && extraElement.ValueKind == JsonValueKind.String
+            && TryParseJsonObject(extraElement.GetString(), out var extra)
+            && extra.TryGetProperty("emots", out var emots)
+            && emots.ValueKind == JsonValueKind.Object)
+        {
+            CollectEmotes(emots, result);
+        }
+
+        if (meta.GetArrayLength() > 13 && meta[13].ValueKind == JsonValueKind.Object)
+        {
+            CollectEmotes(meta[13], result);
+        }
+
+        return result.Count == 0 ? null : result;
+    }
+
+    private static bool TryParseJsonObject(string? json, out JsonElement element)
+    {
+        element = default;
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            element = document.RootElement.Clone();
+            return element.ValueKind == JsonValueKind.Object;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static void CollectEmotes(JsonElement source, Dictionary<string, LiveDanmakuEmote> result)
+    {
+        foreach (var property in source.EnumerateObject())
         {
             var value = property.Value;
             string? url = null;
+            string? unique = null;
             var width = 0;
             var height = 0;
             if (value.ValueKind == JsonValueKind.String)
@@ -318,18 +361,29 @@ internal static class LiveMessageParser
             }
             else if (value.ValueKind == JsonValueKind.Object)
             {
-                url = GetOptionalString(value, "url");
+                url = GetOptionalString(value, "url") ?? GetOptionalString(value, "emoticon_url");
+                unique = GetOptionalString(value, "emoticon_unique");
                 width = GetOptionalInt32(value, "width");
                 height = GetOptionalInt32(value, "height");
             }
 
-            if (!string.IsNullOrEmpty(url))
+            if (string.IsNullOrEmpty(url))
             {
-                result[property.Name] = new LiveDanmakuEmote(url, width, height);
+                continue;
+            }
+
+            var emote = new LiveDanmakuEmote(url, width, height, unique);
+            var name = property.Name.Trim('[', ']');
+            if (name.Length > 0)
+            {
+                result[name] = emote;
+            }
+
+            if (!string.IsNullOrEmpty(unique))
+            {
+                result[unique.Trim('[', ']')] = emote;
             }
         }
-
-        return result.Count == 0 ? null : result;
     }
 
     private static LiveUserEnteredEvent? ParseUserEntered(string command, JsonElement root, DateTimeOffset receivedAt)

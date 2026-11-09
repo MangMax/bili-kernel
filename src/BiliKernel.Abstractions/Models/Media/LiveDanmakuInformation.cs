@@ -130,4 +130,5 @@ public sealed class LiveDanmakuInformation
 /// <param name="Url">图片地址.</param>
 /// <param name="Width">原始宽度.</param>
 /// <param name="Height">原始高度.</param>
-public sealed record LiveDanmakuEmote(string Url, int Width, int Height);
+/// <param name="Unique">表情唯一标识（emoticon_unique），部分弹幕用它而不是名称.</param>
+public sealed record LiveDanmakuEmote(string Url, int Width, int Height, string? Unique = null);
