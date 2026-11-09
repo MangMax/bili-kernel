@@ -47,6 +47,12 @@ internal sealed class LiveHistoryDanmakuItem
     public string NickName { get; set; }
 
     /// <summary>
+    /// 发送者昵称的备用字段；部分响应只给 uname，不给 nickname.
+    /// </summary>
+    [JsonPropertyName("uname")]
+    public string? UserName { get; set; }
+
+    /// <summary>
     /// 是否为管理员.
     /// </summary>
     [JsonPropertyName("isadmin")]

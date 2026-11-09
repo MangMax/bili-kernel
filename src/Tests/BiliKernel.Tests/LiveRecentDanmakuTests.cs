@@ -67,6 +67,18 @@ public sealed class LiveRecentDanmakuTests
     }
 
     [Fact]
+    public async Task MissingNicknameFallsBackToUnameThenUid()
+    {
+        var (_, service) = Create("""{"code":0,"data":{"room":[{"text":"has uname","uid":11,"uname":"U11","isadmin":0,"guard_level":0,"user_level":5,"timeline":"2026-11-08 12:00:00","color":16777215},{"text":"uid only","uid":22,"isadmin":0,"guard_level":0,"user_level":5,"timeline":"2026-11-08 12:00:01","color":16777215}]}}""");
+
+        var messages = await service.GetRecentLiveDanmakuAsync(new MediaIdentifier("1234", null, null));
+
+        Assert.Equal(2, messages.Count);
+        Assert.Equal("U11", messages[0].UserName);
+        Assert.Equal("用户22", messages[1].UserName);
+    }
+
+    [Fact]
     public async Task UserLevelAsArrayDoesNotFailBackfill()
     {
         var (_, service) = Create("""{"code":0,"data":{"room":[{"text":"array level","uid":1001,"nickname":"viewer","isadmin":0,"guard_level":0,"user_level":[12],"timeline":"2026-11-08 12:00:00","color":16777215}]}}""");

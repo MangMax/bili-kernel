@@ -166,10 +166,19 @@ internal static class LiveAdapter
                 continue;
             }
 
+            // gethistory 在部分账号/房间下只回 uid，不回 nickname；
+            // 昵称缺失时退回 uname，再退回可读的“用户+uid”，避免聊天首屏出现无发言人。
+            var userName = !string.IsNullOrWhiteSpace(item.NickName)
+                ? item.NickName
+                : !string.IsNullOrWhiteSpace(item.UserName)
+                    ? item.UserName
+                    : item.UserId > 0
+                        ? $"用户{item.UserId}"
+                        : "匿名用户";
             var danmaku = new LiveDanmakuInformation(
                 item.Text,
                 ToHexColor(item.Color),
-                item.NickName ?? string.Empty,
+                userName,
                 item.UserLevel > 0 ? "UL" + item.UserLevel.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty,
                 string.Empty,
                 item.IsAdmin == 1)
