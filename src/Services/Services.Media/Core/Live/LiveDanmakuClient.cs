@@ -30,7 +30,10 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
     private LiveHostPool _hosts;
     private ILiveDanmakuSocket? _socket;
     private LiveHeartbeatPolicy? _heartbeat;
+    private List<LiveDanmakuEvent> _authEvents = [];
     private int _enumerated;
+    // 0 = not started, 1 = iterator owns cleanup, 2 = stopped before iteration.
+    private int _streamState;
     private int _disposed;
     private int _state = (int)LiveDanmakuConnectionState.Connecting;
 
@@ -95,10 +98,11 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
         {
             _stopSource.Cancel();
-            if (Volatile.Read(ref _enumerated) == 0)
+            if (Interlocked.CompareExchange(ref _streamState, 2, 0) == 0)
             {
                 var socket = Interlocked.Exchange(ref _socket, null);
                 await DisposeSocketAsync(socket).ConfigureAwait(false);
+                SetState(LiveDanmakuConnectionState.Closed);
                 _completion.TrySetResult();
             }
         }
@@ -122,12 +126,16 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
 
     private async IAsyncEnumerable<LiveDanmakuEvent> StreamEventsAsync([EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        if (Interlocked.CompareExchange(ref _streamState, 1, 0) != 0)
+        {
+            yield break;
+        }
+
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopSource.Token);
         var token = linked.Token;
-        yield return new LiveConnectionStateChangedEvent(LiveDanmakuConnectionState.Connected, null, _timeProvider.GetUtcNow());
-
         try
         {
+            yield return new LiveConnectionStateChangedEvent(LiveDanmakuConnectionState.Connected, null, _timeProvider.GetUtcNow());
             while (!token.IsCancellationRequested)
             {
                 var socket = _socket;
@@ -136,10 +144,16 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
                     break;
                 }
 
+                foreach (var liveEvent in _authEvents)
+                {
+                    yield return liveEvent;
+                }
+
+                _authEvents.Clear();
                 var closeKind = LiveSocketCloseKind.Abnormal;
                 using (var connectionSource = CancellationTokenSource.CreateLinkedTokenSource(token))
                 {
-                    _heartbeat = new LiveHeartbeatPolicy();
+                    _heartbeat = new LiveHeartbeatPolicy(_timeProvider, _heartbeatInterval);
                     var heartbeatTask = RunHeartbeatAsync(socket, connectionSource.Token);
                     try
                     {
@@ -159,7 +173,7 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
                                 closeKind = LiveSocketCloseKind.Abnormal;
                                 break;
                             }
-                            catch (Exception ex) when (ex is WebSocketException or IOException or ObjectDisposedException)
+                            catch (Exception ex) when (ex is WebSocketException or IOException or ObjectDisposedException or LiveDanmakuProtocolException)
                             {
                                 closeKind = LiveSocketCloseKind.Abnormal;
                                 break;
@@ -206,11 +220,10 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
                         }
 
                         _heartbeat = null;
+                        _socket = null;
+                        await DisposeSocketAsync(socket).ConfigureAwait(false);
                     }
                 }
-
-                _socket = null;
-                await DisposeSocketAsync(socket).ConfigureAwait(false);
 
                 if (token.IsCancellationRequested)
                 {
@@ -251,6 +264,7 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
         }
         finally
         {
+            await DisposeSocketAsync(Interlocked.Exchange(ref _socket, null)).ConfigureAwait(false);
             SetState(LiveDanmakuConnectionState.Closed);
             _completion.TrySetResult();
         }
@@ -326,11 +340,11 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
         {
             timeoutSource.Cancel();
             Observe(receiveTask);
-            throw new LiveDanmakuUnauthorizedException(-1, "认证超时");
+            throw new TimeoutException("认证超时");
         }
     }
 
-    private static async Task ReceiveAuthReplyAsync(ILiveDanmakuSocket socket, CancellationToken cancellationToken)
+    private async Task ReceiveAuthReplyAsync(ILiveDanmakuSocket socket, CancellationToken cancellationToken)
     {
         while (true)
         {
@@ -339,7 +353,7 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
             {
                 if (read.CloseKind == LiveSocketCloseKind.Normal)
                 {
-                    throw new LiveDanmakuUnauthorizedException(-1, "认证前连接被服务端关闭");
+                    throw new LiveDanmakuProtocolException("认证前连接被服务端关闭");
                 }
 
                 throw new LiveDanmakuProtocolException("认证前连接异常断开");
@@ -358,19 +372,20 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
                     }
                 });
 
+                if (result.Status != LiveDecodeStatus.Success)
+                {
+                    throw new LiveDanmakuProtocolException($"认证回执解码失败：{result.Status}");
+                }
+
                 if (code.HasValue)
                 {
                     if (code.Value == 0)
                     {
+                        _authEvents = Decode(frame.Span);
                         return;
                     }
 
                     throw new LiveDanmakuUnauthorizedException(code.Value, message);
-                }
-
-                if (result.Status != LiveDecodeStatus.Success)
-                {
-                    throw new LiveDanmakuProtocolException($"认证回执解码失败：{result.Status}");
                 }
             }
         }
@@ -383,19 +398,18 @@ internal sealed class LiveDanmakuClient : ILiveDanmakuSession
             using var timer = new PeriodicTimer(_heartbeatInterval, _timeProvider);
             while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
+                if (_heartbeat?.RegisterHeartbeat() == true)
+                {
+                    socket.Abort();
+                    return;
+                }
+
                 try
                 {
                     await socket.SendAsync(LivePacketCodec.Encode(2, 1, ReadOnlySpan<byte>.Empty), cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is WebSocketException or IOException or ObjectDisposedException or OperationCanceledException)
                 {
-                    socket.Abort();
-                    return;
-                }
-
-                if (_heartbeat?.RegisterHeartbeat() == true)
-                {
-                    // 连续两次心跳无回执，判定连接失效，由接收循环按异常断开重连.
                     socket.Abort();
                     return;
                 }

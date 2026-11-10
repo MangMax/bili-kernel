@@ -19,6 +19,7 @@ internal sealed class LiveReconnectPolicy
     ];
 
     private bool _immediateReconnectAvailable = true;
+    private int _failuresSinceHandshake;
 
     /// <summary>
     /// 连续失败次数.
@@ -53,19 +54,21 @@ internal sealed class LiveReconnectPolicy
     public void OnAuthenticated()
     {
         ConsecutiveFailures = 0;
+        _failuresSinceHandshake = 0;
         _immediateReconnectAvailable = true;
     }
 
     /// <summary>
-    /// 重新握手完成，失败计数归零，但保留“已经握手”后的新周期.
+    /// 重新握手完成，仅重置凭据刷新周期，保留连接退避.
     /// </summary>
-    public void OnHandshakeCompleted() => ConsecutiveFailures = 0;
+    public void OnHandshakeCompleted() => _failuresSinceHandshake = 0;
 
     private LiveReconnectDecision RegisterFailure()
     {
         ConsecutiveFailures++;
+        _failuresSinceHandshake++;
         var delay = Backoff[Math.Min(ConsecutiveFailures - 1, Backoff.Length - 1)];
-        return new LiveReconnectDecision(delay, ConsecutiveFailures >= 2, false);
+        return new LiveReconnectDecision(delay, _failuresSinceHandshake >= 2, false);
     }
 }
 

@@ -206,7 +206,9 @@ internal sealed class PlayerClient
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.WebPlayInformation));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { NeedCSRF = true, ForceNoToken = true, RequireCookie = true });
+        // 这是 web-room 端点：必须按 Web 身份签名。默认的 App 身份会附加 mobi_app/platform=ios，
+        // 取回的地址带 pt=ios，部分 CDN 节点对这类签名直接返回 403（AllLive 用 platform=web 从不触发）。
+        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLiveAppPlayResponse).ConfigureAwait(false)
             ?? throw new KernelException("解析直播播放详情失败");
@@ -274,6 +276,164 @@ internal sealed class PlayerClient
         }
 
         return responseObj.Data.ToRecentLiveDanmaku();
+    }
+
+    public async Task<IReadOnlyList<LiveTitleItem>> GetLiveTitlesAsync(CancellationToken cancellationToken)
+    {
+        var result = new List<LiveTitleItem>();
+        try
+        {
+            const int PageSize = 20;
+            const int MaxPages = 80;
+            for (var page = 1; page <= MaxPages; page++)
+            {
+                var parameters = new Dictionary<string, string>
+                {
+                    { "normal", "0" },
+                    { "special", "0" },
+                    { "keyword", string.Empty },
+                    { "had", "0" },
+                    { "page", page.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+                    { "page_size", PageSize.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+                };
+
+                var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.Titles));
+                _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly());
+                var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                using var document = JsonDocument.Parse(json);
+                var root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object
+                    || !root.TryGetProperty("data", out var data)
+                    || data.ValueKind != JsonValueKind.Object
+                    || !data.TryGetProperty("list", out var list)
+                    || list.ValueKind != JsonValueKind.Array)
+                {
+                    break;
+                }
+
+                var count = 0;
+                foreach (var item in list.EnumerateArray())
+                {
+                    count++;
+                    var id = GetOptionalString(item, "identification") ?? GetOptionalString(item, "old_identification");
+                    var url = GetOptionalString(item, "web_pic_url") ?? GetOptionalString(item, "url");
+                    if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(url))
+                    {
+                        continue;
+                    }
+
+                    result.Add(new LiveTitleItem(
+                        id,
+                        GetOptionalString(item, "name") ?? string.Empty,
+                        url,
+                        GetOptionalInt32(item, "width"),
+                        GetOptionalInt32(item, "height")));
+                }
+
+                if (count < PageSize)
+                {
+                    break;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // 头衔只是展示增强：接口失败不影响聊天与播放。
+        }
+
+        return result;
+    }
+
+    private static string? GetOptionalString(JsonElement element, string name)
+        => element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+
+    private static int GetOptionalInt32(JsonElement element, string name)
+        => element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var number)
+                ? number
+                : 0;
+
+    public async Task<IReadOnlyList<LiveEmoticonItem>> GetLiveEmoticonsAsync(string roomId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var parameters = new Dictionary<string, string>
+            {
+                { "platform", "pc" },
+                { "room_id", roomId },
+            };
+
+            var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Live.Emoticons));
+            _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly());
+            var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("data", out var data)
+                || data.ValueKind != JsonValueKind.Object
+                || !data.TryGetProperty("data", out var packages)
+                || packages.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            var result = new List<LiveEmoticonItem>();
+            foreach (var package in packages.EnumerateArray())
+            {
+                if (package.ValueKind != JsonValueKind.Object
+                    || !package.TryGetProperty("emoticons", out var emoticons)
+                    || emoticons.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var emote in emoticons.EnumerateArray())
+                {
+                    if (emote.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
+
+                    var text = GetOptionalString(emote, "emoji");
+                    var unique = GetOptionalString(emote, "emoticon_unique");
+                    var url = GetOptionalString(emote, "url");
+                    if (string.IsNullOrEmpty(url) || (string.IsNullOrEmpty(text) && string.IsNullOrEmpty(unique)))
+                    {
+                        continue;
+                    }
+
+                    result.Add(new LiveEmoticonItem(
+                        text ?? string.Empty,
+                        unique ?? string.Empty,
+                        url,
+                        GetOptionalInt32(emote, "width"),
+                        GetOptionalInt32(emote, "height")));
+                }
+            }
+
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // 表情只是展示增强：接口失败不影响聊天与播放。
+            return [];
+        }
     }
 
     public async Task<PgcPlayerView> GetPgcPageDetailAsync(string? seasonId, string? episodeId, CancellationToken cancellationToken)

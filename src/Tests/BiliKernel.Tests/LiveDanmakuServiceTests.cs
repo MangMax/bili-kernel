@@ -192,6 +192,165 @@ public sealed class LiveDanmakuServiceTests
         await session.DisposeAsync().ConfigureAwait(true);
         await session.DisposeAsync().ConfigureAwait(true);
         Assert.NotNull(session.Statistics);
+        Assert.Equal(1, socket.DisposeCount);
+        Assert.Equal(1, socket.CloseCount);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task BreakingEventEnumerationDisposesSocketBeforeCompletion(int eventCount)
+    {
+        var socket = new FakeLiveSocket(authCode: 0);
+        socket.EnqueueAfterAuth(Frame(Utf8("""{"cmd":"PREPARING"}""")));
+        var session = await CreateService(CreateTransport(socket)).ConnectAsync("1234");
+        _ = await ReadEventsAsync(session, eventCount);
+        await session.Completion.WaitAsync(Timeout);
+        Assert.Equal(1, socket.DisposeCount);
+        Assert.Equal(1, socket.CloseCount);
+        await session.DisposeAsync();
+        Assert.Equal(1, socket.DisposeCount);
+    }
+
+    [Fact]
+    public async Task StopBeforeEnumerationStartsDisposesSocketAndCompletesSession()
+    {
+        var socket = new FakeLiveSocket(authCode: 0);
+        var session = await CreateService(CreateTransport(socket)).ConnectAsync("1234");
+        var events = session.GetEventsAsync();
+        await session.StopAsync().AsTask().WaitAsync(Timeout);
+        Assert.True(session.Completion.IsCompletedSuccessfully);
+        Assert.Equal(1, socket.DisposeCount);
+        await using var enumerator = events.GetAsyncEnumerator();
+        Assert.False(await enumerator.MoveNextAsync());
+        await session.DisposeAsync();
+        Assert.Equal(1, socket.DisposeCount);
+    }
+
+    [Fact]
+    public async Task UnexpectedReceiveFailureDisposesSocketAndCompletesSession()
+    {
+        var socket = new FakeLiveSocket(authCode: 0)
+        {
+            ReceiveFailureAfterAuth = new InvalidOperationException("unexpected failure"),
+        };
+        var session = await CreateService(CreateTransport(socket)).ConnectAsync("1234");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ReadEventsAsync(session, 2));
+        await session.Completion.WaitAsync(Timeout);
+        Assert.Equal(1, socket.DisposeCount);
+        Assert.Equal(1, socket.CloseCount);
+        await session.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ReceiveProtocolLimitFailureReconnectsAndDisposesBothSockets()
+    {
+        var first = new FakeLiveSocket(authCode: 0)
+        {
+            ReceiveFailureAfterAuth = new LiveDanmakuProtocolException("消息长度超过接收上限"),
+        };
+        var second = new FakeLiveSocket(authCode: 0);
+        var transport = CreateTransport(first, second);
+        var session = await CreateService(transport).ConnectAsync("1234");
+        var events = await ReadEventsAsync(session, 3);
+        Assert.Equal(LiveDanmakuConnectionState.Reconnecting, Assert.IsType<LiveConnectionStateChangedEvent>(events[1]).State);
+        Assert.Equal(LiveDanmakuConnectionState.Connected, Assert.IsType<LiveConnectionStateChangedEvent>(events[2]).State);
+        Assert.Equal(2, transport.ConnectCount);
+        Assert.Equal(1, first.DisposeCount);
+        Assert.Equal(1, second.DisposeCount);
+        await session.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task RepeatedConnectionFailuresKeepIncreasingBackoffAcrossRefreshes()
+    {
+        var socket = new FakeLiveSocket(authCode: 0);
+        var attempts = Enumerable.Range(0, 7).Select(_ => (object)new IOException("offline")).Append(socket).ToArray();
+        var transport = CreateTransport(attempts);
+        var session = await CreateService(transport).ConnectAsync("1234");
+        int[] seconds = [1, 2, 4, 8, 16, 30, 30];
+        Assert.Equal(seconds.Select(value => TimeSpan.FromSeconds(value)), transport.Delays);
+        Assert.Equal(4, transport.ResolveCount);
+        Assert.Equal(8, transport.ConnectCount);
+        await session.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task AuthenticationAckPreservesBusinessSiblingInSameFrame()
+    {
+        var socket = new FakeLiveSocket(authCode: 0)
+        {
+            AuthSibling = Frame(Utf8("""{"cmd":"PREPARING"}""")),
+        };
+        var session = await CreateService(CreateTransport(socket)).ConnectAsync("1234");
+        var events = await ReadEventsAsync(session, 2);
+        Assert.IsType<LiveRoomNotStartedEvent>(events[1]);
+        Assert.Equal(1, session.Statistics.ParsedMessages);
+        await session.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task AuthenticationTimeoutRetriesInsteadOfReportingUnauthorized()
+    {
+        var first = new FakeLiveSocket(authCode: 0) { SuppressAuthReply = true };
+        var second = new FakeLiveSocket(authCode: 0);
+        var transport = CreateTransport(first, second);
+        var endpoint = await transport.ResolveEndpointAsync("1234", CancellationToken.None);
+        var client = new LiveDanmakuClient(transport, TimeProvider.System, transport.DelayAsync,
+            TimeSpan.FromSeconds(30), TimeSpan.FromMilliseconds(20), endpoint);
+        var session = await client.ConnectAsync(CancellationToken.None).WaitAsync(Timeout);
+        Assert.Equal(2, transport.ConnectCount);
+        Assert.Equal(1, first.DisposeCount);
+        Assert.Equal(TimeSpan.FromSeconds(1), Assert.Single(transport.Delays));
+        await session.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task AckReceivedBeforeSendCompletesDoesNotBecomeAMissedHeartbeat()
+    {
+        var ackObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thirdSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var socket = new FakeLiveSocket(authCode: 0);
+        var sends = 0;
+        socket.OnHeartbeat = async token =>
+        {
+            var count = Interlocked.Increment(ref sends);
+            if (count == 1)
+            {
+                socket.Enqueue(Frame([0, 0, 0, 7], operation: 3));
+                await ackObserved.Task.WaitAsync(token).ConfigureAwait(false);
+            }
+            else if (count == 3)
+            {
+                thirdSent.TrySetResult();
+                await Task.Delay(System.Threading.Timeout.InfiniteTimeSpan, token).ConfigureAwait(false);
+            }
+        };
+        var transport = CreateTransport(socket);
+        var session = await CreateService(transport, TimeSpan.FromMilliseconds(100)).ConnectAsync("1234");
+        using var cancellation = new CancellationTokenSource(Timeout);
+        var pump = Task.Run(async () =>
+        {
+            await foreach (var liveEvent in session.GetEventsAsync(cancellation.Token).ConfigureAwait(false))
+            {
+                if (liveEvent is LiveOnlineCountChangedEvent)
+                {
+                    ackObserved.TrySetResult();
+                }
+            }
+        });
+        try
+        {
+            await thirdSent.Task.WaitAsync(Timeout);
+            Assert.False(socket.Aborted);
+            Assert.Equal(1, transport.ConnectCount);
+        }
+        finally
+        {
+            cancellation.Cancel();
+            await pump.WaitAsync(Timeout);
+            await session.DisposeAsync();
+        }
     }
 
     private static LiveDanmakuService CreateService(
@@ -310,6 +469,21 @@ internal sealed class FakeLiveSocket(int authCode) : ILiveDanmakuSocket
 
     public bool Aborted { get; private set; }
 
+    public int DisposeCount { get; private set; }
+
+    public int CloseCount { get; private set; }
+
+    public Exception? ReceiveFailureAfterAuth { get; init; }
+
+    public byte[]? AuthSibling { get; init; }
+
+    public bool SuppressAuthReply { get; init; }
+
+    public Func<CancellationToken, Task>? OnHeartbeat { get; set; }
+
+    private bool _authRead;
+
+
     public IReadOnlyList<SentPacket> SentPackets => _sent;
 
     public IReadOnlyList<int> ReceivedOperations => _receivedOperations;
@@ -319,9 +493,10 @@ internal sealed class FakeLiveSocket(int authCode) : ILiveDanmakuSocket
         var operation = BinaryPrimitives.ReadInt32BigEndian(payload.Span.Slice(8, 4));
         var version = BinaryPrimitives.ReadUInt16BigEndian(payload.Span.Slice(6, 2));
         _sent.Add(new SentPacket(operation, version, payload.Span[16..].ToArray()));
-        if (operation == 7)
+        if (operation == 7 && !SuppressAuthReply)
         {
-            Enqueue(Frame(Utf8($"{{\"code\":{authCode}}}"), operation: 8, version: 0));
+            var auth = Frame(Utf8($"{{\"code\":{authCode}}}"), operation: 8, version: 0);
+            Enqueue(AuthSibling is null ? auth : [.. auth, .. AuthSibling]);
             foreach (var item in _afterAuth)
             {
                 _incoming.Writer.TryWrite(item);
@@ -336,17 +511,25 @@ internal sealed class FakeLiveSocket(int authCode) : ILiveDanmakuSocket
             _afterAuthFrames.Clear();
         }
 
-        return Task.CompletedTask;
+        return operation == 2 && OnHeartbeat is { } onHeartbeat
+            ? onHeartbeat(cancellationToken)
+            : Task.CompletedTask;
     }
 
     public async Task<LiveSocketReadResult> ReceiveAsync(CancellationToken cancellationToken)
     {
+        if (_authRead && ReceiveFailureAfterAuth is { } failure)
+        {
+            throw failure;
+        }
+
         var result = await _incoming.Reader.ReadAsync(cancellationToken).ConfigureAwait(true);
         if (result.Frame is not null)
         {
             _receivedOperations.Add(BinaryPrimitives.ReadInt32BigEndian(result.Frame.Span.Slice(8, 4)));
         }
 
+        _authRead = true;
         return result;
     }
 
@@ -378,12 +561,14 @@ internal sealed class FakeLiveSocket(int authCode) : ILiveDanmakuSocket
 
     public Task CloseAsync(CancellationToken cancellationToken)
     {
+        CloseCount++;
         _incoming.Writer.TryComplete();
         return Task.CompletedTask;
     }
 
     public ValueTask DisposeAsync()
     {
+        DisposeCount++;
         _incoming.Writer.TryComplete();
         return ValueTask.CompletedTask;
     }

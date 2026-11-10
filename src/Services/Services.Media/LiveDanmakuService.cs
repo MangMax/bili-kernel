@@ -29,13 +29,15 @@ public sealed class LiveDanmakuService : ILiveDanmakuService
     /// <param name="httpClient">HTTP 客户端.</param>
     /// <param name="authenticator">认证器.</param>
     /// <param name="tokenResolver">令牌解析器.</param>
+    /// <param name="cookiesResolver">Cookie 解析器；只挂 Cookie 登录时用它取 DedeUserID.</param>
     /// <param name="buvidManager">设备标识管理器.</param>
     public LiveDanmakuService(
         BiliHttpClient httpClient,
         BiliAuthenticator authenticator,
         IBiliTokenResolver tokenResolver,
+        IBiliCookiesResolver cookiesResolver,
         BuvidManager buvidManager)
-        : this(new LiveDanmakuTransport(new LiveDanmakuApiClient(httpClient, authenticator, tokenResolver, buvidManager)))
+        : this(new LiveDanmakuTransport(new LiveDanmakuApiClient(httpClient, authenticator, tokenResolver, cookiesResolver, buvidManager)))
     {
     }
 

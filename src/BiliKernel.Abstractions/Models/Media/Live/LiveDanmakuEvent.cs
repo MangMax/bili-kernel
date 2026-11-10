@@ -193,6 +193,89 @@ public sealed class LiveStartedEvent : LiveDanmakuEvent
 }
 
 /// <summary>
+/// 用户进入直播间.
+/// </summary>
+public sealed class LiveUserEnteredEvent : LiveDanmakuEvent
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="LiveUserEnteredEvent"/> class.
+    /// </summary>
+    /// <param name="user">进入用户.</param>
+    /// <param name="command">触发的协议命令.</param>
+    /// <param name="receivedAt">接收时间.</param>
+    public LiveUserEnteredEvent(LiveUserEnteredInformation user, string command, DateTimeOffset receivedAt)
+        : base(command, receivedAt)
+        => User = user;
+
+    /// <summary>
+    /// 进入用户.
+    /// </summary>
+    public LiveUserEnteredInformation User { get; }
+}
+
+/// <summary>
+/// 进入直播间的用户信息.
+/// </summary>
+public sealed class LiveUserEnteredInformation
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="LiveUserEnteredInformation"/> class.
+    /// </summary>
+    /// <param name="userId">用户 ID.</param>
+    /// <param name="userName">昵称.</param>
+    public LiveUserEnteredInformation(long userId, string userName)
+    {
+        UserId = userId;
+        UserName = userName;
+    }
+
+    /// <summary>
+    /// Gets 用户 ID.
+    /// </summary>
+    public long UserId { get; }
+
+    /// <summary>
+    /// Gets 昵称.
+    /// </summary>
+    public string UserName { get; }
+
+    /// <summary>
+    /// Gets 舰长等级.
+    /// </summary>
+    public int GuardLevel { get; init; }
+
+    /// <summary>
+    /// Gets 粉丝勋章名称.
+    /// </summary>
+    public string? MedalName { get; init; }
+
+    /// <summary>
+    /// Gets 粉丝勋章等级.
+    /// </summary>
+    public string? MedalLevel { get; init; }
+
+    /// <summary>
+    /// Gets 粉丝勋章颜色.
+    /// </summary>
+    public string? MedalColor { get; init; }
+
+    /// <summary>
+    /// Gets 昵称颜色.
+    /// </summary>
+    public string? NameColor { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether 是否为管理员.
+    /// </summary>
+    public bool IsAdmin { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether 是否为老爷.
+    /// </summary>
+    public bool IsVip { get; init; }
+}
+
+/// <summary>
 /// 直播被切断.
 /// </summary>
 public sealed class LiveRoomCutOffEvent : LiveDanmakuEvent
@@ -303,4 +386,9 @@ public enum LiveOnlineCountSource
     /// WATCHED_CHANGE 中的看过人数.
     /// </summary>
     Watched,
+
+    /// <summary>
+    /// ONLINE_RANK_COUNT 中的在线观看人数.
+    /// </summary>
+    Viewers,
 }

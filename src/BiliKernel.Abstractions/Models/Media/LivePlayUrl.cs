@@ -1,4 +1,4 @@
-﻿// Copyright (c) Richasy. All rights reserved.
+// Copyright (c) Richasy. All rights reserved.
 // Licensed under the MIT License.
 
 namespace Richasy.BiliKernel.Models.Media;
@@ -30,5 +30,23 @@ public sealed class LivePlayUrl(string protocol, string host, string route, stri
 
     /// <inheritdoc/>
     public override string ToString()
-        => $"{Host}{Route}{Query}";
+    {
+        // HLS 的 base_url 自带结尾 '?'，部分节点返回的 extra 又以 '?' 开头；
+        // 直接拼接会生成 "...m3u8??expires=..."，腾讯系 CDN 会按错误签名返回 403.
+        var route = Route ?? string.Empty;
+        var query = Query ?? string.Empty;
+        if (query.StartsWith('?'))
+        {
+            query = query[1..];
+        }
+
+        if (query.Length == 0)
+        {
+            return $"{Host}{route}";
+        }
+
+        return route.EndsWith('?')
+            ? $"{Host}{route}{query}"
+            : $"{Host}{route}?{query}";
+    }
 }

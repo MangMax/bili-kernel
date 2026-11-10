@@ -19,17 +19,20 @@ internal sealed class LiveDanmakuApiClient
     private readonly BiliHttpClient _httpClient;
     private readonly BiliAuthenticator _authenticator;
     private readonly IBiliTokenResolver _tokenResolver;
+    private readonly IBiliCookiesResolver _cookiesResolver;
     private readonly BuvidManager _buvidManager;
 
     public LiveDanmakuApiClient(
         BiliHttpClient httpClient,
         BiliAuthenticator authenticator,
         IBiliTokenResolver tokenResolver,
+        IBiliCookiesResolver cookiesResolver,
         BuvidManager buvidManager)
     {
         _httpClient = httpClient;
         _authenticator = authenticator;
         _tokenResolver = tokenResolver;
+        _cookiesResolver = cookiesResolver;
         _buvidManager = buvidManager;
     }
 
@@ -74,11 +77,31 @@ internal sealed class LiveDanmakuApiClient
         return new LiveDanmakuEndpoint
         {
             RoomId = realRoomId,
-            UserId = _tokenResolver.GetToken()?.UserId ?? 0,
+            UserId = ResolveUserId(),
             Token = data.Token ?? string.Empty,
             Buvid = buvid,
             Hosts = hosts,
         };
+    }
+
+    /// <summary>
+    /// 弹幕连接的用户身份：优先令牌，其次 DedeUserID Cookie。
+    /// 只挂 Cookie 登录（网页扫码）时令牌为空，若直接用 0 会成为游客，服务端不下发荣耀等级等字段。
+    /// </summary>
+    private long ResolveUserId()
+    {
+        var tokenUserId = _tokenResolver.GetToken()?.UserId ?? 0;
+        if (tokenUserId > 0)
+        {
+            return tokenUserId;
+        }
+
+        var cookies = _cookiesResolver.GetCookies();
+        return cookies.TryGetValue("DedeUserID", out var raw)
+            && long.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var cookieUserId)
+            && cookieUserId > 0
+                ? cookieUserId
+                : 0;
     }
 
     private async Task<string> GetRealRoomIdAsync(string roomId, CancellationToken cancellationToken)

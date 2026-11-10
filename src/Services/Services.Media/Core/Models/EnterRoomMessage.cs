@@ -13,4 +13,5 @@ internal sealed class EnterRoomMessage
     public string platform { get; set; } = "web";
     public int type { get; set; } = 2;
     public string clientver { get; set; } = "1.4.3";
+
 }

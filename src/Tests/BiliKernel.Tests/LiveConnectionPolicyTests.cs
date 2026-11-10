@@ -12,25 +12,37 @@ namespace Richasy.BiliKernel.Tests;
 public sealed class LiveConnectionPolicyTests
 {
     [Fact]
-    public void TwoConsecutiveMissingHeartbeatAcksExpireConnection()
+    public void TwoExpiredHeartbeatDeadlinesExpireConnection()
     {
-        var policy = new LiveHeartbeatPolicy();
-
+        var clock = new ManualLiveTimeProvider();
+        var policy = new LiveHeartbeatPolicy(clock, TimeSpan.FromSeconds(30));
         Assert.False(policy.RegisterHeartbeat());
+        clock.Advance(TimeSpan.FromSeconds(29));
+        Assert.False(policy.RegisterHeartbeat());
+        clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.False(policy.RegisterHeartbeat());
+        clock.Advance(TimeSpan.FromSeconds(29));
+        Assert.False(policy.RegisterHeartbeat());
+        clock.Advance(TimeSpan.FromSeconds(1));
         Assert.True(policy.RegisterHeartbeat());
-        Assert.Equal(2, policy.PendingAcks);
     }
 
     [Fact]
-    public void LateHeartbeatAckClearsPendingCounter()
+    public void LateHeartbeatAckRestoresTwoFullDeadlineWindows()
     {
-        var policy = new LiveHeartbeatPolicy();
-        policy.RegisterHeartbeat();
-
-        policy.OnAck();
-
-        Assert.Equal(0, policy.PendingAcks);
+        var clock = new ManualLiveTimeProvider();
+        var policy = new LiveHeartbeatPolicy(clock, TimeSpan.FromSeconds(30));
         Assert.False(policy.RegisterHeartbeat());
+        clock.Advance(TimeSpan.FromSeconds(30));
+        Assert.False(policy.RegisterHeartbeat());
+        clock.Advance(TimeSpan.FromSeconds(1));
+        policy.OnAck();
+        clock.Advance(TimeSpan.FromSeconds(29));
+        Assert.False(policy.RegisterHeartbeat());
+        clock.Advance(TimeSpan.FromSeconds(30));
+        Assert.False(policy.RegisterHeartbeat());
+        clock.Advance(TimeSpan.FromSeconds(30));
+        Assert.True(policy.RegisterHeartbeat());
     }
 
     [Fact]
@@ -76,7 +88,7 @@ public sealed class LiveConnectionPolicyTests
     }
 
     [Fact]
-    public void TwoConsecutiveFailuresRequireHandshakeAndThenReset()
+    public void HandshakeRefreshPreservesBackoffAndStartsNewRefreshCycle()
     {
         var policy = new LiveReconnectPolicy();
         policy.OnAuthenticated();
@@ -88,7 +100,10 @@ public sealed class LiveConnectionPolicyTests
         Assert.True(second.RequiresHandshake);
 
         policy.OnHandshakeCompleted();
-        Assert.False(policy.OnConnectionFailed().RequiresHandshake);
+        var third = policy.OnConnectionFailed();
+        Assert.False(third.RequiresHandshake);
+        Assert.Equal(TimeSpan.FromSeconds(4), third.Delay);
+        Assert.True(policy.OnConnectionFailed().RequiresHandshake);
     }
 
     [Fact]
@@ -149,4 +164,14 @@ public sealed class LiveConnectionPolicyTests
 
         Assert.Equal("wss://chat.example.test/sub", uri.AbsoluteUri);
     }
+}
+internal sealed class ManualLiveTimeProvider : TimeProvider
+{
+    private long _timestamp;
+
+    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+    public override long GetTimestamp() => _timestamp;
+
+    public void Advance(TimeSpan duration) => _timestamp += duration.Ticks;
 }

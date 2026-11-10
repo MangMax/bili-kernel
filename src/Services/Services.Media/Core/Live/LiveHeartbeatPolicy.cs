@@ -4,32 +4,54 @@
 namespace Richasy.BiliKernel.Services.Media.Core.Live;
 
 /// <summary>
-/// 心跳回执策略：每次心跳登记待回执，收到 op3 即清零；连续两次未回执判定连接失效.
+/// 心跳回执策略：连续两次超过回执期限时判定连接失效.
 /// </summary>
-internal sealed class LiveHeartbeatPolicy
+internal sealed class LiveHeartbeatPolicy(TimeProvider timeProvider, TimeSpan ackTimeout)
 {
-    /// <summary>
-    /// 允许连续缺失的回执次数.
-    /// </summary>
-    public const int MaxPendingAcks = 2;
+    private readonly object _gate = new();
+    private bool _pending;
+    private long _sentAt;
+    private int _missed;
 
     /// <summary>
-    /// 当前待回执次数.
+    /// 检查上一心跳的期限，并在发送前登记新的待回执心跳.
     /// </summary>
-    public int PendingAcks { get; private set; }
-
-    /// <summary>
-    /// 登记一次刚发出的心跳.
-    /// </summary>
-    /// <returns>达到缺失上限时返回 true，表示应判定连接失效.</returns>
+    /// <returns>连续两次回执超时时返回 true，不再发送心跳.</returns>
     public bool RegisterHeartbeat()
     {
-        PendingAcks++;
-        return PendingAcks >= MaxPendingAcks;
+        lock (_gate)
+        {
+            var now = timeProvider.GetTimestamp();
+            if (_pending)
+            {
+                if (timeProvider.GetElapsedTime(_sentAt, now) < ackTimeout)
+                {
+                    return false;
+                }
+
+                _missed++;
+            }
+
+            if (_missed >= 2)
+            {
+                return true;
+            }
+
+            _pending = true;
+            _sentAt = now;
+            return false;
+        }
     }
 
     /// <summary>
-    /// 收到心跳回执（或迟到的回执），清零计数.
+    /// 收到回执（包括迟到回执），清除连续超时与待回执状态.
     /// </summary>
-    public void OnAck() => PendingAcks = 0;
+    public void OnAck()
+    {
+        lock (_gate)
+        {
+            _pending = false;
+            _missed = 0;
+        }
+    }
 }

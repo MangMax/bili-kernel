@@ -163,6 +163,9 @@ internal static class LiveMessageParser
             case "WATCHED_CHANGE":
                 liveEvent = ParseWatchedChange(command, root, receivedAt);
                 return liveEvent is null ? LiveMessageParseKind.Malformed : LiveMessageParseKind.Event;
+            case "ONLINE_RANK_COUNT":
+                liveEvent = ParseOnlineRankCount(command, root, receivedAt);
+                return liveEvent is null ? LiveMessageParseKind.Ignored : LiveMessageParseKind.Event;
             case "ROOM_CHANGE":
                 liveEvent = ParseRoomChange(command, root, receivedAt);
                 return liveEvent is null ? LiveMessageParseKind.Malformed : LiveMessageParseKind.Event;
@@ -172,6 +175,9 @@ internal static class LiveMessageParser
             case "LIVE":
                 liveEvent = new LiveStartedEvent(command, receivedAt);
                 return LiveMessageParseKind.Event;
+            case "INTERACT_WORD":
+                liveEvent = ParseUserEntered(command, root, receivedAt);
+                return liveEvent is null ? LiveMessageParseKind.Ignored : LiveMessageParseKind.Event;
             case "CUT_OFF":
                 liveEvent = new LiveRoomCutOffEvent(GetOptionalDataString(root, "msg", "message"), command, receivedAt);
                 return LiveMessageParseKind.Event;
@@ -211,10 +217,20 @@ internal static class LiveMessageParser
         var medalLevel = info.GetArrayLength() > 3 && info[3].ValueKind == JsonValueKind.Array && info[3].GetArrayLength() > 0
             ? ElementString(info[3][0])
             : null;
+        var medalColor = info.GetArrayLength() > 3 && info[3].ValueKind == JsonValueKind.Array && info[3].GetArrayLength() > 4
+            ? FormatColor(info[3][4])
+            : null;
+        var medalAnchorName = info.GetArrayLength() > 3 && info[3].ValueKind == JsonValueKind.Array && info[3].GetArrayLength() > 2
+            ? ElementString(info[3][2])
+            : null;
+        var (userFace, nameColor) = ParseUserDecoration(info);
+        var medalDecoration = ParseMedalDecoration(info);
+        var emotes = ParseEmotes(info);
 
-        var userLevel = info.GetArrayLength() > 4 && info[4].ValueKind == JsonValueKind.Array && info[4].GetArrayLength() > 0
-            ? "UL" + ElementString(info[4][0])
-            : string.Empty;
+        var userLevelNumber = info.GetArrayLength() > 4 && info[4].ValueKind == JsonValueKind.Array && info[4].GetArrayLength() > 0
+            ? (int)ElementLong(info[4][0])
+            : 0;
+        var userLevel = userLevelNumber > 0 ? "UL" + userLevelNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
         var levelColor = info.GetArrayLength() > 4 && info[4].ValueKind == JsonValueKind.Array && info[4].GetArrayLength() > 2
             ? ElementString(info[4][2]) ?? string.Empty
             : string.Empty;
@@ -227,16 +243,238 @@ internal static class LiveMessageParser
                 ? guard
                 : 0;
 
+        // 头衔只有 CSS 标识（title-233-1），图标要靠 user_title/TitleList 映射。
+        // 头衔在 info[0][15].user.title 下，不在 info[0][15] 本身。
+        string? userTitleId = null;
+        if (info[0].ValueKind == JsonValueKind.Array
+            && info[0].GetArrayLength() > 15
+            && info[0][15].ValueKind == JsonValueKind.Object
+            && info[0][15].TryGetProperty("user", out var titleUser)
+            && titleUser.ValueKind == JsonValueKind.Object
+            && titleUser.TryGetProperty("title", out var titleElement)
+            && titleElement.ValueKind == JsonValueKind.Object)
+        {
+            userTitleId = GetOptionalString(titleElement, "title_css_id");
+            if (string.IsNullOrEmpty(userTitleId))
+            {
+                userTitleId = GetOptionalString(titleElement, "old_title_css_id");
+            }
+        }
+
         var danmaku = new LiveDanmakuInformation(text, textColor, userName, userLevel, levelColor, isAdmin)
         {
             UserId = userId,
+            UserTitleId = userTitleId,
             MedalName = medalName,
             MedalLevel = medalLevel,
             IsVip = isVip,
             UserTitle = userTitle,
             GuardLevel = guardLevel,
+            UserLevelNumber = userLevelNumber,
+            MedalColor = medalColor,
+            MedalAnchorName = medalAnchorName,
+            MedalGuardIcon = medalDecoration.GuardIcon,
+            MedalColorStart = medalDecoration.ColorStart,
+            MedalColorEnd = medalDecoration.ColorEnd,
+            MedalTextColor = medalDecoration.TextColor,
+            NameColor = nameColor,
+            UserFace = userFace,
+            Emotes = emotes,
         };
         return new LiveDanmakuReceivedEvent(danmaku, command, receivedAt);
+    }
+
+    private static (string? GuardIcon, string? ColorStart, string? ColorEnd, string? TextColor) ParseMedalDecoration(JsonElement info)
+    {
+        if (info.ValueKind != JsonValueKind.Array || info.GetArrayLength() < 1
+            || info[0].ValueKind != JsonValueKind.Array)
+        {
+            return (null, null, null, null);
+        }
+
+        for (var i = info[0].GetArrayLength() - 1; i >= 12; i--)
+        {
+            if (info[0][i].ValueKind != JsonValueKind.Object
+                || !info[0][i].TryGetProperty("user", out var user)
+                || user.ValueKind != JsonValueKind.Object
+                || !user.TryGetProperty("medal", out var medal)
+                || medal.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            return (
+                GetOptionalString(medal, "guard_icon"),
+                GetOptionalString(medal, "v2_medal_color_start") ?? GetOptionalString(medal, "v2_medal_color"),
+                GetOptionalString(medal, "v2_medal_color_end") ?? GetOptionalString(medal, "v2_medal_color"),
+                GetOptionalString(medal, "v2_medal_color_text"));
+        }
+
+        return (null, null, null, null);
+    }
+
+    private static (string? Face, string? NameColor) ParseUserDecoration(JsonElement info)
+    {
+        if (info.ValueKind != JsonValueKind.Array || info.GetArrayLength() < 1
+            || info[0].ValueKind != JsonValueKind.Array)
+        {
+            return (null, null);
+        }
+
+        // 用户装扮信息在不同版本的 info[0] 里位置会漂移，从尾部找带 user/base 的对象。
+        var user = default(JsonElement);
+        for (var i = info[0].GetArrayLength() - 1; i >= 12; i--)
+        {
+            var candidate = info[0][i];
+            if (candidate.ValueKind == JsonValueKind.Object
+                && (candidate.TryGetProperty("user", out _) || candidate.TryGetProperty("base", out _)))
+            {
+                user = candidate;
+                break;
+            }
+        }
+
+        if (user.ValueKind != JsonValueKind.Object)
+        {
+            return (null, null);
+        }
+
+        if (user.TryGetProperty("user", out var nested) && nested.ValueKind == JsonValueKind.Object)
+        {
+            user = nested;
+        }
+
+        if (user.TryGetProperty("base", out var baseInfo) && baseInfo.ValueKind == JsonValueKind.Object)
+        {
+            user = baseInfo;
+        }
+
+        return (GetOptionalString(user, "face"), GetOptionalString(user, "name_color"));
+    }
+
+    private static IReadOnlyDictionary<string, LiveDanmakuEmote>? ParseEmotes(JsonElement info)
+    {
+        if (info.ValueKind != JsonValueKind.Array || info.GetArrayLength() < 1 || info[0].ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var result = new Dictionary<string, LiveDanmakuEmote>(StringComparer.Ordinal);
+        var meta = info[0];
+
+        // 新版：表情在 info[0][15].extra（JSON 字符串）的 emots 里；
+        // 旧版：info[0][13] 直接是名称→地址/对象的字典。
+        if (meta.GetArrayLength() > 15 && meta[15].ValueKind == JsonValueKind.Object
+            && meta[15].TryGetProperty("extra", out var extraElement)
+            && extraElement.ValueKind == JsonValueKind.String
+            && TryParseJsonObject(extraElement.GetString(), out var extra)
+            && extra.TryGetProperty("emots", out var emots)
+            && emots.ValueKind == JsonValueKind.Object)
+        {
+            CollectEmotes(emots, result);
+        }
+
+        if (meta.GetArrayLength() > 13 && meta[13].ValueKind == JsonValueKind.Object)
+        {
+            CollectEmotes(meta[13], result);
+        }
+
+        return result.Count == 0 ? null : result;
+    }
+
+    private static bool TryParseJsonObject(string? json, out JsonElement element)
+    {
+        element = default;
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            element = document.RootElement.Clone();
+            return element.ValueKind == JsonValueKind.Object;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static void CollectEmotes(JsonElement source, Dictionary<string, LiveDanmakuEmote> result)
+    {
+        foreach (var property in source.EnumerateObject())
+        {
+            var value = property.Value;
+            string? url = null;
+            string? unique = null;
+            var width = 0;
+            var height = 0;
+            if (value.ValueKind == JsonValueKind.String)
+            {
+                url = value.GetString();
+            }
+            else if (value.ValueKind == JsonValueKind.Object)
+            {
+                url = GetOptionalString(value, "url") ?? GetOptionalString(value, "emoticon_url");
+                unique = GetOptionalString(value, "emoticon_unique");
+                width = GetOptionalInt32(value, "width");
+                height = GetOptionalInt32(value, "height");
+            }
+
+            if (string.IsNullOrEmpty(url))
+            {
+                continue;
+            }
+
+            var emote = new LiveDanmakuEmote(url, width, height, unique);
+            var name = property.Name.Trim('[', ']');
+            if (name.Length > 0)
+            {
+                result[name] = emote;
+            }
+
+            if (!string.IsNullOrEmpty(unique))
+            {
+                result[unique.Trim('[', ']')] = emote;
+            }
+        }
+    }
+
+    private static LiveUserEnteredEvent? ParseUserEntered(string command, JsonElement root, DateTimeOffset receivedAt)
+    {
+        if (!root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Object
+            || GetOptionalInt32(data, "msg_type") != 1)
+        {
+            return null;
+        }
+
+        var userName = GetOptionalString(data, "uname");
+        if (string.IsNullOrEmpty(userName))
+        {
+            return null;
+        }
+
+        var medal = data.TryGetProperty("fans_medal", out var medalElement) && medalElement.ValueKind == JsonValueKind.Object
+            ? medalElement
+            : default;
+        var medalName = medal.ValueKind == JsonValueKind.Object ? GetOptionalString(medal, "medal_name") : null;
+        var medalLevel = medal.ValueKind == JsonValueKind.Object
+            ? GetOptionalInt32(medal, "medal_level").ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : null;
+        var medalColor = medal.ValueKind == JsonValueKind.Object && medal.TryGetProperty("medal_color", out var color)
+            ? FormatColor(color)
+            : null;
+        var guard = medal.ValueKind == JsonValueKind.Object ? GetOptionalInt32(medal, "guard_level") : 0;
+        var user = new LiveUserEnteredInformation(GetOptionalInt64(data, "uid"), userName)
+        {
+            GuardLevel = guard,
+            MedalName = string.IsNullOrEmpty(medalName) ? null : medalName,
+            MedalLevel = string.IsNullOrEmpty(medalLevel) ? null : medalLevel,
+            MedalColor = medalColor,
+        };
+        return new LiveUserEnteredEvent(user, command, receivedAt);
     }
 
     private static LiveSuperChatEvent? ParseSuperChat(string command, JsonElement root, DateTimeOffset receivedAt)
@@ -295,6 +533,19 @@ internal static class LiveMessageParser
         var count = GetOptionalInt32(data, "num");
         var text = GetOptionalString(data, "text_large") ?? GetOptionalString(data, "text_small");
         return new LiveOnlineCountChangedEvent(count, LiveOnlineCountSource.Watched, text, command, receivedAt);
+    }
+
+    private static LiveOnlineCountChangedEvent? ParseOnlineRankCount(string command, JsonElement root, DateTimeOffset receivedAt)
+    {
+        if (!root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var count = GetOptionalInt32(data, "count");
+        return count < 0
+            ? null
+            : new LiveOnlineCountChangedEvent(count, LiveOnlineCountSource.Viewers, GetOptionalString(data, "count_text"), command, receivedAt);
     }
 
     private static LiveRoomTitleChangedEvent? ParseRoomChange(string command, JsonElement root, DateTimeOffset receivedAt)
