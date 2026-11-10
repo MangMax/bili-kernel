@@ -140,12 +140,6 @@ internal static class LivePacketCodec
         try
         {
             var status = ReadDecompressed(payload, zlib, budget, out var buffer, out var length);
-            if (status == LiveDecodeStatus.DecompressionFailed && !zlib)
-            {
-                // ver=3 是兼容路径：brotli 解不开时按 zlib 再试一次，仍失败才判定连接失败.
-                status = ReadDecompressed(payload, true, budget, out buffer, out length);
-            }
-
             if (status != LiveDecodeStatus.Success)
             {
                 return status;
@@ -246,7 +240,7 @@ internal static class LivePacketCodec
             buffer = rented;
             return LiveDecodeStatus.Success;
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or NotSupportedException)
+        catch (Exception ex) when (ex is InvalidDataException or IOException or NotSupportedException || (stream is BrotliStream && ex is InvalidOperationException))
         {
             ArrayPool<byte>.Shared.Return(rented);
             buffer = [];

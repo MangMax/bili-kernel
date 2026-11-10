@@ -128,6 +128,15 @@ public sealed class LivePacketCodecTests
     }
 
     [Fact]
+    public void VersionThreeRejectsZlibPayloadInsteadOfGuessingCompression()
+    {
+        var outer = Frame(Zlib(Frame(Utf8("{}"))), version: 3);
+        var packets = Decode(outer, out var result);
+        Assert.Equal(LiveDecodeStatus.DecompressionFailed, result.Status);
+        Assert.Empty(packets);
+    }
+
+    [Fact]
     public void DecompressionOverExpandedBudgetFails()
     {
         var inner = new byte[4096];

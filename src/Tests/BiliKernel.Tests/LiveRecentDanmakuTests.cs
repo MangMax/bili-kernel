@@ -87,6 +87,60 @@ public sealed class LiveRecentDanmakuTests
     }
 
     [Fact]
+    public async Task NumericNameColorsDoNotDiscardHistoryBatch()
+    {
+        var (_, service) = Create("""
+            {"code":0,"data":{"admin":[{"text":"default","user":{"base":{"name":"Admin","name_color":0}}}],
+            "room":[{"text":"colored","user":{"base":{"name":"Viewer","name_color":1122867}}}]}}
+            """);
+        var messages = await service.GetRecentLiveDanmakuAsync(new MediaIdentifier("1234", null, null));
+        Assert.Equal(2, messages.Count);
+        Assert.Null(messages[0].NameColor);
+        Assert.Equal("#112233", messages[1].NameColor);
+    }
+
+    [Fact]
+    public async Task HistoryPreservesUserAndMedalDecoration()
+    {
+        var (_, service) = Create("""
+            {"code":0,"data":{"room":[{"text":"decorated","user":{"uid":77,
+            "base":{"name":"Viewer","name_color":"#112233"},
+            "medal":{"name":"Fan","level":9,"guard_icon":"https://example.com/guard.png",
+            "v2_medal_color_start":"#FF6699","v2_medal_color_end":"#336699","v2_medal_color_text":"#FFFFFF"},
+            "title":{"title_css_id":"title-1","old_title_css_id":"title-old"},"guard":{"level":3}}}]}}
+            """);
+
+        var message = Assert.Single(await service.GetRecentLiveDanmakuAsync(new MediaIdentifier("1234", null, null)));
+
+        Assert.Equal("#112233", message.NameColor);
+        Assert.Equal("title-1", message.UserTitleId);
+        Assert.Equal("https://example.com/guard.png", message.MedalGuardIcon);
+        Assert.Equal("#FF6699", message.MedalColorStart);
+        Assert.Equal("#336699", message.MedalColorEnd);
+        Assert.Equal("#FFFFFF", message.MedalTextColor);
+    }
+
+    [Fact]
+    public async Task HistoryUsesSolidMedalColorAndLegacyTitleWhenNeeded()
+    {
+        var (_, service) = Create("""
+            {"code":0,"data":{"room":[{"text":"solid","user":{"uid":77,
+            "medal":{"name":"Fan","level":9,"v2_medal_color":"#336699"},
+            "title":{"title_css_id":"","old_title_css_id":"title-old"}}}]}}
+            """);
+
+        var message = Assert.Single(await service.GetRecentLiveDanmakuAsync(new MediaIdentifier("1234", null, null)));
+
+        Assert.Equal("#336699", message.MedalColorStart);
+        Assert.Equal("#336699", message.MedalColor);
+        Assert.Equal("#336699", message.MedalColorEnd);
+        Assert.Equal("title-old", message.UserTitleId);
+        Assert.Null(message.MedalGuardIcon);
+        Assert.Null(message.MedalTextColor);
+        Assert.Null(message.NameColor);
+    }
+
+    [Fact]
     public async Task MissingNicknameFallsBackToUnameThenUid()
     {
         var (_, service) = Create("""{"code":0,"data":{"room":[{"text":"has uname","uid":11,"uname":"U11","isadmin":0,"guard_level":0,"user_level":5,"timeline":"2026-11-08 12:00:00","color":16777215},{"text":"uid only","uid":22,"isadmin":0,"guard_level":0,"user_level":5,"timeline":"2026-11-08 12:00:01","color":16777215}]}}""");

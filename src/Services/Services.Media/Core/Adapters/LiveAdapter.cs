@@ -193,7 +193,7 @@ internal static class LiveAdapter
                 ? (medalInfo.Level > 0 ? medalInfo.Level : medalInfo.LegacyLevel)
                 : 0;
             var medalColor = item.User?.Medal is { } medalValue
-                ? ToHexColor(ParseMedalColor(medalValue.StartColor) ?? ParseMedalColor(medalValue.LegacyColor) ?? 0)
+                ? ToHexColor(ParseMedalColor(medalValue.StartColor) ?? ParseMedalColor(medalValue.Color) ?? ParseMedalColor(medalValue.LegacyColor) ?? 0)
                 : null;
             var guardLevel = item.User?.Guard?.Level ?? item.GuardLevel;
             var emotes = BuildHistoryEmotes(item);
@@ -209,9 +209,15 @@ internal static class LiveAdapter
                 GuardLevel = guardLevel,
                 UserLevelNumber = level,
                 UserFace = item.User?.Base?.Face,
+                NameColor = item.User?.Base?.NameColor,
+                UserTitleId = string.IsNullOrEmpty(item.User?.Title?.Id) ? item.User?.Title?.LegacyId : item.User.Title.Id,
                 MedalName = string.IsNullOrEmpty(medalName) ? null : medalName,
                 MedalLevel = medalLevel > 0 ? medalLevel.ToString(System.Globalization.CultureInfo.InvariantCulture) : null,
                 MedalColor = string.IsNullOrEmpty(medalName) ? null : medalColor,
+                MedalGuardIcon = item.User?.Medal?.GuardIcon,
+                MedalColorStart = item.User?.Medal?.StartColor ?? item.User?.Medal?.Color,
+                MedalColorEnd = item.User?.Medal?.EndColor ?? item.User?.Medal?.Color,
+                MedalTextColor = item.User?.Medal?.TextColor,
                 Emotes = emotes,
             };
             result.Add(danmaku);

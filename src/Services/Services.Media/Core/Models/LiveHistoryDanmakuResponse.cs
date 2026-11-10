@@ -115,6 +115,9 @@ internal sealed class LiveHistoryUser
 
     [JsonPropertyName("guard")]
     public LiveHistoryGuard? Guard { get; set; }
+
+    [JsonPropertyName("title")]
+    public LiveHistoryTitle? Title { get; set; }
 }
 
 internal sealed class LiveHistoryUserBase
@@ -124,6 +127,19 @@ internal sealed class LiveHistoryUserBase
 
     [JsonPropertyName("face")]
     public string? Face { get; set; }
+
+    [JsonPropertyName("name_color")]
+    [JsonConverter(typeof(LiveNameColorConverter))]
+    public string? NameColor { get; set; }
+}
+
+internal sealed class LiveHistoryTitle
+{
+    [JsonPropertyName("title_css_id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("old_title_css_id")]
+    public string? LegacyId { get; set; }
 }
 
 internal sealed class LiveHistoryGuard
@@ -151,6 +167,15 @@ internal sealed class LiveHistoryMedal
 
     [JsonPropertyName("v2_medal_color_start")]
     public string? StartColor { get; set; }
+
+    [JsonPropertyName("v2_medal_color_end")]
+    public string? EndColor { get; set; }
+
+    [JsonPropertyName("v2_medal_color")]
+    public string? Color { get; set; }
+
+    [JsonPropertyName("guard_icon")]
+    public string? GuardIcon { get; set; }
 
     [JsonPropertyName("v2_medal_color_text")]
     public string? TextColor { get; set; }
