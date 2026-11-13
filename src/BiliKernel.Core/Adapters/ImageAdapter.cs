@@ -14,7 +14,7 @@ public static class ImageAdapter
     /// 将图片地址转换为 <see cref="BiliImage"/>.
     /// </summary>
     public static BiliImage ToImage(this string uri)
-        => new(new(uri));
+        => string.IsNullOrEmpty(uri) ? default! : new(new(uri));
 
     /// <summary>
     /// 根据图片地址及大小信息生成缩略图地址（宽高相等）.
