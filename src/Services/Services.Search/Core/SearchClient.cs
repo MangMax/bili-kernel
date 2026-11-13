@@ -47,7 +47,7 @@ internal sealed class SearchClient
             throw new KernelException("无法获取到有效的热搜榜单");
         }
 
-        return list.Select(p => p.ToHotSearchItem()).ToList().AsReadOnly();
+        return list.Select((p, index) => p.ToHotSearchItem(index + 1)).ToList().AsReadOnly();
     }
 
     public async Task<IReadOnlyList<SearchRecommendItem>> GetSearchRecommendsAsync(CancellationToken cancellationToken)

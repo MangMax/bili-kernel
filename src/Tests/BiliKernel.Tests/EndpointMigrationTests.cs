@@ -196,11 +196,29 @@ public sealed class EndpointMigrationTests
         handler.With("/x/web-interface/search/square", @"{""code"":0,""data"":{""trending"":{""list"":[{""keyword"":""k"",""show_name"":""k"",""position"":1}]}}}");
         var service = CreateSearchService(handler);
 
-        _ = await Record.ExceptionAsync(() => service.GetTotalHotSearchAsync(10, CancellationToken.None));
+        var items = await service.GetTotalHotSearchAsync(10, CancellationToken.None);
 
+        Assert.Single(items);
         var request = Assert.Single(handler.Requests, p => p.Path.Contains("square", StringComparison.Ordinal));
         Assert.Equal("/x/web-interface/search/square", request.Path);
         Assert.Equal("10", request.Query["limit"]);
+    }
+
+    [Fact]
+    public async Task HotSearchParsesWebSquareResponseWithoutPositionOrHotId()
+    {
+        // 现行 Web 端点返回空 icon，且不带 position / hot_id；空 icon 不能中断整份榜单.
+        var handler = CreateHandler();
+        handler.With("/x/web-interface/search/square", @"{""code"":0,""data"":{""trending"":{""list"":[{""keyword"":""a"",""show_name"":""A"",""icon"":""""},{""keyword"":""b"",""show_name"":""B"",""icon"":""https://i0.hdslb.com/b.png""},{""keyword"":""c"",""show_name"":""C"",""icon"":""""}]}}}");
+        var service = CreateSearchService(handler);
+
+        var items = await service.GetTotalHotSearchAsync(10, CancellationToken.None);
+
+        Assert.Equal(3, items.Count);
+        Assert.Equal([1, 2, 3], items.Select(p => p.Index));
+        Assert.Equal("a", items[0].Id);
+        Assert.Null(items[0].Icon);
+        Assert.NotNull(items[1].Icon);
     }
 
     private static RecordingHttpMessageHandler CreateHandler()
