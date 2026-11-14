@@ -106,17 +106,10 @@ internal sealed class PgcClient
             { "sort", "0" },
         };
 
-        if (isShort)
+        // 短评与长评都按游标翻页：首屏不传，之后用上一页返回的 next.
+        if (!string.IsNullOrEmpty(cursor))
         {
-            // 短评按游标翻页：首屏不传，之后用上一页返回的 next.
-            if (!string.IsNullOrEmpty(cursor))
-            {
-                parameters["cursor"] = cursor;
-            }
-        }
-        else
-        {
-            parameters["pn"] = pageNumber.ToString();
+            parameters["cursor"] = cursor;
         }
 
         var url = isShort ? BiliApis.Pgc.ShortReviewList : BiliApis.Pgc.ReviewList;
@@ -129,7 +122,7 @@ internal sealed class PgcClient
             ? list.Select(p => p.ToReviewInformation(isShort)).ToList()
             : [];
         var total = data is null ? 0 : Math.Max(data.Count, data.Total);
-        return (reviews, total, isShort ? data?.Next : null);
+        return (reviews, total, data?.Next);
     }
 
     public async Task ToggleFollowAsync(string seasonId, bool isFollow, CancellationToken cancellationToken)
