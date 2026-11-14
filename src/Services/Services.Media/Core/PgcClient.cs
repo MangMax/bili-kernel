@@ -97,7 +97,7 @@ internal sealed class PgcClient
         return GetPgcSeasonsWithFiltersAsync(parameters, filters, page, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<PgcReviewInformation>> GetReviewsAsync(string mediaId, bool isShort, int pageNumber, CancellationToken cancellationToken)
+    public async Task<(IReadOnlyList<PgcReviewInformation> Reviews, int Total)> GetReviewsAsync(string mediaId, bool isShort, int pageNumber, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>
         {
@@ -120,9 +120,12 @@ internal sealed class PgcClient
         _authenticator.AuthorizeRestRequest(request, parameters);
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.PgcReviewResponse).ConfigureAwait(false);
-        return responseObj?.Data?.List is { Count: > 0 } list
+        var data = responseObj?.Data;
+        var reviews = data?.List is { Count: > 0 } list
             ? list.Select(p => p.ToReviewInformation(isShort)).ToList()
             : [];
+        var total = data is null ? 0 : Math.Max(data.Count, data.Total);
+        return (reviews, total);
     }
 
     public async Task ToggleFollowAsync(string seasonId, bool isFollow, CancellationToken cancellationToken)

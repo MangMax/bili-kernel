@@ -39,7 +39,7 @@ public interface IEntertainmentDiscoveryService
     /// <param name="isShort">是否短评.</param>
     /// <param name="pageNumber">页码，从 1 开始.</param>
     /// <param name="cancellationToken">取消令牌.</param>
-    Task<IReadOnlyList<PgcReviewInformation>> GetPgcReviewsAsync(string mediaId, bool isShort, int pageNumber = 1, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<PgcReviewInformation> Reviews, int Total)> GetPgcReviewsAsync(string mediaId, bool isShort, int pageNumber = 1, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 追番/追剧.

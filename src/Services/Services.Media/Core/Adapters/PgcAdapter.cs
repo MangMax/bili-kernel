@@ -158,6 +158,7 @@ internal static class PgcAdapter
         info.AddExtensionIfNotNull(SeasonExtensionDataId.Celebrity, celebrities);
         info.AddExtensionIfNotNull(SeasonExtensionDataId.Score, score);
         info.AddExtensionIfNotNull(SeasonExtensionDataId.PgcType, type);
+        info.AddExtensionIfNotNull(SeasonExtensionDataId.Tags, display.Styles is { Count: > 0 } ? string.Join(" · ", display.Styles) : null);
         info.AddExtensionIfNotNull(SeasonExtensionDataId.MediaId, display.MediaId > 0 ? display.MediaId.ToString(CultureInfo.InvariantCulture) : null);
         return info;
     }

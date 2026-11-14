@@ -27,6 +27,18 @@ internal sealed class PgcReviewData
     /// </summary>
     [JsonPropertyName("list")]
     public List<PgcReviewItem> List { get; set; }
+
+    /// <summary>
+    /// 总数，长评接口用 count.
+    /// </summary>
+    [JsonPropertyName("count")]
+    public int Count { get; set; }
+
+    /// <summary>
+    /// 总数，短评接口用 total.
+    /// </summary>
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
 }
 
 /// <summary>

@@ -52,7 +52,7 @@ public sealed class EntertainmentDiscoveryService : IEntertainmentDiscoveryServi
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<PgcReviewInformation>> GetPgcReviewsAsync(string mediaId, bool isShort, int pageNumber = 1, CancellationToken cancellationToken = default)
+    public Task<(IReadOnlyList<PgcReviewInformation> Reviews, int Total)> GetPgcReviewsAsync(string mediaId, bool isShort, int pageNumber = 1, CancellationToken cancellationToken = default)
         => _client.GetReviewsAsync(mediaId, isShort, pageNumber, cancellationToken);
 
     /// <inheritdoc/>
