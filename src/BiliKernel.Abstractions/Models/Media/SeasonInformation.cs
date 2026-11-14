@@ -129,4 +129,9 @@ public static class SeasonExtensionDataId
     /// 是否完结.
     /// </summary>
     public const string IsFinish = "IsFinish";
+
+    /// <summary>
+    /// 媒体 Id（网页地址里的 md 号）.
+    /// </summary>
+    public const string MediaId = "MediaId";
 }

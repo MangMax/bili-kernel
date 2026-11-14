@@ -33,6 +33,15 @@ public interface IEntertainmentDiscoveryService
     Task<(IReadOnlyList<SeasonInformation> Seasons, bool HasNext)> GetIndexSeasonsWithFiltersAsync(EntertainmentType type, Dictionary<Filter, Condition>? filters = default, int pageNumber = 0, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 获取影视作品的短评或长评.
+    /// </summary>
+    /// <param name="mediaId">媒体 Id（网页地址里的 md 号）.</param>
+    /// <param name="isShort">是否短评.</param>
+    /// <param name="pageNumber">页码，从 1 开始.</param>
+    /// <param name="cancellationToken">取消令牌.</param>
+    Task<IReadOnlyList<PgcReviewInformation>> GetPgcReviewsAsync(string mediaId, bool isShort, int pageNumber = 1, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 追番/追剧.
     /// </summary>
     Task FollowAsync(string seasonId, CancellationToken cancellationToken = default);

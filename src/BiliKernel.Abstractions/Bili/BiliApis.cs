@@ -642,6 +642,16 @@ public static class BiliApis
         public const string Unfollow = _apiBase + "/pgc/web/follow/del";
 
         /// <summary>
+        /// 短评列表.
+        /// </summary>
+        public const string ShortReviewList = _apiBase + "/pgc/review/short/list";
+
+        /// <summary>
+        /// 长评列表.
+        /// </summary>
+        public const string ReviewList = _apiBase + "/pgc/review/long/list";
+
+        /// <summary>
         /// PGC索引条件.
         /// </summary>
         public const string IndexCondition = _apiBase + "/pgc/season/index/condition";

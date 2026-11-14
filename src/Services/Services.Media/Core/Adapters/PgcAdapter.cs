@@ -5,6 +5,7 @@ using Richasy.BiliKernel.Adapters;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Appearance;
 using Richasy.BiliKernel.Models.Media;
+using Richasy.BiliKernel.Models.User;
 using Richasy.BiliKernel.Services.Media.Core.Models;
 using System.Globalization;
 
@@ -157,7 +158,27 @@ internal static class PgcAdapter
         info.AddExtensionIfNotNull(SeasonExtensionDataId.Celebrity, celebrities);
         info.AddExtensionIfNotNull(SeasonExtensionDataId.Score, score);
         info.AddExtensionIfNotNull(SeasonExtensionDataId.PgcType, type);
+        info.AddExtensionIfNotNull(SeasonExtensionDataId.MediaId, display.MediaId > 0 ? display.MediaId.ToString(CultureInfo.InvariantCulture) : null);
         return info;
+    }
+
+    public static PgcReviewInformation ToReviewInformation(this PgcReviewItem item, bool isShort)
+    {
+        var author = item.Author;
+        var avatar = Uri.TryCreate(author?.Avatar, UriKind.Absolute, out var avatarUri)
+            ? new BiliImage(avatarUri)
+            : null;
+        var user = new UserProfile(author?.Mid.ToString(CultureInfo.InvariantCulture) ?? "0", author?.Name, avatar);
+        var time = item.CTime > 0 ? DateTimeOffset.FromUnixTimeSeconds(item.CTime) : (DateTimeOffset?)null;
+        return new PgcReviewInformation(
+            user,
+            item.Content ?? string.Empty,
+            string.IsNullOrWhiteSpace(item.Title) ? null : item.Title,
+            item.Score > 0 ? item.Score : null,
+            item.Stat?.Likes,
+            time,
+            string.IsNullOrWhiteSpace(item.Progress) ? null : item.Progress,
+            isShort);
     }
 
     public static PgcPlayerView ToPgcPlayerView(this PgcDetailResponse display)

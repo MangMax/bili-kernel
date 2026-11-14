@@ -97,6 +97,34 @@ internal sealed class PgcClient
         return GetPgcSeasonsWithFiltersAsync(parameters, filters, page, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<PgcReviewInformation>> GetReviewsAsync(string mediaId, bool isShort, int pageNumber, CancellationToken cancellationToken)
+    {
+        var parameters = new Dictionary<string, string>
+        {
+            { "media_id", mediaId },
+            { "ps", "20" },
+            { "sort", "0" },
+        };
+
+        if (isShort)
+        {
+            parameters["cursor"] = ((pageNumber - 1) * 20).ToString();
+        }
+        else
+        {
+            parameters["pn"] = pageNumber.ToString();
+        }
+
+        var url = isShort ? BiliApis.Pgc.ShortReviewList : BiliApis.Pgc.ReviewList;
+        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
+        _authenticator.AuthorizeRestRequest(request, parameters);
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.PgcReviewResponse).ConfigureAwait(false);
+        return responseObj?.Data?.List is { Count: > 0 } list
+            ? list.Select(p => p.ToReviewInformation(isShort)).ToList()
+            : [];
+    }
+
     public async Task ToggleFollowAsync(string seasonId, bool isFollow, CancellationToken cancellationToken)
     {
         var paramters = new Dictionary<string, string>
