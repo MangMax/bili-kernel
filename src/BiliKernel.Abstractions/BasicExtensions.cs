@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Models.Appearance;
+using System.Globalization;
 
 namespace Richasy.BiliKernel;
 
@@ -43,32 +44,35 @@ public static class BasicExtensions
     /// </summary>
     public static int ToDurationSeconds(this string durationText)
     {
+        if (string.IsNullOrWhiteSpace(durationText))
+        {
+            return 0;
+        }
+
         if (durationText.Contains(' '))
         {
             var sp = durationText.Split(' ');
             durationText = sp.FirstOrDefault(p => p.Contains(':'))?.Trim() ?? "00:00";
         }
 
-        var colonCount = durationText.Count(p => p == ':');
-        var hourStr = string.Empty;
-        if (colonCount == 1)
+        // 逐段累加而不是交给 TimeSpan.Parse：站内存在 "00:349:48" 这类分钟数溢出的时长文本，
+        // TimeSpan.Parse 会直接抛 OverflowException，连带整页投稿都加载失败.
+        long totalSeconds = 0;
+        foreach (var part in durationText.Split(':'))
         {
-            durationText = "00:" + durationText;
-        }
-        else if (colonCount == 2)
-        {
-            var sp = durationText.Split(':');
-            durationText = string.Join(":", "00", sp[1], sp[2]);
-            hourStr = sp[0];
+            if (!long.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+            {
+                return 0;
+            }
+
+            totalSeconds = (totalSeconds * 60) + value;
+            if (totalSeconds > int.MaxValue)
+            {
+                return int.MaxValue;
+            }
         }
 
-        var ts = TimeSpan.Parse(durationText);
-        if (!string.IsNullOrEmpty(hourStr))
-        {
-            ts += TimeSpan.FromHours(Convert.ToInt32(hourStr));
-        }
-
-        return Convert.ToInt32(ts.TotalSeconds);
+        return (int)totalSeconds;
     }
 
     /// <summary>
