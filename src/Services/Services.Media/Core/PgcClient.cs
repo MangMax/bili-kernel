@@ -97,7 +97,7 @@ internal sealed class PgcClient
         return GetPgcSeasonsWithFiltersAsync(parameters, filters, page, cancellationToken);
     }
 
-    public async Task<(IReadOnlyList<PgcReviewInformation> Reviews, int Total)> GetReviewsAsync(string mediaId, bool isShort, int pageNumber, CancellationToken cancellationToken)
+    public async Task<(IReadOnlyList<PgcReviewInformation> Reviews, int Total, string? NextCursor)> GetReviewsAsync(string mediaId, bool isShort, int pageNumber, string? cursor, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>
         {
@@ -108,7 +108,11 @@ internal sealed class PgcClient
 
         if (isShort)
         {
-            parameters["cursor"] = ((pageNumber - 1) * 20).ToString();
+            // 短评按游标翻页：首屏不传，之后用上一页返回的 next.
+            if (!string.IsNullOrEmpty(cursor))
+            {
+                parameters["cursor"] = cursor;
+            }
         }
         else
         {
@@ -125,7 +129,7 @@ internal sealed class PgcClient
             ? list.Select(p => p.ToReviewInformation(isShort)).ToList()
             : [];
         var total = data is null ? 0 : Math.Max(data.Count, data.Total);
-        return (reviews, total);
+        return (reviews, total, isShort ? data?.Next : null);
     }
 
     public async Task ToggleFollowAsync(string seasonId, bool isFollow, CancellationToken cancellationToken)

@@ -39,6 +39,12 @@ internal sealed class PgcReviewData
     /// </summary>
     [JsonPropertyName("total")]
     public int Total { get; set; }
+
+    /// <summary>
+    /// 下一页游标，只有短评有.
+    /// </summary>
+    [JsonPropertyName("next")]
+    public string Next { get; set; }
 }
 
 /// <summary>

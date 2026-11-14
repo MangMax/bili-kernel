@@ -52,8 +52,8 @@ public sealed class EntertainmentDiscoveryService : IEntertainmentDiscoveryServi
     }
 
     /// <inheritdoc/>
-    public Task<(IReadOnlyList<PgcReviewInformation> Reviews, int Total)> GetPgcReviewsAsync(string mediaId, bool isShort, int pageNumber = 1, CancellationToken cancellationToken = default)
-        => _client.GetReviewsAsync(mediaId, isShort, pageNumber, cancellationToken);
+    public Task<(IReadOnlyList<PgcReviewInformation> Reviews, int Total, string? NextCursor)> GetPgcReviewsAsync(string mediaId, bool isShort, int pageNumber = 1, string? cursor = null, CancellationToken cancellationToken = default)
+        => _client.GetReviewsAsync(mediaId, isShort, pageNumber, cursor, cancellationToken);
 
     /// <inheritdoc/>
     public Task FollowAsync(string seasonId, CancellationToken cancellationToken = default)

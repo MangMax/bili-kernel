@@ -38,8 +38,10 @@ public interface IEntertainmentDiscoveryService
     /// <param name="mediaId">媒体 Id（网页地址里的 md 号）.</param>
     /// <param name="isShort">是否短评.</param>
     /// <param name="pageNumber">页码，从 1 开始.</param>
+    /// <param name="cursor">短评的翻页游标；首页传空.</param>
     /// <param name="cancellationToken">取消令牌.</param>
-    Task<(IReadOnlyList<PgcReviewInformation> Reviews, int Total)> GetPgcReviewsAsync(string mediaId, bool isShort, int pageNumber = 1, CancellationToken cancellationToken = default);
+    /// <returns>评价列表、总数与短评的下一页游标.</returns>
+    Task<(IReadOnlyList<PgcReviewInformation> Reviews, int Total, string? NextCursor)> GetPgcReviewsAsync(string mediaId, bool isShort, int pageNumber = 1, string? cursor = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 追番/追剧.
