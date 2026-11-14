@@ -232,6 +232,30 @@ internal sealed class PgcDetailResponse
     /// </summary>
     [JsonPropertyName("seasons")]
     public List<PgcSeason> Seasons { get; set; }
+
+    /// <summary>
+    /// 附加内容（花絮、预告片、PV 等）.
+    /// </summary>
+    [JsonPropertyName("section")]
+    public List<PgcDetailSection> Section { get; set; }
+}
+
+/// <summary>
+/// PGC 详情的附加内容分区.
+/// </summary>
+internal sealed class PgcDetailSection
+{
+    /// <summary>
+    /// 分区标题，比如「花絮」.
+    /// </summary>
+    [JsonPropertyName("title")]
+    public string Title { get; set; }
+
+    /// <summary>
+    /// 分区内的剧集.
+    /// </summary>
+    [JsonPropertyName("episodes")]
+    public List<PgcEpisodeDetail> Episodes { get; set; }
 }
 
 /// <summary>

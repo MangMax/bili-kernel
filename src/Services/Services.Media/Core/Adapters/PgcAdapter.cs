@@ -235,6 +235,33 @@ internal static class PgcAdapter
             }
         }
 
+        // 花絮、预告片这类内容在旧字段 section 里，模块化响应不一定带，单独合并.
+        if (display.Section is { Count: > 0 })
+        {
+            extras ??= [];
+            foreach (var section in display.Section)
+            {
+                if (section.Episodes is not { Count: > 0 })
+                {
+                    continue;
+                }
+
+                var title = string.IsNullOrEmpty(section.Title) ? "section" : section.Title;
+                var list = section.Episodes.Select(p => p.ToEpisodeInformation(display)).ToList();
+                if (extras.TryGetValue(title, out var existing))
+                {
+                    foreach (var item in list.Where(item => existing.All(p => p.Identifier.Id != item.Identifier.Id)))
+                    {
+                        existing.Add(item);
+                    }
+                }
+                else
+                {
+                    extras[title] = list;
+                }
+            }
+        }
+
         if (display.UserStatus?.Progress != null && episodes != null)
         {
             var progress = display.UserStatus.Progress;
