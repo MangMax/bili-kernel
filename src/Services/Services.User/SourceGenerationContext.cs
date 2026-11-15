@@ -48,6 +48,8 @@ namespace Richasy.BiliKernel.Services.User;
 [JsonSerializable(typeof(BiliDataResponse<SpaceAudioResponse>))]
 [JsonSerializable(typeof(SpaceCollectionResponse))]
 [JsonSerializable(typeof(BiliDataResponse<SpaceCollectionResponse>))]
+[JsonSerializable(typeof(SpaceArchivesResponse))]
+[JsonSerializable(typeof(BiliDataResponse<SpaceArchivesResponse>))]
 [JsonSerializable(typeof(PgcArea))]
 [JsonSerializable(typeof(FavoritePgcItem))]
 [JsonSerializable(typeof(PgcProgress))]

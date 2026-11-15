@@ -60,4 +60,8 @@ public sealed class UserService : IUserService
     /// <inheritdoc/>
     public Task<(IReadOnlyList<UserCollectionInfo> Collections, int TotalCount)> GetUserCollectionInfosAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default)
         => _spaceClient.GetUserCollectionInfosAsync(userId, pageNumber, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<(IReadOnlyList<VideoInformation> Videos, int TotalCount)> GetCollectionVideosAsync(string userId, string collectionId, bool isSeason, int pageNumber = 0, CancellationToken cancellationToken = default)
+        => _spaceClient.GetCollectionVideosAsync(userId, collectionId, isSeason, pageNumber, cancellationToken);
 }

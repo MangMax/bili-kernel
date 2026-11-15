@@ -194,6 +194,67 @@ internal sealed class SpaceClient
         return (collections.AsReadOnly(), total);
     }
 
+    public async Task<(IReadOnlyList<VideoInformation> Videos, int TotalCount)> GetCollectionVideosAsync(string userId, string collectionId, bool isSeason, int pageNumber, CancellationToken cancellationToken)
+    {
+        // 合集/系列的视频列表与合集列表端点一样，不接受 WBI 签名和 dm_* 参数.
+        var url = isSeason ? BiliApis.Account.SeasonArchives : BiliApis.Account.SeriesArchives;
+        var parameters = isSeason
+            ? new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                { "mid", userId },
+                { "season_id", collectionId },
+                { "sort_reverse", "false" },
+                { "page_num", (pageNumber + 1).ToString(CultureInfo.InvariantCulture) },
+                { "page_size", PageSize },
+            }
+            : new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                { "mid", userId },
+                { "series_id", collectionId },
+                { "only_normal", "true" },
+                { "sort", "desc" },
+                { "pn", (pageNumber + 1).ToString(CultureInfo.InvariantCulture) },
+                { "ps", PageSize },
+            };
+
+        var query = string.Join("&", parameters.Select(p => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value)}"));
+        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri($"{url}?{query}"));
+        request.Headers.TryAddWithoutValidation("Referer", isSeason
+            ? $"https://space.bilibili.com/{userId}/channel/collectiondetail?sid={collectionId}"
+            : $"https://space.bilibili.com/{userId}/channel/seriesdetail?sid={collectionId}");
+        request.Headers.TryAddWithoutValidation("Origin", "https://space.bilibili.com");
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseSpaceArchivesResponse).ConfigureAwait(false);
+        if (responseObj is null)
+        {
+            throw new KernelException("解析合集视频列表失败");
+        }
+
+        if (!responseObj.IsSuccess())
+        {
+            throw new KernelException($"获取合集视频列表失败：{responseObj.Code} {responseObj.Message}");
+        }
+
+        var data = responseObj.Data;
+        var publisher = new PublisherProfile(new UserProfile(userId));
+        var videos = (data?.Archives ?? [])
+            .Select(item =>
+            {
+                var cover = string.IsNullOrEmpty(item.Cover) ? null : item.Cover.ToImage();
+                var identifier = new MediaIdentifier(item.Aid.ToString(CultureInfo.InvariantCulture), item.Title, cover);
+                var community = new VideoCommunityInformation(item.Aid.ToString(CultureInfo.InvariantCulture), item.Stat?.View, item.Stat?.Danmaku);
+                var publishTime = item.PublishTime is > 0
+                    ? DateTimeOffset.FromUnixTimeSeconds(item.PublishTime.Value).ToLocalTime()
+                    : (DateTimeOffset?)null;
+                return new VideoInformation(identifier, publisher, item.Duration, item.BvId, publishTime, communityInformation: community);
+            })
+            .ToList()
+            .AsReadOnly();
+        var page = data?.Page;
+        var total = page is null ? videos.Count : Math.Max(page.Total, page.Number);
+        return (videos, total);
+    }
+
     private static UserCollectionInfo CreateCollection(string id, SpaceCollectionMeta meta, bool isSeason)
     {
         var cover = string.IsNullOrEmpty(meta.Cover) ? null : meta.Cover.ToImage();

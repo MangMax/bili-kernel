@@ -328,3 +328,75 @@ internal sealed class SpaceCollectionPage
     [JsonPropertyName("total")]
     public int Total { get; set; }
 }
+
+/// <summary>
+/// 合集或系列内的视频列表响应.
+/// </summary>
+internal sealed class SpaceArchivesResponse
+{
+    [JsonPropertyName("archives")]
+    public List<SpaceArchiveItem>? Archives { get; set; }
+
+    [JsonPropertyName("page")]
+    public SpaceArchivePage? Page { get; set; }
+}
+
+/// <summary>
+/// 合集或系列内的视频条目.
+/// </summary>
+internal sealed class SpaceArchiveItem
+{
+    [JsonPropertyName("aid")]
+    public long Aid { get; set; }
+
+    [JsonPropertyName("bvid")]
+    public string? BvId { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("pic")]
+    public string? Cover { get; set; }
+
+    [JsonPropertyName("duration")]
+    public long? Duration { get; set; }
+
+    [JsonPropertyName("pubdate")]
+    public long? PublishTime { get; set; }
+
+    [JsonPropertyName("stat")]
+    public SpaceArchiveStat? Stat { get; set; }
+}
+
+/// <summary>
+/// 合集内视频的统计数据.
+/// </summary>
+internal sealed class SpaceArchiveStat
+{
+    [JsonPropertyName("view")]
+    public long? View { get; set; }
+
+    [JsonPropertyName("danmaku")]
+    public long? Danmaku { get; set; }
+}
+
+/// <summary>
+/// 合集内视频分页.
+/// </summary>
+internal sealed class SpaceArchivePage
+{
+    [JsonPropertyName("page_num")]
+    public int PageNumber { get; set; }
+
+    [JsonPropertyName("num")]
+    public int Number { get; set; }
+
+    [JsonPropertyName("page_size")]
+    public int PageSize { get; set; }
+
+    [JsonPropertyName("size")]
+    public int Size { get; set; }
+
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+}

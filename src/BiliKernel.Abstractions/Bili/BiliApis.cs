@@ -146,6 +146,16 @@ public static class BiliApis
         /// </summary>
         public const string SpaceCollections = _apiBase + "/x/polymer/web-space/seasons_series_list";
 
+        /// <summary>
+        /// 合集（season）内的视频列表.
+        /// </summary>
+        public const string SeasonArchives = _apiBase + "/x/polymer/web-space/seasons_archives_list";
+
+        /// <summary>
+        /// 系列（series）内的视频列表.
+        /// </summary>
+        public const string SeriesArchives = _apiBase + "/x/series/archives";
+
         public const string SpaceVideoSearch = _grpcBase + "/bilibili.app.interface.v1.Space/SearchArchive";
 
         /// <summary>

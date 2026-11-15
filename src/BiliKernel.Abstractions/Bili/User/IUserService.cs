@@ -67,4 +67,15 @@ public interface IUserService
     /// <param name="cancellationToken">终止令牌.</param>
     /// <returns>合集列表与总数.</returns>
     Task<(IReadOnlyList<UserCollectionInfo> Collections, int TotalCount)> GetUserCollectionInfosAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 获取合集或系列内的视频列表.
+    /// </summary>
+    /// <param name="userId">用户 Id.</param>
+    /// <param name="collectionId">合集或系列 Id.</param>
+    /// <param name="isSeason">是否为合集.</param>
+    /// <param name="pageNumber">页码，从 0 开始.</param>
+    /// <param name="cancellationToken">终止令牌.</param>
+    /// <returns>视频列表与总数.</returns>
+    Task<(IReadOnlyList<VideoInformation> Videos, int TotalCount)> GetCollectionVideosAsync(string userId, string collectionId, bool isSeason, int pageNumber = 0, CancellationToken cancellationToken = default);
 }
