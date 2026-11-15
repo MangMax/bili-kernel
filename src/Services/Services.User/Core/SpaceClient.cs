@@ -151,7 +151,8 @@ internal sealed class SpaceClient
         {
             { "mid", userId },
             { "page_num", (pageNumber + 1).ToString(CultureInfo.InvariantCulture) },
-            { "page_size", PageSize },
+            // 该端点最多接受 20 条/页，超过会返回 -400.
+            { "page_size", "20" },
             { "web_location", "333.1387" },
         };
 
