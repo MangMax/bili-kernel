@@ -52,4 +52,12 @@ public sealed class UserService : IUserService
     /// <inheritdoc/>
     public Task<IReadOnlyList<ArticleInformation>> GetUserArticlesAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default)
         => _spaceClient.GetUserArticlesAsync(userId, pageNumber, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<(IReadOnlyList<AudioInformation> Audios, int TotalCount)> GetUserAudiosAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default)
+        => _spaceClient.GetUserAudiosAsync(userId, pageNumber, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<(IReadOnlyList<UserCollectionInfo> Collections, int TotalCount)> GetUserCollectionInfosAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default)
+        => _spaceClient.GetUserCollectionInfosAsync(userId, pageNumber, cancellationToken);
 }

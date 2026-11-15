@@ -202,3 +202,129 @@ internal sealed class SpaceArticleItem
     [JsonPropertyName("publish_time")]
     public long PublishTime { get; set; }
 }
+
+/// <summary>
+/// 用户空间音频列表响应.
+/// </summary>
+internal sealed class SpaceAudioResponse
+{
+    /// <summary>
+    /// 音频列表.
+    /// </summary>
+    [JsonPropertyName("data")]
+    public List<SpaceAudioItem>? Items { get; set; }
+
+    /// <summary>
+    /// 页数.
+    /// </summary>
+    [JsonPropertyName("pageCount")]
+    public int PageCount { get; set; }
+
+    /// <summary>
+    /// 总数.
+    /// </summary>
+    [JsonPropertyName("totalSize")]
+    public int TotalSize { get; set; }
+}
+
+/// <summary>
+/// 空间音频条目.
+/// </summary>
+internal sealed class SpaceAudioItem
+{
+    [JsonPropertyName("id")]
+    public long Id { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("cover")]
+    public string? Cover { get; set; }
+
+    [JsonPropertyName("duration")]
+    public int? Duration { get; set; }
+
+    [JsonPropertyName("author")]
+    public string? Author { get; set; }
+
+    [JsonPropertyName("playNum")]
+    public long? PlayCount { get; set; }
+}
+
+/// <summary>
+/// 用户空间合集与系列列表响应.
+/// </summary>
+internal sealed class SpaceCollectionResponse
+{
+    /// <summary>
+    /// 合集与系列.
+    /// </summary>
+    [JsonPropertyName("items_lists")]
+    public SpaceCollectionLists? ItemsLists { get; set; }
+
+    /// <summary>
+    /// 分页信息.
+    /// </summary>
+    [JsonPropertyName("page")]
+    public SpaceCollectionPage? Page { get; set; }
+}
+
+/// <summary>
+/// 合集与系列列表.
+/// </summary>
+internal sealed class SpaceCollectionLists
+{
+    [JsonPropertyName("seasons_list")]
+    public List<SpaceCollectionEntry>? Seasons { get; set; }
+
+    [JsonPropertyName("series_list")]
+    public List<SpaceCollectionEntry>? Series { get; set; }
+}
+
+/// <summary>
+/// 合集或系列条目.
+/// </summary>
+internal sealed class SpaceCollectionEntry
+{
+    [JsonPropertyName("meta")]
+    public SpaceCollectionMeta? Meta { get; set; }
+}
+
+/// <summary>
+/// 合集或系列元信息.
+/// </summary>
+internal sealed class SpaceCollectionMeta
+{
+    [JsonPropertyName("season_id")]
+    public long? SeasonId { get; set; }
+
+    [JsonPropertyName("series_id")]
+    public long? SeriesId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("cover")]
+    public string? Cover { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("total")]
+    public int? Total { get; set; }
+}
+
+/// <summary>
+/// 合集与系列分页.
+/// </summary>
+internal sealed class SpaceCollectionPage
+{
+    [JsonPropertyName("page_num")]
+    public int PageNumber { get; set; }
+
+    [JsonPropertyName("page_size")]
+    public int PageSize { get; set; }
+
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+}

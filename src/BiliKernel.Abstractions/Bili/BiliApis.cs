@@ -136,6 +136,16 @@ public static class BiliApis
         /// </summary>
         public const string SpaceArticles = _apiBase + "/x/space/wbi/article";
 
+        /// <summary>
+        /// 用户空间音频列表.
+        /// </summary>
+        public const string SpaceAudios = _apiBase + "/audio/music-service-c/web/song/upper";
+
+        /// <summary>
+        /// 用户空间合集与系列列表（WBI）.
+        /// </summary>
+        public const string SpaceCollections = _apiBase + "/x/polymer/web-space/seasons_series_list";
+
         public const string SpaceVideoSearch = _grpcBase + "/bilibili.app.interface.v1.Space/SearchArchive";
 
         /// <summary>

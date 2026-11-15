@@ -49,4 +49,22 @@ public interface IUserService
     /// <param name="cancellationToken">终止令牌.</param>
     /// <returns>专栏列表.</returns>
     Task<IReadOnlyList<ArticleInformation>> GetUserArticlesAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 获取用户音频投稿列表.
+    /// </summary>
+    /// <param name="userId">用户 Id.</param>
+    /// <param name="pageNumber">页码，从 0 开始.</param>
+    /// <param name="cancellationToken">终止令牌.</param>
+    /// <returns>音频列表与总数.</returns>
+    Task<(IReadOnlyList<AudioInformation> Audios, int TotalCount)> GetUserAudiosAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 获取用户合集与系列列表（WBI 的 Web 端点）.
+    /// </summary>
+    /// <param name="userId">用户 Id.</param>
+    /// <param name="pageNumber">页码，从 0 开始.</param>
+    /// <param name="cancellationToken">终止令牌.</param>
+    /// <returns>合集列表与总数.</returns>
+    Task<(IReadOnlyList<UserCollectionInfo> Collections, int TotalCount)> GetUserCollectionInfosAsync(string userId, int pageNumber = 0, CancellationToken cancellationToken = default);
 }

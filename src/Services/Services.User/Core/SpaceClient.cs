@@ -105,6 +105,75 @@ internal sealed class SpaceClient
             .AsReadOnly();
     }
 
+    public async Task<(IReadOnlyList<AudioInformation> Audios, int TotalCount)> GetUserAudiosAsync(string userId, int pageNumber, CancellationToken cancellationToken)
+    {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
+        var parameters = new Dictionary<string, string>(_antiCrawlParameters, StringComparer.Ordinal)
+        {
+            { "uid", userId },
+            { "ps", PageSize },
+            { "pn", (pageNumber + 1).ToString(CultureInfo.InvariantCulture) },
+            { "web_location", "1550101" },
+        };
+
+        var request = CreateWbiRequest(BiliApis.Account.SpaceAudios, parameters, $"https://space.bilibili.com/{userId}/audio");
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseSpaceAudioResponse).ConfigureAwait(false);
+        var data = responseObj?.Data ?? throw new KernelException("解析用户音频列表失败");
+        var audios = (data.Items ?? [])
+            .Select(item =>
+            {
+                var cover = string.IsNullOrEmpty(item.Cover) ? null : item.Cover.ToImage();
+                return new AudioInformation(new MediaIdentifier(item.Id.ToString(CultureInfo.InvariantCulture), item.Title, cover), item.Author, item.Duration, item.PlayCount);
+            })
+            .ToList()
+            .AsReadOnly();
+        var total = data.TotalSize > 0 ? data.TotalSize : audios.Count;
+        return (audios, total);
+    }
+
+    public async Task<(IReadOnlyList<UserCollectionInfo> Collections, int TotalCount)> GetUserCollectionInfosAsync(string userId, int pageNumber, CancellationToken cancellationToken)
+    {
+        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
+        var parameters = new Dictionary<string, string>(_antiCrawlParameters, StringComparer.Ordinal)
+        {
+            { "mid", userId },
+            { "page_num", (pageNumber + 1).ToString(CultureInfo.InvariantCulture) },
+            { "page_size", PageSize },
+            { "web_location", "333.1387" },
+        };
+
+        var request = CreateWbiRequest(BiliApis.Account.SpaceCollections, parameters, $"https://space.bilibili.com/{userId}/channel/collection");
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseSpaceCollectionResponse).ConfigureAwait(false);
+        var data = responseObj?.Data ?? throw new KernelException("解析用户合集列表失败");
+        var collections = new List<UserCollectionInfo>();
+        foreach (var entry in data.ItemsLists?.Seasons ?? [])
+        {
+            if (entry.Meta is { SeasonId: > 0 } meta)
+            {
+                collections.Add(CreateCollection(meta.SeasonId!.Value.ToString(CultureInfo.InvariantCulture), meta, true));
+            }
+        }
+
+        foreach (var entry in data.ItemsLists?.Series ?? [])
+        {
+            if (entry.Meta is { SeriesId: > 0 } meta)
+            {
+                collections.Add(CreateCollection(meta.SeriesId!.Value.ToString(CultureInfo.InvariantCulture), meta, false));
+            }
+        }
+
+        var total = data.Page?.Total ?? collections.Count;
+        return (collections.AsReadOnly(), total);
+    }
+
+    private static UserCollectionInfo CreateCollection(string id, SpaceCollectionMeta meta, bool isSeason)
+    {
+        var cover = string.IsNullOrEmpty(meta.Cover) ? null : meta.Cover.ToImage();
+        return new UserCollectionInfo(id, meta.Name, cover, meta.Total, meta.Description, isSeason);
+    }
+
     private static VideoInformation CreateVideoInformation(SpaceVideoItem item, string userId)
     {
         var cover = string.IsNullOrEmpty(item.Cover) ? null : item.Cover.ToImage();
