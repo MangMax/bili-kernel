@@ -10,16 +10,18 @@ namespace Richasy.BiliKernel.Services.Search.Core;
 
 internal static class SearchAdapter
 {
-    public static HotSearchItem ToHotSearchItem(this WebHotSearchItem item)
+    // 现行 Web 端点不返回 position / hot_id，榜单顺序即名次，用 keyword 兜底标识.
+    public static HotSearchItem ToHotSearchItem(this WebHotSearchItem item, int order)
     {
+        var keyword = item.Keyword ?? string.Empty;
         return new HotSearchItem(
-            item.HotId.ToString(),
-            item.Position,
-            item.Keyword,
-            item.ShowName,
+            item.HotId?.ToString() ?? keyword,
+            item.Position > 0 ? item.Position : order,
+            keyword,
+            item.ShowName ?? keyword,
             item.ShowLiveIcon,
             item.ResourceId?.ToString(),
-            item.Icon?.ToImage());
+            string.IsNullOrEmpty(item.Icon) ? null : item.Icon.ToImage());
     }
 
     public static SearchRecommendItem ToSearchRecommendItem(this WebSearchRecommendItem item)
