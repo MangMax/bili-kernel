@@ -84,12 +84,12 @@ internal sealed class RelatedUserVip
 }
 
 /// <summary>
-/// 粉丝列表响应结果.
+/// 关注或粉丝列表响应结果.
 /// </summary>
 internal sealed class RelatedUserResponse
 {
     /// <summary>
-    /// 粉丝列表.
+    /// 用户列表.
     /// </summary>
     [JsonPropertyName("list")]
     public List<RelatedUser> UserList { get; set; }

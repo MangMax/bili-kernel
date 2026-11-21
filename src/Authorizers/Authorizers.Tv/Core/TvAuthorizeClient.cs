@@ -18,7 +18,6 @@ internal sealed class TVAuthorizeClient
     private readonly IBiliCookiesResolver _localCookiesResolver;
     private readonly IBiliTokenResolver _localTokenResolver;
     private readonly BiliAuthenticator _basicAuthenticator;
-    private bool _isScanCheckInvoking;
 
     public TVAuthorizeClient(
         BiliHttpClient httpClient,
@@ -69,56 +68,34 @@ internal sealed class TVAuthorizeClient
 
     public async Task<BiliToken?> WaitQRCodeScanAsync(TVQRCode code, CancellationToken cancellationToken = default)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        while (true)
         {
-            if (_isScanCheckInvoking)
-            {
-                await Task.Delay(500, cancellationToken).ConfigureAwait(false);
-                continue;
-            }
-
-            _isScanCheckInvoking = true;
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var token = await GetTokenIfCodeScannedAsync(code.AuthCode, cancellationToken).ConfigureAwait(false);
+                var token = await GetTokenIfCodeScannedAsync(code.AuthCode, cancellationToken).ConfigureAwait(false)
+                    ?? throw new KernelException("扫码确认后未返回登录令牌");
+                cancellationToken.ThrowIfCancellationRequested();
                 TrySaveCookiesFromToken(token);
                 SaveToken(token);
                 return token;
             }
-            catch (KernelException ke)
+            catch (KernelException ex) when (ex.InnerException?.Message is { } response && response.TrimStart().StartsWith('{'))
             {
-                if (ke.InnerException is TaskCanceledException)
+                var status = JsonSerializer.Deserialize(response, SourceGenerationContext.Default.BiliResponse)?.Code;
+                if (status is 86038 or -3)
                 {
-                    break;
+                    throw new KernelException("二维码已过期，请刷新二维码", ex);
                 }
 
-                if (ke.InnerException is not null && ke.InnerException.Message.Contains("Code"))
+                if (status is not (86039 or 86090))
                 {
-                    var error = JsonSerializer.Deserialize(ke.InnerException.Message, SourceGenerationContext.Default.BiliResponse);
-                    if (error != null)
-                    {
-                        var qrStatus = error.Code is 86090 or 86039
-                            ? QRCodeStatus.NotConfirm
-                            : error.Code is 86038 or -3 ? QRCodeStatus.Expired : QRCodeStatus.Failed;
-
-                        if (qrStatus == QRCodeStatus.NotConfirm)
-                        {
-                            await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            throw new Exception(qrStatus == QRCodeStatus.Expired ? "二维码已过期，请刷新二维码" : "二维码扫描失败", ke.InnerException);
-                        }
-                    }
+                    throw;
                 }
-            }
-            finally
-            {
-                _isScanCheckInvoking = false;
+
+                await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
             }
         }
-
-        return default;
     }
 
     public void SignOut()
@@ -129,17 +106,33 @@ internal sealed class TVAuthorizeClient
 
     public async Task SignInWithCookiesAsync(IDictionary<string, string> cookies, CancellationToken cancellationToken)
     {
+        var previousCookies = _localCookiesResolver.GetCookies();
         _localCookiesResolver.SaveCookies(cookies);
-        var qrCode = await GetQRCodeAsync(cancellationToken).ConfigureAwait(false) ?? throw new KernelException("获取二维码失败");
-        var parameters = new Dictionary<string, string>
+        try
         {
-            { "auth_code", qrCode.AuthCode },
-        };
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Passport.QRCodeConfirm));
-        _basicAuthenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings() { ForceNoToken = true, NeedCSRF = true, RequireCookie = true });
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        _isScanCheckInvoking = false;
-        await WaitQRCodeScanAsync(qrCode, cancellationToken).ConfigureAwait(false);
+            var qrCode = await GetQRCodeAsync(cancellationToken).ConfigureAwait(false) ?? throw new KernelException("获取二维码失败");
+            var parameters = new Dictionary<string, string>
+            {
+                { "auth_code", qrCode.AuthCode },
+            };
+            using var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Passport.QRCodeConfirm));
+            _basicAuthenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings() { ForceNoToken = true, NeedCSRF = true, RequireCookie = true });
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            await WaitQRCodeScanAsync(qrCode, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            if (previousCookies is { Count: > 0 })
+            {
+                _localCookiesResolver.SaveCookies(previousCookies);
+            }
+            else
+            {
+                _localCookiesResolver.RemoveCookies();
+            }
+
+            throw;
+        }
     }
 
     private static void BasicTokenCheck(BiliToken? localToken)
@@ -178,7 +171,7 @@ internal sealed class TVAuthorizeClient
         return token;
     }
 
-    private async Task<BiliToken> GetTokenIfCodeScannedAsync(string authCode, CancellationToken cancellationToken = default)
+    private async Task<BiliToken?> GetTokenIfCodeScannedAsync(string authCode, CancellationToken cancellationToken = default)
     {
         var parameters = new Dictionary<string, string>
         {
@@ -191,9 +184,7 @@ internal sealed class TVAuthorizeClient
         _basicAuthenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings() { ForceNoToken = true });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseBiliToken).ConfigureAwait(false);
-        var token = responseObj?.Data;
-        TrySaveCookiesFromToken(token);
-        return token;
+        return responseObj?.Data;
     }
 
     private void TrySaveCookiesFromToken(BiliToken? token)

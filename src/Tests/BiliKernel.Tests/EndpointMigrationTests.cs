@@ -103,6 +103,24 @@ public sealed class EndpointMigrationTests
     }
 
     [Fact]
+    public async Task SeasonDetailReadsFollowStatusWithSessionCookie()
+    {
+        var handler = new RecordingHttpMessageHandler(request =>
+            RecordingHttpMessageHandler.Json(request.Cookie?.Contains("SESSDATA=series-session") == true
+                ? SeasonResponse.Replace("\"follow\":0", "\"follow\":1", StringComparison.Ordinal)
+                : SeasonResponse));
+        var cookies = new FakeCookiesResolver();
+        cookies.SaveCookies(new Dictionary<string, string> { ["SESSDATA"] = "series-session" });
+        var token = new FakeTokenResolver();
+        var http = new BiliHttpClient(handler);
+        var service = new PlayerService(http, new BiliAuthenticator(cookies, token, httpClient: http), token);
+
+        var view = await service.GetPgcPageDetailAsync("332584", null, CancellationToken.None);
+
+        Assert.True(view.Information.IsTracking);
+    }
+
+    [Fact]
     public async Task AnimeTimelineUsesWebEndpoint()
     {
         var handler = CreateHandler();

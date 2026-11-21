@@ -60,6 +60,10 @@ public sealed class EntertainmentDiscoveryService : IEntertainmentDiscoveryServi
         => _client.ToggleFollowAsync(seasonId, true, cancellationToken);
 
     /// <inheritdoc/>
+    public Task<bool> GetPgcTrackingStateAsync(string seasonId, CancellationToken cancellationToken = default)
+        => _client.GetTrackingStateAsync(seasonId, cancellationToken);
+
+    /// <inheritdoc/>
     public Task UnfollowAsync(string seasonId, CancellationToken cancellationToken = default)
         => _client.ToggleFollowAsync(seasonId, false, cancellationToken);
 }

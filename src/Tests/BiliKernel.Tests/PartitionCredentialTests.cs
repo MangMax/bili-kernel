@@ -55,13 +55,19 @@ public sealed class PartitionCredentialTests
     }
 
     [Theory]
-    [InlineData(true, 0, "/x/v2/region/dynamic/child")]
-    [InlineData(true, 123, "/x/v2/region/dynamic/child/list")]
-    [InlineData(false, 0, "/x/v2/region/dynamic/child")]
-    public async Task DefaultSortPreservesAppCredentialsAndCursor(bool token, long offset, string path)
+    [InlineData(true, false, 0, "/x/v2/region/dynamic/child")]
+    [InlineData(true, false, 123, "/x/v2/region/dynamic/child/list")]
+    [InlineData(false, false, 0, "/x/v2/region/dynamic/child")]
+    [InlineData(true, true, 0, "/x/v2/region/dynamic/child")]
+    [InlineData(true, true, 123, "/x/v2/region/dynamic/child/list")]
+    public async Task DefaultSortPreservesCursorAndSendsCompatibleAppCredentials(bool token, bool androidHd, long offset, string path)
     {
         var handler = new RecordingHttpMessageHandler().With(path, """{"code":0,"data":{"new":[{"param":"2468","title":"Default result"}],"cbottom":999}}""");
-        var tokens = new FakeTokenResolver { Token = token ? new BiliToken { AccessToken = "intentional-app-token" } : null };
+        var tokens = new FakeTokenResolver
+        {
+            IsAndroidHdToken = androidHd,
+            Token = token ? new BiliToken { AccessToken = "intentional-app-token" } : null,
+        };
         var http = new BiliHttpClient(handler);
         var service = new VideoDiscoveryService(http, new BiliAuthenticator(new FakeCookiesResolver(), tokens, httpClient: http), tokens);
         var result = await service.GetChildPartitionVideoListAsync(new Partition("24", "Animation"), offset);
@@ -75,7 +81,7 @@ public sealed class PartitionCredentialTests
         Assert.False(request.Query.ContainsKey("pn"));
         if (offset > 0) Assert.Equal("123", request.Query["ctime"]);
         else Assert.False(request.Query.ContainsKey("ctime"));
-        if (token) Assert.Equal("intentional-app-token", request.Query["access_key"]);
+        if (token && !androidHd) Assert.Equal("intentional-app-token", request.Query["access_key"]);
         else Assert.False(request.Query.ContainsKey("access_key"));
     }
 

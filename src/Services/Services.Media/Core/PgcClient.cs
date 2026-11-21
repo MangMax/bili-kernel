@@ -125,6 +125,15 @@ internal sealed class PgcClient
         return (reviews, total, data?.Next);
     }
 
+    public async Task<bool> GetTrackingStateAsync(string seasonId, CancellationToken cancellationToken)
+    {
+        using var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Pgc.SeasonUserStatus));
+        _authenticator.AuthorizeRestRequest(request, new Dictionary<string, string> { ["season_id"] = seasonId });
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var result = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliResultResponsePgcUserStatus).ConfigureAwait(false);
+        return result.Result?.IsFollow is { } follow ? follow == 1 : throw new KernelException("无法获取剧集追番状态");
+    }
+
     public async Task ToggleFollowAsync(string seasonId, bool isFollow, CancellationToken cancellationToken)
     {
         var paramters = new Dictionary<string, string>
@@ -134,7 +143,12 @@ internal sealed class PgcClient
 
         var url = isFollow ? BiliApis.Pgc.Follow : BiliApis.Pgc.Unfollow;
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, paramters, BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
+        request.Headers.Referrer = new Uri($"https://www.bilibili.com/bangumi/play/ss{seasonId}");
+        request.Headers.TryAddWithoutValidation("Origin", "https://www.bilibili.com");
+        var settings = BiliAuthorizeExecutionSettings.CookieOnly(BiliApiType.None, needCSRF: true);
+        settings.SkipBuild = true;
+        settings.SkipSign = true;
+        _authenticator.AuthorizeRestRequest(request, paramters, settings);
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 

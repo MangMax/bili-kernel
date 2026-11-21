@@ -255,6 +255,11 @@ public static class BiliApis
         public const string MyFollowingTagDetail = _apiBase + "/x/relation/tag";
 
         /// <summary>
+        /// 搜索已登录用户的关注列表.
+        /// </summary>
+        public const string MyFollowingSearch = _apiBase + "/x/relation/followings/search";
+
+        /// <summary>
         /// 获取稍后再看列表.
         /// </summary>
         public const string ViewLaterList = _apiBase + "/x/v2/history/toview/web";
@@ -320,6 +325,11 @@ public static class BiliApis
         /// 电影电视剧收藏信息.
         /// </summary>
         public const string CinemaFavorite = _apiBase + "/pgc/app/follow/v2/cinema";
+
+        /// <summary>
+        /// 网页端追番和追剧列表.
+        /// </summary>
+        public const string PgcFollowList = _apiBase + "/x/space/bangumi/follow/list";
 
         /// <summary>
         /// 专栏文章收藏信息.
@@ -709,6 +719,11 @@ public static class BiliApis
                 : proxy;
             return prefix.TrimEnd('/') + "/pgc/view/web/season";
         }
+
+        /// <summary>
+        /// 当前账户的剧集状态.
+        /// </summary>
+        public const string SeasonUserStatus = _apiBase + "/pgc/view/web/season/user/status";
 
         /// <summary>
         /// 剧集播放信息.

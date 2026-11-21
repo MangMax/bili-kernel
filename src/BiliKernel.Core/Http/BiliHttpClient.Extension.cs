@@ -35,6 +35,16 @@ public sealed partial class BiliHttpClient
         else if (contentType.Contains("grpc") || contentType.Contains("octet-stream"))
         {
             var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            if (contentType.Contains("grpc"))
+            {
+                var hasStatus = response.TrailingHeaders.TryGetValues("grpc-status", out var grpcStatus)
+                    || response.Headers.TryGetValues("grpc-status", out grpcStatus);
+                if (hasStatus && int.TryParse(grpcStatus?.FirstOrDefault(), out var status) && status != 0)
+                {
+                    throw new KernelException($"哔哩哔哩 gRPC 请求失败（状态 {status}）");
+                }
+            }
+
             if (bytes.Length < 5)
             {
                 throw new KernelException("哔哩哔哩返回了一个空的响应");

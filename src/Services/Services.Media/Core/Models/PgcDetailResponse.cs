@@ -492,7 +492,7 @@ internal sealed class PgcUserStatus
     /// 是否已关注/追番. 0-没有，1-已追.
     /// </summary>
     [JsonPropertyName("follow")]
-    public int IsFollow { get; set; }
+    public int? IsFollow { get; set; }
 
     /// <summary>
     /// 付费状态. 0-未付费，1-已付费.

@@ -21,6 +21,11 @@ public interface IRelationshipService
     Task<(IReadOnlyList<UserCard> Users, int NextPageNumber)> GetMyFollowUserGroupDetailAsync(string groupId, int pageNumber = 0, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 按昵称搜索已登录用户的全部关注.
+    /// </summary>
+    Task<(IReadOnlyList<UserCard> Users, bool HasMore)> SearchMyFollowingsAsync(string keyword, int pageNumber = 1, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 获取已登录用户的关注者.
     /// </summary>
     Task<(IReadOnlyList<UserCard> Users, int Count, int NextPageNumber)> GetMyFansAsync(int pageNumber = 0, CancellationToken cancellationToken = default);

@@ -50,15 +50,14 @@ public sealed class TVAuthenticationService : IAuthenticationService
         else
         {
             // Step 1: 获取二维码并渲染.
-            var qrCode = await _client.GetQRCodeAsync(cancellationToken).ConfigureAwait(false);
-            var qrCodeGenerator = new QRCodeGenerator();
-            var data = qrCodeGenerator.CreateQrCode(qrCode.Url, QRCodeGenerator.ECCLevel.Q);
-            var code = new PngByteQRCode(data);
+            var qrCode = await _client.GetQRCodeAsync(cancellationToken).ConfigureAwait(false)
+                ?? throw new RichasyKernel.KernelException("获取二维码失败");
+            using var qrCodeGenerator = new QRCodeGenerator();
+            using var data = qrCodeGenerator.CreateQrCode(qrCode.Url, QRCodeGenerator.ECCLevel.Q);
+            using var code = new PngByteQRCode(data);
             var image = code.GetGraphic(20);
-            var ms = new System.IO.MemoryStream();
-            await ms.WriteAsync(image, 0, image.Length).ConfigureAwait(false);
-            ms.Position = 0;
-            await _qrCodeResolver.RenderAsync(ms.ToArray()).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            await (settings?.RenderQRCodeAsync ?? _qrCodeResolver.RenderAsync)(image).ConfigureAwait(false);
 
             // Step 2: 轮询扫码状态.
             await _client.WaitQRCodeScanAsync(qrCode, cancellationToken).ConfigureAwait(false);

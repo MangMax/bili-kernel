@@ -5,6 +5,21 @@ namespace Richasy.BiliKernel.Tests;
 
 public sealed class BuvidLifecycleTests
 {
+    [Fact]
+    public async Task ExternalMediaDoesNotReceiveBilibiliDeviceCookies()
+    {
+        using var handler = new RecordingHttpMessageHandler();
+        var cookies = new FakeCookiesResolver();
+        cookies.SaveCookies(new Dictionary<string, string> { ["buvid3"] = "ACCOUNT-BUVID" });
+        using var manager = new BuvidManager(cookies, new InMemoryBuvidStore(), handler);
+        using var http = new BiliHttpClient(handler, manager);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://bilibili.com.example.invalid/subtitle.json");
+
+        using var response = await http.SendAsync(request);
+
+        Assert.Null(Assert.Single(handler.Requests).Cookie);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

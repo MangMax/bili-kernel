@@ -113,14 +113,14 @@ internal static class UserAdapter
     public static IReadOnlyList<NotifyMessage> ToNotifyMessages(this LikeMessageResponse response)
     {
         var items = new List<NotifyMessage>();
-        if (response.Latest is not null)
+        if (response.Latest?.Items is { } latest)
         {
-            items = items.Concat(response.Latest.Items.Select(p => p.ToNotifyMessage())).ToList();
+            items.AddRange(latest.Select(p => p.ToNotifyMessage()));
         }
 
-        if (response.Total is not null)
+        if (response.Total?.Items is { } total)
         {
-            items = items.Concat(response.Total.Items.Select(p => p.ToNotifyMessage())).ToList();
+            items.AddRange(total.Select(p => p.ToNotifyMessage()));
         }
 
         return items;

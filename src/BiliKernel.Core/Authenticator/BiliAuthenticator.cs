@@ -55,7 +55,39 @@ public sealed partial class BiliAuthenticator
     public void AuthorizeRestRequest(HttpRequestMessage request, Dictionary<string, string>? parameters = default, BiliAuthorizeExecutionSettings? settings = default)
     {
         Verify.NotNull(request, nameof(request));
-        var executionSettings = settings ?? new BiliAuthorizeExecutionSettings();
+        var (executionSettings, requestParameters) = BiliRestRequestPolicy.Prepare(request, parameters, settings, _tokenResolver?.IsAndroidHdToken == true);
+        ApplyRestAuthorization(request, requestParameters, executionSettings);
+    }
+
+    /// <summary>
+    /// 创建 REST 请求并按端点规则准备凭据及 WBI 签名。调用方拥有返回的请求。
+    /// </summary>
+    /// <returns>授权完成的请求。</returns>
+    public async Task<HttpRequestMessage> CreateRestRequestAsync(HttpMethod method, Uri uri, Dictionary<string, string>? parameters = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = BiliHttpClient.CreateRequest(method, uri);
+        try
+        {
+            var (settings, query) = BiliRestRequestPolicy.Prepare(request, parameters, null, _tokenResolver?.IsAndroidHdToken == true);
+            if (settings.NeedRID)
+            {
+                await InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            ApplyRestAuthorization(request, query, settings);
+            return request;
+        }
+        catch
+        {
+            request.Dispose();
+            throw;
+        }
+    }
+
+    private void ApplyRestAuthorization(HttpRequestMessage request, Dictionary<string, string>? requestParameters,
+        BiliAuthorizeExecutionSettings executionSettings)
+    {
         if (executionSettings.RequireCookie && _cookieResolver != null)
         {
             var cookies = _cookieResolver.GetCookies();
@@ -67,13 +99,13 @@ public sealed partial class BiliAuthenticator
 
         if (request.Method == HttpMethod.Post)
         {
-            var queryParameters = AuthorizeRequestParameters(parameters, executionSettings);
+            var queryParameters = AuthorizeRequestParameters(requestParameters, executionSettings);
             request.Content = new FormUrlEncodedContent(queryParameters);
         }
         else
         {
             var uri = request.RequestUri;
-            var query = GenerateAuthorizedQueryString(parameters, executionSettings);
+            var query = GenerateAuthorizedQueryString(requestParameters, executionSettings);
             uri = new UriBuilder(uri) { Query = query }.Uri;
             request.RequestUri = uri;
         }
@@ -162,7 +194,7 @@ public sealed partial class BiliAuthenticator
             var rid = GenerateRID(queryParameters);
             queryParameters.Add("w_rid", rid);
         }
-        else
+        else if (!executionSettings.SkipSign)
         {
             var sign = GenerateSign(queryParameters, executionSettings.ApiType);
             queryParameters.Add("sign", sign);

@@ -65,10 +65,9 @@ public sealed class SeriesCredentialTests
         Assert.False(request.Query.ContainsKey("access_key"));
         Assert.DoesNotContain("w_rid", request.Body);
         var form = request.Body!.Split('&').Select(p => p.Split('=', 2)).ToDictionary(p => Uri.UnescapeDataString(p[0]), p => Uri.UnescapeDataString(p[1]));
-        var signedText = string.Join("&", form.Where(p => p.Key != "sign").Select(p => $"{p.Key}={p.Value}").OrderBy(p => p, StringComparer.Ordinal));
-        var expectedSign = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(signedText + "54e6a9a31b911cd5fc0daa66ebf94bc4"))).ToLowerInvariant();
-        Assert.Equal(expectedSign, form["sign"]);
-        Assert.Equal("aa1e74ee4874176e", form["appkey"]);
+        Assert.Equal(operation == "status/update" ? 3 : 2, form.Count);
+        Assert.Equal("https://www.bilibili.com", request.Headers["Origin"]);
+        Assert.Equal("https://www.bilibili.com/bangumi/play/ss2468", request.Headers["Referer"]);
         Assert.DoesNotContain("aid=", request.Body);
         Assert.DoesNotContain("media_id=", request.Body);
         if (hasCookie)

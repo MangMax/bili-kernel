@@ -455,7 +455,10 @@ internal sealed class PlayerClient
         }
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Pgc.SeasonDetail()));
-        _authenticator.AuthorizeRestRequest(request, parameters);
+        var settings = BiliAuthorizeExecutionSettings.CookieOnly(BiliApiType.None);
+        settings.SkipBuild = true;
+        settings.SkipSign = true;
+        _authenticator.AuthorizeRestRequest(request, parameters, settings);
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var envelope = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.PgcDetailEnvelope).ConfigureAwait(false);
         var detail = envelope?.Content ?? throw new KernelException("解析PGC详情失败");
@@ -774,17 +777,11 @@ internal sealed class PlayerClient
 
     private async Task<PlayerProgress?> GetWebVideoProgressAsync(string aid, string cid, CancellationToken cancellationToken)
     {
-        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
+        var queryParameters = new Dictionary<string, string> { ["aid"] = aid, ["cid"] = cid };
+        using var wbiRequest = await _authenticator.CreateRestRequestAsync(HttpMethod.Get, new Uri(BiliApis.Video.PlayerWbi), queryParameters, cancellationToken).ConfigureAwait(false);
         try
         {
-            var queryParameters = new Dictionary<string, string>
-            {
-                { "aid", aid },
-                { "cid", cid },
-            };
-            var wbiRequest = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Video.PlayerWbi));
-            _authenticator.AuthorizeRestRequest(wbiRequest, queryParameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, ForceNoToken = true, RequireCookie = true, NeedRID = true });
-            var wbiResponse = await _httpClient.SendAsync(wbiRequest, cancellationToken).ConfigureAwait(false);
+            using var wbiResponse = await _httpClient.SendAsync(wbiRequest, cancellationToken).ConfigureAwait(false);
             var wbiResponseObj = await BiliHttpClient.ParseAsync(wbiResponse, SourceGenerationContext.Default.BiliDataResponsePlayerWbiResponse).ConfigureAwait(false);
             return wbiResponseObj.Data.ToPlayerProgress();
         }
@@ -809,7 +806,6 @@ internal sealed class PlayerClient
     /// </remarks>
     public async Task<IReadOnlyList<VideoChapter>> GetWebVideoChaptersAsync(MediaIdentifier video, long cid, CancellationToken cancellationToken)
     {
-        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
         var idType = GetVideoIdType(video.Id, out var videoId);
         if (idType == "bv")
         {
@@ -822,9 +818,8 @@ internal sealed class PlayerClient
             { "cid", cid.ToString() },
         };
 
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Video.PlayerWbi));
-        _authenticator.AuthorizeRestRequest(request, queryParameters, new BiliAuthorizeExecutionSettings { ApiType = BiliApiType.Web, ForceNoToken = true, RequireCookie = true, NeedRID = true });
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        using var request = await _authenticator.CreateRestRequestAsync(HttpMethod.Get, new Uri(BiliApis.Video.PlayerWbi), queryParameters, cancellationToken).ConfigureAwait(false);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponsePlayerWbiResponse).ConfigureAwait(false);
         return responseObj?.Data?.ToVideoChapters() ?? [];
     }
