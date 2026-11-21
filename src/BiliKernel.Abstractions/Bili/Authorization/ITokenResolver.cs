@@ -11,6 +11,11 @@ namespace Richasy.BiliKernel.Bili.Authorization;
 public interface IBiliTokenResolver
 {
     /// <summary>
+    /// 当前令牌是否由 Android HD 登录签发.
+    /// </summary>
+    bool IsAndroidHdToken => false;
+
+    /// <summary>
     /// 获取令牌.
     /// </summary>
     /// <returns><see cref="BiliToken"/>.</returns>

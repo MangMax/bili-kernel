@@ -15,6 +15,12 @@ public class AuthorizeExecutionSettings
     private IDictionary<string, string>? _cookies;
 
     /// <summary>
+    /// Renders the QR code for this sign-in attempt.
+    /// </summary>
+    [JsonIgnore]
+    public Func<byte[], Task>? RenderQRCodeAsync { get; init; }
+
+    /// <summary>
     /// 附加属性，包含序列化的结构数据.
     /// </summary>
     /// <remarks>
@@ -93,6 +99,7 @@ public class AuthorizeExecutionSettings
         {
             ExtensionData = ExtensionData is not null ? new Dictionary<string, object>(ExtensionData) : null,
             Cookies = Cookies,
+            RenderQRCodeAsync = RenderQRCodeAsync,
         };
     }
 }

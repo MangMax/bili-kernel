@@ -13,7 +13,7 @@ internal sealed class PgcFavoriteListResponse
     /// <summary>
     /// 剧集类型名.
     /// </summary>
-    [JsonPropertyName("follow_list")]
+    [JsonPropertyName("list")]
     public IList<FavoritePgcItem>? FollowList { get; set; }
 
     /// <summary>
@@ -95,12 +95,6 @@ internal sealed class FavoritePgcItem
     public PgcEpisode? NewEpisode { get; set; }
 
     /// <summary>
-    /// 播放历史记录.
-    /// </summary>
-    [JsonPropertyName("progress")]
-    public PgcProgress? Progress { get; set; }
-
-    /// <summary>
     /// 剧集的季Id.
     /// </summary>
     [JsonPropertyName("season_id")]
@@ -135,30 +129,6 @@ internal sealed class FavoritePgcItem
     /// </summary>
     [JsonPropertyName("url")]
     public string? Url { get; set; }
-}
-
-/// <summary>
-/// PGC内容历史记录.
-/// </summary>
-internal sealed class PgcProgress
-{
-    /// <summary>
-    /// 最后一次播放的单集Id.
-    /// </summary>
-    [JsonPropertyName("last_ep_id")]
-    public long LastEpisodeId { get; set; }
-
-    /// <summary>
-    /// 最后一次播放的单集索引.
-    /// </summary>
-    [JsonPropertyName("last_ep_index")]
-    public string? LastEpisodeIndex { get; set; }
-
-    /// <summary>
-    /// 播放进度（秒）.
-    /// </summary>
-    [JsonPropertyName("last_time")]
-    public long LastTime { get; set; }
 }
 
 /// <summary>

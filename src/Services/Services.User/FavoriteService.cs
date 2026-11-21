@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Richasy.BiliKernel.Authenticator;
-using Richasy.BiliKernel.Bili;
 using Richasy.BiliKernel.Bili.Authorization;
 using Richasy.BiliKernel.Bili.User;
 using Richasy.BiliKernel.Http;
@@ -59,9 +58,8 @@ public sealed class FavoriteService : IFavoriteService
         }
 
         pageNumber++;
-        var url = type == PgcFavoriteType.Anime ? BiliApis.Account.AnimeFavorite : BiliApis.Account.CinemaFavorite;
-        var (list, count) = await _myClient.GetFavoritePgcListAsync(url, pageNumber, status, cancellationToken).ConfigureAwait(false);
-        return (list, count, count == 0 ? null : pageNumber);
+        var (list, count) = await _myClient.GetFavoritePgcListAsync(type, pageNumber, status, cancellationToken).ConfigureAwait(false);
+        return (list, count, list.Count > 0 && pageNumber * MyClient.PgcFavoritePageSize < count ? pageNumber : null);
     }
 
     /// <inheritdoc/>

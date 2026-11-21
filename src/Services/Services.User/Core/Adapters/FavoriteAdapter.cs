@@ -39,13 +39,13 @@ internal static class FavoriteAdapter
     public static VideoFavoriteFolderDetail ToVideoFavoriteFolderDetail(this VideoFavoriteListResponse response)
     {
         var folder = (response.Detail ?? response.Information).ToVideoFavoriteFolder();
-        var videos = response.Medias?.Select(p => p.ToVideoInformation()).ToList();
+        var videos = response.Medias?.Select(p => p.ToVideoInformation()).ToList() ?? [];
         return new VideoFavoriteFolderDetail(folder, videos, folder.TotalCount);
     }
 
     public static VideoFavoriteFolderGroup ToVideoFavoriteFolderGroup(this FavoriteFolder folder)
     {
-        var folders = folder.MediaList?.List?.Select(p => p.ToVideoFavoriteFolder()).ToList();
+        var folders = folder.MediaList?.List?.Select(p => p.ToVideoFavoriteFolder()).ToList() ?? [];
         return new VideoFavoriteFolderGroup(folder.Id.ToString(), folder.Name, folder.Id == 1, folders, folder.MediaList?.Count ?? 0);
     }
 }

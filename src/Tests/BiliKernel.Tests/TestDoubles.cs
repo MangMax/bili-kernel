@@ -24,6 +24,8 @@ internal sealed class FakeCookiesResolver : IBiliCookiesResolver
 
 internal sealed class FakeTokenResolver : IBiliTokenResolver
 {
+    public bool IsAndroidHdToken { get; init; }
+
     public BiliToken? Token { get; set; }
 
     public BiliToken? GetToken() => Token;

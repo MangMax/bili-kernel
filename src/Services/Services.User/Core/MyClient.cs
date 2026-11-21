@@ -95,6 +95,24 @@ internal sealed class MyClient
         return (users, responseObj.Data.TotalCount);
     }
 
+    public async Task<(IReadOnlyList<UserCard> Users, bool HasMore)> SearchMyFollowingsAsync(string keyword, int pageNumber, CancellationToken cancellationToken)
+    {
+        const int pageSize = 50;
+        await _authenticationService.EnsureTokenAsync(cancellationToken).ConfigureAwait(false);
+        var token = _tokenResolver.GetToken() ?? throw new KernelException("搜索关注列表需要登录");
+        var parameters = new Dictionary<string, string>
+        {
+            { "vmid", token.UserId.ToString() },
+            { "name", keyword },
+            { "pn", pageNumber.ToString() },
+            { "ps", pageSize.ToString() },
+        };
+        var response = await SendGetAsync(BiliApis.Account.MyFollowingSearch, SourceGenerationContext.Default.BiliDataResponseRelatedUserResponse, parameters, cancellationToken).ConfigureAwait(false);
+        var data = response.Data ?? throw new KernelException("无法获取关注搜索结果");
+        var users = data.UserList?.Select(p => p.ToUserCard()).ToList().AsReadOnly() ?? [];
+        return (users, users.Count > 0 && (long)pageNumber * pageSize < data.TotalCount);
+    }
+
     public async Task ModifyRelationshipAsync(string userId, bool isFollow, CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>
@@ -165,7 +183,10 @@ internal sealed class MyClient
 
     public async Task<UnreadInformation> GetUnreadInformationAsync(CancellationToken cancellationToken)
     {
-        var responseObj = await GetAsync(BiliApis.Account.MessageUnread, SourceGenerationContext.Default.BiliDataResponseUnreadMessage, cancellationToken: cancellationToken).ConfigureAwait(false);
+        using var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Account.MessageUnread));
+        _authenticator.AuthorizeRestRequest(request);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseUnreadMessage).ConfigureAwait(false);
         return new(responseObj.Data.At, responseObj.Data.Reply, responseObj.Data.Like, responseObj.Data.Chat);
     }
 
@@ -249,12 +270,18 @@ internal sealed class MyClient
         _authenticator.AuthorizeRestRequest(request, queryParameters, new BiliAuthorizeExecutionSettings { ForceNoToken = true, NeedRID = true, RequireCookie = true });
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseChatSessionListResponse).ConfigureAwait(false);
-        if (responseObj.Data?.SessionList is null)
+        if (responseObj.Data?.SessionList is not { Count: > 0 } sessionList)
         {
             return (Array.Empty<ChatSession>(), 0, false);
         }
 
-        var sessions = responseObj.Data.SessionList.Where(p => p.SystemMessageType == 0 && p.LastMessage != null).ToList();
+        var nextOffset = sessionList.Last().SessionTimestamp ?? 0;
+        var hasMore = responseObj.Data.HasMore == 1 && nextOffset > 0 && nextOffset != offset;
+        var sessions = sessionList.Where(p => p.SystemMessageType == 0 && p.LastMessage != null).ToList();
+        if (sessions.Count == 0)
+        {
+            return (Array.Empty<ChatSession>(), nextOffset, hasMore);
+        }
 
         // 批量获取会话的用户信息
         var userIds = sessions.Select(p => p.TalkerId.ToString()).Distinct().ToList();
@@ -265,7 +292,7 @@ internal sealed class MyClient
             var user = users.FirstOrDefault(q => q.Id == p.TalkerId.ToString());
             return p.ToChatSession(user);
         }).Where(p => !string.IsNullOrEmpty(p.LastMessage)).ToList().AsReadOnly();
-        return (chatSessions, sessions.Last().SessionTimestamp ?? 0, responseObj.Data.HasMore == 1);
+        return (chatSessions, nextOffset, hasMore);
     }
 
     public async Task<IReadOnlyList<UserProfile>> BatchGetUsersAsync(IEnumerable<string> userIds, CancellationToken cancellationToken)
@@ -295,59 +322,62 @@ internal sealed class MyClient
             _ => string.Empty,
         };
 
-        var parameters = new Dictionary<string, string>
+        var parameters = new Dictionary<string, string>();
+        if (offsetId > 0)
         {
-            { "id", offsetId.ToString() },
-            { timeName, offsetTime.ToString() },
-        };
+            parameters["id"] = offsetId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
 
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
+        if (offsetTime > 0)
+        {
+            parameters[timeName] = offsetTime.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        using var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
         _authenticator.AuthorizeRestRequest(request, parameters);
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         MessageCursor cursor = default;
         IReadOnlyList<NotifyMessage> messages = default;
         if (type == NotifyMessageType.Like)
         {
             var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseLikeMessageResponse).ConfigureAwait(false);
-            cursor = responseObj.Data.Total.Cursor;
-            messages = responseObj.Data.ToNotifyMessages();
+            cursor = responseObj.Data?.Total?.Cursor;
+            messages = responseObj.Data?.ToNotifyMessages();
         }
         else if (type == NotifyMessageType.Reply)
         {
             var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseReplyMessageResponse).ConfigureAwait(false);
-            cursor = responseObj.Data.Cursor;
-            messages = responseObj.Data.ToNotifyMessages();
+            cursor = responseObj.Data?.Cursor;
+            messages = responseObj.Data?.ToNotifyMessages();
         }
         else if (type == NotifyMessageType.At)
         {
             var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseAtMessageResponse).ConfigureAwait(false);
-            cursor = responseObj.Data.Cursor;
-            messages = responseObj.Data.ToNotifyMessages();
+            cursor = responseObj.Data?.Cursor;
+            messages = responseObj.Data?.ToNotifyMessages();
         }
 
-        return messages is null || messages.Count == 0
-            ? throw new KernelException($"无法获取 {type} 消息")
-            : ((IReadOnlyList<NotifyMessage> Messages, long OffsetId, long OffsetTime, bool HasMore))(messages!, cursor.Id, cursor.Time, !cursor.IsEnd);
+        var hasMore = cursor is { IsEnd: false } && (cursor.Id != offsetId || cursor.Time != offsetTime);
+        return (messages ?? Array.Empty<NotifyMessage>(), cursor?.Id ?? offsetId, cursor?.Time ?? offsetTime, hasMore);
     }
 
     public async Task<(IReadOnlyList<VideoFavoriteFolderGroup>, VideoFavoriteFolderDetail)> GetVideoFavoriteGroupsAsync(CancellationToken cancellationToken)
     {
-        await _authenticator.InitializeWbiAsync(cancellationToken).ConfigureAwait(false);
-        var localToken = _tokenResolver.GetToken();
-        var userId = localToken.UserId.ToString();
+        await _authenticationService.EnsureTokenAsync(cancellationToken).ConfigureAwait(false);
+        var userId = _tokenResolver.GetToken()!.UserId.ToString();
         var parameters = new Dictionary<string, string>
         {
             { "up_mid", userId },
         };
 
-        var galleryResponse = await GetAsync(BiliApis.Account.VideoFavoriteGallery, SourceGenerationContext.Default.BiliDataResponseVideoFavoriteGalleryResponse, parameters, cancellationToken).ConfigureAwait(false);
+        var galleryResponse = await SendGetAsync(BiliApis.Account.VideoFavoriteGallery, SourceGenerationContext.Default.BiliDataResponseVideoFavoriteGalleryResponse, parameters, cancellationToken).ConfigureAwait(false);
 
         parameters = new Dictionary<string, string>
         {
             { "up_mid", userId },
             { "type", "2" },
         };
-        var defaultFolderResponse = await GetAsync(BiliApis.Account.FavoriteList, SourceGenerationContext.Default.BiliDataResponseFavoriteDetailListResponse, parameters, cancellationToken).ConfigureAwait(false);
+        var defaultFolderResponse = await SendGetAsync(BiliApis.Account.FavoriteList, SourceGenerationContext.Default.BiliDataResponseFavoriteDetailListResponse, parameters, cancellationToken).ConfigureAwait(false);
 
         parameters = new Dictionary<string, string>
         {
@@ -355,25 +385,24 @@ internal sealed class MyClient
             { "ps", "20" },
             { "pn", "1" },
         };
-        var folderRequest = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(BiliApis.Account.CollectList));
-        _authenticator.AuthorizeRestRequest(folderRequest, parameters, new BiliAuthorizeExecutionSettings() { ApiType = BiliApiType.Web, RequireCookie = true, NeedRID = true, ForceNoToken = true, });
-        var folderResponse = await _httpClient.SendAsync(folderRequest, cancellationToken).ConfigureAwait(false);
-        var folderResponseObj = await BiliHttpClient.ParseAsync(folderResponse, SourceGenerationContext.Default.BiliDataResponseFavoriteDetailListResponse).ConfigureAwait(false);
+        var folderResponse = await SendGetAsync(BiliApis.Account.CollectList, SourceGenerationContext.Default.BiliDataResponseFavoriteDetailListResponse, parameters, cancellationToken).ConfigureAwait(false);
         var defaultFolder = galleryResponse.Data.DefaultFavoriteList.ToVideoFavoriteFolderDetail();
-        var mineCreateFav = galleryResponse.Data.FavoriteFolderList.FirstOrDefault(ff => ff.Id == 1);
+        var folders = galleryResponse.Data.FavoriteFolderList ?? [];
+        var created = folders.FirstOrDefault(folder => folder.Id == 1);
 
-        if (mineCreateFav is not null)
+        if (created is not null)
         {
-            mineCreateFav.MediaList.List = defaultFolderResponse.Data.List.Where(fm => fm.Title != "默认收藏夹").ToList();
+            created.MediaList ??= new();
+            created.MediaList.List = defaultFolderResponse.Data?.List?.Where(folder => folder.Id.ToString() != defaultFolder.Folder.Id).ToList() ?? [];
         }
 
-        if (folderResponseObj.Data?.Count > 0)
+        if (folderResponse.Data?.Count > 0 && folders.FirstOrDefault(folder => folder.Id == 2) is { } collected)
         {
-            var myCollectFav = galleryResponse.Data.FavoriteFolderList.FirstOrDefault(f => f.Id == 2);
-            myCollectFav.MediaList.List = folderResponseObj.Data.List;
+            collected.MediaList ??= new();
+            collected.MediaList.List = folderResponse.Data.List;
         }
 
-        var favoriteSets = galleryResponse.Data.FavoriteFolderList?
+        var favoriteSets = folders
             .Where(p => p.Id != 3)
             .Select(p => p.ToVideoFavoriteFolderGroup());
         return (favoriteSets.ToList().AsReadOnly(), defaultFolder);
@@ -393,22 +422,28 @@ internal sealed class MyClient
         return (articles, responseObj.Data.Count);
     }
 
-    public async Task<(IReadOnlyList<SeasonInformation>, int)> GetFavoritePgcListAsync(string url, int pageNumber, PgcFavoriteStatus status, CancellationToken cancellationToken)
+    internal const int PgcFavoritePageSize = 20;
+
+    public async Task<(IReadOnlyList<SeasonInformation>, int)> GetFavoritePgcListAsync(PgcFavoriteType type, int pageNumber, PgcFavoriteStatus status, CancellationToken cancellationToken)
     {
+        await _authenticationService.EnsureTokenAsync(cancellationToken).ConfigureAwait(false);
         var parameters = new Dictionary<string, string>
         {
+            { "vmid", _tokenResolver.GetToken()!.UserId.ToString() },
+            { "type", type == PgcFavoriteType.Anime ? "1" : "2" },
             { "pn", pageNumber.ToString() },
-            { "ps", "20" },
-            { "status", ((int)status).ToString() },
+            { "ps", PgcFavoritePageSize.ToString() },
+            { "follow_status", ((int)status).ToString() },
         };
 
-        var responseObj = await GetAsync(url, SourceGenerationContext.Default.BiliResultResponsePgcFavoriteListResponse, parameters, cancellationToken).ConfigureAwait(false);
-        var seasons = responseObj.Result.FollowList.Select(p => p.ToSeasonInformation()).ToList().AsReadOnly();
-        return (seasons, responseObj.Result.Total ?? 0);
+        var response = await SendGetAsync(BiliApis.Account.PgcFollowList, SourceGenerationContext.Default.BiliDataResponsePgcFavoriteListResponse, parameters, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<SeasonInformation> seasons = response.Data?.FollowList?.Select(p => p.ToSeasonInformation()).ToList().AsReadOnly() ?? [];
+        return (seasons, response.Data?.Total ?? 0);
     }
 
     public async Task<(IReadOnlyList<VideoFavoriteFolder> Folders, IReadOnlyList<string> ContainerIds)> GetPlayingVideoFavoriteFoldersAsync(string aid, CancellationToken cancellationToken)
     {
+        await _authenticationService.EnsureTokenAsync(cancellationToken).ConfigureAwait(false);
         var localToken = _tokenResolver.GetToken();
         var myId = localToken.UserId.ToString();
         var parameters = new Dictionary<string, string>
@@ -418,9 +453,10 @@ internal sealed class MyClient
             { "rid", aid },
         };
 
-        var responseObj = await GetAsync(BiliApis.Account.FavoriteList, SourceGenerationContext.Default.BiliDataResponseFavoriteListResponse, parameters, cancellationToken).ConfigureAwait(false);
-        var items = responseObj.Data.List.Select(p => p.ToVideoFavoriteFolder());
-        var ids = responseObj.Data.List.Where(p => p.FavoriteState == 1).Select(p => p.Id.ToString()).ToList().AsReadOnly();
+        var responseObj = await SendGetAsync(BiliApis.Account.FavoriteList, SourceGenerationContext.Default.BiliDataResponseFavoriteListResponse, parameters, cancellationToken).ConfigureAwait(false);
+        var folders = responseObj.Data?.List ?? [];
+        var items = folders.Select(p => p.ToVideoFavoriteFolder());
+        var ids = folders.Where(p => p.FavoriteState == 1).Select(p => p.Id.ToString()).ToList().AsReadOnly();
         return (items.ToList().AsReadOnly(), ids);
     }
 
@@ -433,7 +469,8 @@ internal sealed class MyClient
             { "pn", pageNumber.ToString() },
         };
 
-        var responseObj = await GetAsync(BiliApis.Account.VideoFavoriteDelta, SourceGenerationContext.Default.BiliDataResponseVideoFavoriteListResponse, parameters, cancellationToken).ConfigureAwait(false);
+        await _authenticationService.EnsureTokenAsync(cancellationToken).ConfigureAwait(false);
+        var responseObj = await SendGetAsync(BiliApis.Account.VideoFavoriteDelta, SourceGenerationContext.Default.BiliDataResponseVideoFavoriteListResponse, parameters, cancellationToken).ConfigureAwait(false);
         return responseObj.Data.ToVideoFavoriteFolderDetail();
     }
 
@@ -468,7 +505,12 @@ internal sealed class MyClient
         };
 
         var request = BiliHttpClient.CreateRequest(HttpMethod.Post, new Uri(BiliApis.Account.UpdatePgcStatus));
-        _authenticator.AuthorizeRestRequest(request, parameters, BiliAuthorizeExecutionSettings.CookieOnly(needCSRF: true));
+        request.Headers.Referrer = new Uri($"https://www.bilibili.com/bangumi/play/ss{identifier.Id}");
+        request.Headers.TryAddWithoutValidation("Origin", "https://www.bilibili.com");
+        var settings = BiliAuthorizeExecutionSettings.CookieOnly(BiliApiType.None, needCSRF: true);
+        settings.SkipBuild = true;
+        settings.SkipSign = true;
+        _authenticator.AuthorizeRestRequest(request, parameters, settings);
         await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
@@ -528,9 +570,14 @@ internal sealed class MyClient
     private async Task<T> GetAsync<T>(string url, JsonTypeInfo<T> converter, Dictionary<string, string>? parameters = default, CancellationToken cancellationToken = default)
     {
         await _authenticationService.EnsureTokenAsync(cancellationToken).ConfigureAwait(false);
-        var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
+        return await SendGetAsync(url, converter, parameters, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<T> SendGetAsync<T>(string url, JsonTypeInfo<T> converter, Dictionary<string, string>? parameters, CancellationToken cancellationToken)
+    {
+        using var request = BiliHttpClient.CreateRequest(HttpMethod.Get, new Uri(url));
         _authenticator.AuthorizeRestRequest(request, parameters);
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         return await BiliHttpClient.ParseAsync(response, converter).ConfigureAwait(false);
     }
 }

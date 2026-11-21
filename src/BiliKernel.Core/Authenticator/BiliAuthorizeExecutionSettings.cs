@@ -74,6 +74,11 @@ public class BiliAuthorizeExecutionSettings
     public bool SkipBuild { get; set; }
 
     /// <summary>
+    /// 是否跳过传统 App 签名.
+    /// </summary>
+    public bool SkipSign { get; set; }
+
+    /// <summary>
     /// 是否需要Cookie.
     /// </summary>
     public bool RequireCookie { get; set; }

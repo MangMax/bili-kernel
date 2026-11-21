@@ -36,9 +36,9 @@ internal sealed class VideoDiscoveryClient
 
     public async Task<IReadOnlyList<Partition>> GetVideoPartitionsAsync(CancellationToken cancellationToken)
     {
-        var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(BiliApis.Partition.PartitionIndex));
-        _authenticator.AuthorizeRestRequest(request, settings: new BiliAuthorizeExecutionSettings { RequireToken = false });
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        using var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(BiliApis.Partition.PartitionIndex));
+        _authenticator.AuthorizeRestRequest(request);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseListVideoPartition).ConfigureAwait(false);
         var items = responseObj.Data.Where(p => p.IsNeedToShow()).Select(p => p.ToPartition()).ToList();
         return items.Count == 0
@@ -77,7 +77,7 @@ internal sealed class VideoDiscoveryClient
         }
 
         var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(url));
-        _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false });
+        _authenticator.AuthorizeRestRequest(request, parameters);
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var data = (await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseSubPartition).ConfigureAwait(false)).Data;
         var videos = data.NewVideos
@@ -139,7 +139,7 @@ internal sealed class VideoDiscoveryClient
         else
         {
             var request = BiliHttpClient.CreateRequest(System.Net.Http.HttpMethod.Get, new Uri(url));
-            _authenticator.AuthorizeRestRequest(request, parameters, new BiliAuthorizeExecutionSettings { RequireToken = false });
+            _authenticator.AuthorizeRestRequest(request, parameters);
             var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             data = (await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponseSubPartition).ConfigureAwait(false)).Data;
         }

@@ -42,6 +42,10 @@ public sealed class RelationshipService : IRelationshipService
     }
 
     /// <inheritdoc/>
+    public Task<(IReadOnlyList<UserCard> Users, bool HasMore)> SearchMyFollowingsAsync(string keyword, int pageNumber = 1, CancellationToken cancellationToken = default)
+        => _myClient.SearchMyFollowingsAsync(keyword, pageNumber, cancellationToken);
+
+    /// <inheritdoc/>
     public async Task<(IReadOnlyList<UserCard> Users, int Count, int NextPageNumber)> GetMyFansAsync(int pageNumber = 0, CancellationToken cancellationToken = default)
     {
         pageNumber = pageNumber < 0 ? 1 : pageNumber + 1;

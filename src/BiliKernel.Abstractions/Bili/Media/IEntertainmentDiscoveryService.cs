@@ -49,6 +49,11 @@ public interface IEntertainmentDiscoveryService
     Task FollowAsync(string seasonId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 获取当前账户是否已追番或追剧.
+    /// </summary>
+    Task<bool> GetPgcTrackingStateAsync(string seasonId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 取消追番/追剧.
     /// </summary>
     Task UnfollowAsync(string seasonId, CancellationToken cancellationToken = default);

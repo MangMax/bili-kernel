@@ -184,7 +184,7 @@ public sealed partial class BiliHttpClient : IDisposable
 
     private async Task<HttpResponseMessage> SendCoreAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (_buvidManager != null && !IsGrpcRequest(request))
+        if (_buvidManager != null && !IsGrpcRequest(request) && IsBilibiliWebHost(request.RequestUri))
         {
             await _buvidManager.EnsureAsync(cancellationToken).ConfigureAwait(false);
             _buvidManager.ApplyToRequest(request);
@@ -192,4 +192,8 @@ public sealed partial class BiliHttpClient : IDisposable
 
         return await _client.SendAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
+
+    private static bool IsBilibiliWebHost(Uri? uri)
+        => uri is { IsAbsoluteUri: true, Scheme: "https" }
+            && (uri.Host == "bilibili.com" || uri.Host.EndsWith(".bilibili.com", StringComparison.Ordinal));
 }

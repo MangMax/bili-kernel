@@ -44,7 +44,7 @@ internal static class PgcAdapter
             _ => EntertainmentType.Anime,
         };
         var identifier = new MediaIdentifier(ssid, title, item.Cover.ToPgcCover());
-        var info = new SeasonInformation(identifier);
+        var info = new SeasonInformation(identifier, isTracking: true);
         info.AddExtensionIfNotNull(SeasonExtensionDataId.Subtitle, subtitle);
         info.AddExtensionIfNotNull(SeasonExtensionDataId.PgcType, type);
         info.AddExtensionIfNotNull(SeasonExtensionDataId.Highlight, item.BadgeText);
