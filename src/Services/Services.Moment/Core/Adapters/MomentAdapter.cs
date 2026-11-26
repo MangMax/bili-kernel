@@ -5,6 +5,7 @@ using Bilibili.App.Dynamic.V2;
 using Richasy.BiliKernel.Adapters;
 using Richasy.BiliKernel.Models;
 using Richasy.BiliKernel.Models.Appearance;
+using Richasy.BiliKernel.Models.Media;
 using Richasy.BiliKernel.Models.Moment;
 using Richasy.BiliKernel.Models.User;
 
@@ -30,14 +31,29 @@ internal static class MomentAdapter
         EmoteText description = default;
         MomentCommunityInformation communityInfo = default;
         var momentId = item.Extend.DynIdStr;
-        var replyType = GetReplyTypeFromDynamicType(item.CardType);
-        var replyId = replyType == CommentTargetType.Moment
-            ? momentId
-            : mainModule.ModuleItemCase == ModuleDynamic.ModuleItemOneofCase.DynPgc
-                ? mainModule.DynPgc.Aid.ToString()
-                : item.Extend.BusinessId;
-        var momentType = GetMomentItemType(mainModule);
-        var momentData = GetMomentContent(mainModule);
+        CommentTargetType replyType;
+        string replyId;
+        MomentItemType momentType;
+        object? momentData;
+        if (mainModule.DynChargingArchive?.ArchiveInfo is { Avid: > 0, IsPGC: false } chargingArchive)
+        {
+            var video = chargingArchive.ToVideoInformation();
+            video.AddExtensionIfNotNull(VideoExtensionDataId.IsChargingExclusive, true);
+            momentType = MomentItemType.Video;
+            momentData = video;
+            replyType = CommentTargetType.Video;
+            replyId = video.Identifier.Id;
+        }
+        else
+        {
+            replyType = GetReplyTypeFromDynamicType(item.CardType);
+            replyId = replyType == CommentTargetType.Moment
+                ? momentId
+                : mainModule.DynPgc?.Aid.ToString() ?? item.Extend.BusinessId;
+            momentType = GetMomentItemType(mainModule);
+            momentData = GetMomentContent(mainModule);
+        }
+
         if (userModule != null)
         {
             var author = userModule.Author;

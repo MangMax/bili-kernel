@@ -6,6 +6,9 @@ using System.Buffers.Binary;
 using System.Net;
 using System.Net.Http.Headers;
 using Bilibili.App.Archive.V1;
+using Bilibili.App.Dynamic.V2;
+using Richasy.BiliKernel.Models;
+using Richasy.BiliKernel.Services.Moment;
 using Bilibili.App.Card.V1;
 using Bilibili.App.Show.Popular.V1;
 using Bilibili.App.View.V1;
@@ -68,6 +71,44 @@ public sealed class GrpcCardCategoryTests
         Assert.Equal("科技", view.Information.GetExtensionIfNotNull<string>(VideoExtensionDataId.TagName));
         Assert.Equal(36, view.Information.GetExtensionIfNotNull<long?>(VideoExtensionDataId.TagId));
         Assert.Equal(1, handler.Calls);
+    }
+
+    [Fact]
+    public async Task VideoFeedIncludesChargingArchiveWithAnUnrecognizedCardType()
+    {
+        var reply = new DynVideoReply { DynamicList = new() };
+        var item = new DynamicItem
+        {
+            CardType = (DynamicType)100,
+            Extend = new() { DynIdStr = "789", BusinessId = "999" },
+        };
+        item.Modules.Add(new Module
+        {
+            ModuleType = DynModuleType.ModuleDynamic,
+            ModuleDynamic = new()
+            {
+                Type = ModuleDynamicType.MdlDynChargingArchive,
+                DynChargingArchive = new()
+                {
+                    ArchiveInfo = new() { Avid = 123, Cid = 456, Title = "Exclusive", Cover = "https://example.com/cover.jpg" },
+                },
+            },
+        });
+        reply.DynamicList.List.Add(item);
+        using var handler = new GrpcHandler(reply);
+        using var client = new BiliHttpClient(handler);
+        var token = new FakeTokenResolver { Token = new BiliToken { AccessToken = "synthetic-app-token" } };
+        var service = new MomentDiscoveryService(client, new BiliAuthenticator(null, token), token);
+
+        var view = await service.GetVideoMomentsAsync();
+
+        var moment = Assert.Single(view.Moments);
+        Assert.Equal(MomentItemType.Video, moment.MomentType);
+        Assert.Equal(CommentTargetType.Video, moment.CommentType);
+        Assert.Equal("123", moment.CommentId);
+        var video = Assert.IsType<VideoInformation>(moment.Data);
+        Assert.Equal("123", video.Identifier.Id);
+        Assert.True(video.GetExtensionIfNotNull<bool>(VideoExtensionDataId.IsChargingExclusive));
     }
 
     private sealed class NoToken : IBiliTokenResolver

@@ -132,7 +132,16 @@ internal sealed class PlayerClient
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseObj = await BiliHttpClient.ParseAsync(response, SourceGenerationContext.Default.BiliDataResponsePlayerInformation).ConfigureAwait(false)
             ?? throw new KernelException("解析视频播放详情失败");
-        return responseObj.Data.ToDashMediaInformation();
+        var information = responseObj.Data;
+        var isPreview = information.IsPreview == 1;
+        if (!isPreview && information.VideoInformation?.Video is not { Count: > 0 })
+        {
+            // Charging previews can return durl without setting is_preview.
+            var page = await GetWebVideoPageResponseAsync(videoId, cancellationToken).ConfigureAwait(false);
+            isPreview = page?.View is { is_upower_exclusive: true, is_upower_play: false, is_upower_preview: true };
+        }
+
+        return information.ToDashMediaInformation(isPreview: isPreview);
     }
 
     public async Task<DashMediaInformation> GetVideoPlayDetailWithGrpcAsync(MediaIdentifier video, long cid, CancellationToken cancellationToken)
