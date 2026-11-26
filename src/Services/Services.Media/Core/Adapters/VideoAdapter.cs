@@ -597,13 +597,8 @@ internal static class VideoAdapter
 
         var acceptedQualities = information.AcceptQualities is { Count: > 0 } ? information.AcceptQualities : default;
 
-        if (dash == null)
+        if (isPreview && dash?.Video is not { Count: > 0 })
         {
-            if (!isPreview)
-            {
-                return default;
-            }
-
             var previewUrls = information.FlvInformation?
                 .Where(p => !string.IsNullOrEmpty(p.Url))
                 .Select(p => p.Url)
@@ -611,6 +606,11 @@ internal static class VideoAdapter
             previewUrls = previewUrls?.Count > 0 ? previewUrls : default;
 
             return new DashMediaInformation(default, default, formats, information.Duration / 1000, playCheck: playCheck, isPreview: true, previewUrls: previewUrls, acceptedQualities: acceptedQualities);
+        }
+
+        if (dash is null)
+        {
+            return default;
         }
 
         if (dash.Video?.Count > 0)

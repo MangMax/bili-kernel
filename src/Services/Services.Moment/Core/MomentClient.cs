@@ -128,7 +128,8 @@ internal sealed class MomentClient
         var moments = responseObj.DynamicList.List.Where(p =>
             p.CardType is DynamicType.Av
             or DynamicType.Pgc
-            or DynamicType.UgcSeason)
+            or DynamicType.UgcSeason
+            || p.Modules.Any(module => module.ModuleDynamic?.DynChargingArchive?.ArchiveInfo is { Avid: > 0, IsPGC: false }))
             .Select(p => p.ToMomentInformation())
             .Where(p => p is not null)
             .ToList()

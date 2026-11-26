@@ -64,6 +64,34 @@ public sealed class VideoCardInformationTests
             await Assert.ThrowsAsync<KernelException>(() => service.GetVideoInformationAsync(new("42", "", null)));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ChargingPreviewCanBePlayedWhenTheStreamResponseOmitsIsPreview(bool hasEmptyDash)
+    {
+        var (handler, http, service) = Create("""
+            {"code":0,"data":{"View":{"aid":42,"is_upower_exclusive":true,"is_upower_play":false,"is_upower_preview":true}}}
+            """);
+        using (handler)
+        using (http)
+        {
+            var response = """
+                {"code":0,"data":{"timelength":4328916,DASH_FIELD"durl":[{"length":1,"url":"https://media.invalid/preview.mp4"}]}}
+                """;
+            if (hasEmptyDash)
+            {
+                response = response.Replace("DASH_FIELD", """ "dash":{}, """);
+            }
+
+            handler.With("/x/player/playurl", response.Replace("DASH_FIELD", string.Empty));
+
+            var result = await service.GetVideoPlayDetailAsync(new("42", "", null), 123);
+
+            Assert.True(result.IsPreview);
+            Assert.Equal("https://media.invalid/preview.mp4", Assert.Single(result.PreviewUrls!));
+        }
+    }
+
     private static (RecordingHttpMessageHandler, BiliHttpClient, PlayerService) Create(string json)
     {
         var handler = new RecordingHttpMessageHandler()
